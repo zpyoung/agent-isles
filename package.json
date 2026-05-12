@@ -20,5 +20,13 @@
     "cli"
   ],
   "author": "Zach Young",
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zpyoung/agent-isles.git"
+  },
+  "bugs": {
+    "url": "https://github.com/zpyoung/agent-isles/issues"
+  },
+  "homepage": "https://github.com/zpyoung/agent-isles#readme"
 }
