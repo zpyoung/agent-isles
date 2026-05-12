@@ -68,6 +68,12 @@ The active MVP plan lives at:
 docs/plans/2026-05-12-mvp-renderer.md
 ```
 
+Planning surfaces:
+
+- Issues: https://github.com/zpyoung/agent-isles/issues
+- Project board: https://github.com/users/zpyoung/projects/1
+- Repo-tracked wiki notes: `docs/wiki/`
+
 ## Supported islands so far
 
 - `<agent-decision verdict="..." title="...">...</agent-decision>`
