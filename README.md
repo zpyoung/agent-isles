@@ -72,7 +72,9 @@ Planning surfaces:
 
 - Issues: https://github.com/zpyoung/agent-isles/issues
 - Project board: https://github.com/users/zpyoung/projects/1
-- Repo-tracked wiki notes: `docs/wiki/`
+- GitHub Wiki: https://github.com/zpyoung/agent-isles/wiki
+- Repo-tracked wiki mirror: `docs/wiki/`
+- Maintainer playbook: `docs/MAINTAINER_PLAYBOOK.md`
 
 ## Supported islands so far
 

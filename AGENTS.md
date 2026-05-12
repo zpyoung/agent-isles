@@ -61,3 +61,15 @@ Before claiming success:
 - Render an example Markdown file successfully.
 - Verify generated HTML includes the expected component script/theme.
 - If browser behavior matters, use a browser/screenshot check rather than guessing.
+
+## Maintainer workflow
+
+The dedicated Hermes profile for this project is `agent-isles`. For future Agent Isles work, that profile should behave as the project steward and use:
+
+- `docs/MAINTAINER_PLAYBOOK.md` for maintainer workflow.
+- GitHub issues as executable work packets.
+- GitHub Project #1 as the live board: https://github.com/users/zpyoung/projects/1
+- GitHub Wiki for public durable context: https://github.com/zpyoung/agent-isles/wiki
+- `docs/wiki/` as the repo-tracked wiki mirror.
+
+For non-trivial code work, prefer issue → branch → TDD → tests/render smoke → commit/PR → issue/project update.
