@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -37,9 +37,20 @@ test('isles watch renders immediately, rebuilds on Markdown changes, and exits o
 
     await waitFor(() => stdout.includes('[isles] rebuilt'), () => diagnostic(stdout, stderr));
     assert.match(readFileSync(outFile, 'utf8'), /<h1>Updated Watch<\/h1>/);
+
+    const rebuiltCount = countOccurrences(stdout, '[isles] rebuilt');
+    const replacementFile = join(dir, 'watch-demo.md.tmp');
+    writeFileSync(replacementFile, '# Atomic Save Watch\n\nThird pass.\n', 'utf8');
+    renameSync(replacementFile, inputFile);
+
+    await waitFor(
+      () => countOccurrences(stdout, '[isles] rebuilt') > rebuiltCount,
+      () => diagnostic(stdout, stderr),
+    );
+    assert.match(readFileSync(outFile, 'utf8'), /<h1>Atomic Save Watch<\/h1>/);
     assert.match(stdout, /\[isles\] watching .*watch-demo\.md/);
 
-    const close = onceClose(child);
+    const close = onceClose(child, () => diagnostic(stdout, stderr));
     child.kill('SIGINT');
     const result = await close;
     assert.equal(result.code, 0, diagnostic(stdout, stderr));
@@ -52,9 +63,16 @@ test('isles watch renders immediately, rebuilds on Markdown changes, and exits o
   }
 });
 
-function onceClose(child) {
-  return new Promise((resolve) => {
-    child.once('close', (code, signal) => resolve({ code, signal }));
+function onceClose(child, diagnostics, timeoutMs = 5000) {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error(`Timed out waiting for child process to close.\n${diagnostics()}`));
+    }, timeoutMs);
+
+    child.once('close', (code, signal) => {
+      clearTimeout(timeout);
+      resolve({ code, signal });
+    });
   });
 }
 
@@ -71,4 +89,8 @@ async function waitFor(predicate, diagnostics, timeoutMs = 5000) {
 
 function diagnostic(stdout, stderr) {
   return `stdout:\n${stdout}\nstderr:\n${stderr}`;
+}
+
+function countOccurrences(value, needle) {
+  return value.split(needle).length - 1;
 }

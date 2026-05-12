@@ -1,11 +1,13 @@
 import { watch } from 'node:fs';
-import { resolve } from 'node:path';
+import { basename, dirname, resolve } from 'node:path';
 import { defaultOutFile, renderMarkdownFile } from './render.mjs';
 
 const rebuildDelayMs = 75;
 
 export async function watchMarkdownFile(inputPath, options = {}) {
   const sourceFile = resolve(inputPath);
+  const sourceDir = dirname(sourceFile);
+  const sourceName = basename(sourceFile);
   const outFile = resolve(options.outFile || defaultOutFile(sourceFile));
   const stdout = options.stdout || process.stdout;
   const stderr = options.stderr || process.stderr;
@@ -30,7 +32,8 @@ export async function watchMarkdownFile(inputPath, options = {}) {
       await renderMarkdownFile(sourceFile, { outFile });
       stdout.write(`[isles] ${kind}: ${outFile}\n`);
     } catch (error) {
-      stderr.write(`[isles] rebuild failed: ${formatError(error)}\n`);
+      const label = kind === 'rendered' ? 'initial render failed' : 'rebuild failed';
+      stderr.write(`[isles] ${label}: ${formatError(error)}\n`);
     } finally {
       rendering = false;
       if (pending && !closed) {
@@ -43,7 +46,11 @@ export async function watchMarkdownFile(inputPath, options = {}) {
   await render('rendered');
   stdout.write(`[isles] watching ${sourceFile}\n`);
 
-  const watcher = watch(sourceFile, { persistent: true }, () => {
+  const watcher = watch(sourceDir, { persistent: true }, (_eventType, filename) => {
+    if (filename && filename.toString() !== sourceName) {
+      return;
+    }
+
     clearTimeout(timer);
     timer = setTimeout(() => {
       void render('rebuilt');
