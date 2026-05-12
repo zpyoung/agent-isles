@@ -9,7 +9,8 @@
   "scripts": {
     "build": "rollup -c",
     "test": "node --test",
-    "render": "node ./bin/isles.mjs render examples/demo.md"
+    "render": "node ./bin/isles.mjs render examples/demo.md",
+    "pretest": "npm run build"
   },
   "keywords": [
     "markdown",
@@ -28,5 +29,20 @@
   "bugs": {
     "url": "https://github.com/zpyoung/agent-isles/issues"
   },
-  "homepage": "https://github.com/zpyoung/agent-isles#readme"
+  "homepage": "https://github.com/zpyoung/agent-isles#readme",
+  "dependencies": {
+    "lit": "^3.3.2",
+    "rehype-highlight": "^7.0.2",
+    "rehype-raw": "^7.0.0",
+    "rehype-stringify": "^10.0.1",
+    "remark-gfm": "^4.0.1",
+    "remark-parse": "^11.0.0",
+    "remark-rehype": "^11.1.2",
+    "unified": "^11.0.5"
+  },
+  "devDependencies": {
+    "@rollup/plugin-node-resolve": "^16.0.3",
+    "@rollup/plugin-terser": "^1.0.0",
+    "rollup": "^4.60.3"
+  }
 }

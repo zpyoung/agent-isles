@@ -1,0 +1,35 @@
+/* Agent Isles theme */
+:root {
+  color-scheme: light;
+  --agent-isles-page-max-width: 960px;
+  --agent-isles-bg: #f8fafc;
+  --agent-isles-border: #dbeafe;
+  --agent-isles-heading: #0f172a;
+}
+
+body {
+  background:
+    radial-gradient(circle at top left, rgba(14, 165, 233, 0.12), transparent 28rem),
+    var(--agent-isles-bg);
+  color: #1e293b;
+}
+
+.agent-isles-page {
+  max-width: var(--agent-isles-page-max-width);
+}
+
+.agent-isles-page h1,
+.agent-isles-page h2,
+.agent-isles-page h3 {
+  color: var(--agent-isles-heading);
+}
+
+.agent-isles-page > :first-child {
+  margin-top: 0;
+}
+
+agent-decision,
+agent-risk {
+  display: block;
+  margin: 1rem 0;
+}

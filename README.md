@@ -16,25 +16,74 @@ Agent output should be:
 
 Agent Isles keeps the source format simple while giving agents a compact UI vocabulary.
 
-## Planned shape
+## Current status
+
+The first renderer slice exists:
 
 ```bash
-isles render examples/demo.md
-isles watch examples/demo.md
+npm install
+npm run build
+npm run render -- --out dist/demo.html
 ```
+
+That renders `examples/demo.md` to `dist/demo.html` and copies the component bundle beside it.
+
+## CLI
+
+```bash
+isles render <file.md> [--out <file.html>]
+```
+
+During local development, run the CLI directly:
+
+```bash
+node ./bin/isles.mjs render examples/demo.md --out dist/demo.html
+```
+
+Or use the package script:
+
+```bash
+npm run render -- --out dist/demo.html
+```
+
+`isles watch` is reserved for the next slice.
+
+## Architecture
 
 Layers:
 
 1. **Source format** — Markdown with explicit HTML islands.
 2. **Component vocabulary** — Bootstrap primitives plus Lit Web Components for agent-specific patterns.
-3. **CLI renderer** — remark/rehype pipeline that injects assets and opens or writes browser-ready HTML.
+3. **CLI renderer** — remark/rehype pipeline that injects assets and writes browser-ready HTML.
 
-## Repository status
-
-This repository has just been initialized. The seed implementation guide lives at:
+The seed implementation guide lives at:
 
 ```txt
 docs/implementation-guide.md
 ```
 
-Next step: build the first vertical slice of the `isles` CLI and component bundle.
+The active MVP plan lives at:
+
+```txt
+docs/plans/2026-05-12-mvp-renderer.md
+```
+
+## Supported islands so far
+
+- `<agent-decision verdict="..." title="...">...</agent-decision>`
+- `<agent-risk level="low|medium|high|critical" title="...">...</agent-risk>`
+
+More components from the guide are planned.
+
+## Security note
+
+The MVP renderer uses `rehype-raw` so trusted Markdown can include HTML islands. Do **not** render untrusted Markdown with this mode yet. A future sanitization mode should explicitly define which tags and attributes are allowed.
+
+## Development
+
+```bash
+npm install
+npm run build
+npm test
+npm run render -- --out dist/demo.html
+```
