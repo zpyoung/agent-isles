@@ -1,0 +1,24 @@
+{
+  "name": "agent-isles",
+  "version": "0.0.0",
+  "description": "Markdown seas, component islands: render agent-authored Markdown with Bootstrap and Lit Web Components.",
+  "type": "module",
+  "bin": {
+    "isles": "./bin/isles.mjs"
+  },
+  "scripts": {
+    "build": "rollup -c",
+    "test": "node --test",
+    "render": "node ./bin/isles.mjs render examples/demo.md"
+  },
+  "keywords": [
+    "markdown",
+    "web-components",
+    "lit",
+    "bootstrap",
+    "agents",
+    "cli"
+  ],
+  "author": "Zach Young",
+  "license": "MIT"
+}
