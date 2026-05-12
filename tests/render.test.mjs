@@ -6,6 +6,7 @@ import { join, resolve } from 'node:path';
 import test from 'node:test';
 
 const fixture = resolve('tests/fixtures/simple.md');
+const componentBundle = resolve('dist/agent-components.js');
 
 test('renderMarkdownFile renders Markdown with preserved agent islands and injected assets', async () => {
   const { renderMarkdownFile } = await import('../src/render.mjs');
@@ -15,9 +16,21 @@ test('renderMarkdownFile renders Markdown with preserved agent islands and injec
   assert.match(html, /<h1>Demo Island<\/h1>/);
   assert.match(html, /<agent-decision verdict="go" title="Proceed">/);
   assert.match(html, /Ship the first renderer slice\./);
+  assert.match(html, /<agent-metric label="Coverage" value="92" unit="%" trend="up">\s*<\/agent-metric>/);
+  assert.match(html, /<agent-copy-block lang="bash" label="Install command">/);
+  assert.match(html, /npm install agent-isles/);
   assert.match(html, /bootstrap@5\.3\.3/);
   assert.match(html, /agent-components\.js/);
   assert.match(html, /Agent Isles theme/);
+});
+
+test('component bundle registers the initial agent island vocabulary', () => {
+  const bundle = readFileSync(componentBundle, 'utf8');
+
+  assert.match(bundle, /customElements\.define\("agent-decision"/);
+  assert.match(bundle, /customElements\.define\("agent-risk"/);
+  assert.match(bundle, /customElements\.define\("agent-metric"/);
+  assert.match(bundle, /customElements\.define\("agent-copy-block"/);
 });
 
 test('isles render writes a complete HTML file and component bundle to --out', () => {
