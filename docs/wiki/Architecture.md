@@ -24,7 +24,7 @@ Deploy after CI passes and rollback notes are confirmed.
 
 ## 2. Component vocabulary
 
-The initial vocabulary uses Lit Web Components under the `<agent-*>` prefix.
+The initial vocabulary uses Lit Web Components under the `<agent-*>` prefix. The durable reference is [Component Vocabulary](Component-Vocabulary) in the wiki mirror and `docs/component-vocabulary.md` in the repo.
 
 Implemented now:
 

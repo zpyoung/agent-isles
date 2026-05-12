@@ -76,16 +76,24 @@ Planning surfaces:
 - Repo-tracked wiki mirror: `docs/wiki/`
 - Maintainer playbook: `docs/MAINTAINER_PLAYBOOK.md`
 
-## Supported islands so far
+## Component vocabulary
+
+The durable component vocabulary reference lives at:
+
+```txt
+docs/component-vocabulary.md
+```
+
+Supported islands so far:
 
 - `<agent-decision verdict="..." title="...">...</agent-decision>`
 - `<agent-risk level="low|medium|high|critical" title="...">...</agent-risk>`
 
-More components from the guide are planned.
+The reference documents supported attributes, child content expectations, accessibility notes, trusted/sanitized rendering behavior, and planned placeholders for the next component set.
 
 ## Security note
 
-The MVP renderer uses `rehype-raw` so trusted Markdown can include HTML islands. Do **not** render untrusted Markdown with this mode yet. A future sanitization mode should explicitly define which tags and attributes are allowed.
+The MVP renderer uses `rehype-raw` so trusted Markdown can include HTML islands. Do **not** render untrusted Markdown with this mode yet. The component vocabulary reference defines the tags and attributes that a future sanitization mode should preserve.
 
 ## Development
 
