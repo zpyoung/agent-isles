@@ -60,6 +60,10 @@ const sanitizedSchema = {
       'agent-risk',
       'agent-metric',
       'agent-copy-block',
+      'agent-tabs',
+      'agent-tab',
+      'agent-timeline',
+      'agent-step',
     ]),
   ],
   attributes: {
@@ -82,6 +86,10 @@ const sanitizedSchema = {
     'agent-risk': ['className', 'title', 'level'],
     'agent-metric': ['className', 'label', 'value', 'unit', 'trend'],
     'agent-copy-block': ['className', 'label', 'lang'],
+    'agent-tabs': ['className', 'label'],
+    'agent-tab': ['className', 'title', 'active'],
+    'agent-timeline': ['className', 'label'],
+    'agent-step': ['className', 'status', 'label'],
   },
 };
 

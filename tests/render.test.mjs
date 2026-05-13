@@ -6,7 +6,12 @@ import { join, resolve } from 'node:path';
 import test from 'node:test';
 
 const fixture = resolve('tests/fixtures/simple.md');
+const demo = resolve('examples/demo.md');
 const componentBundle = resolve('dist/agent-components.js');
+
+function assertCustomElementDefinition(bundle, tagName) {
+  assert.match(bundle, new RegExp(`customElements\\.define\\(["']${tagName}["']`));
+}
 
 test('renderMarkdownFile renders Markdown with preserved agent islands and injected assets', async () => {
   const { renderMarkdownFile } = await import('../src/render.mjs');
@@ -27,10 +32,9 @@ test('renderMarkdownFile renders Markdown with preserved agent islands and injec
 test('component bundle registers the initial agent island vocabulary', () => {
   const bundle = readFileSync(componentBundle, 'utf8');
 
-  assert.match(bundle, /customElements\.define\("agent-decision"/);
-  assert.match(bundle, /customElements\.define\("agent-risk"/);
-  assert.match(bundle, /customElements\.define\("agent-metric"/);
-  assert.match(bundle, /customElements\.define\("agent-copy-block"/);
+  for (const tagName of ['agent-decision', 'agent-risk', 'agent-metric', 'agent-copy-block']) {
+    assertCustomElementDefinition(bundle, tagName);
+  }
 });
 
 test('sanitized render mode removes active HTML while preserving safe islands', async () => {
@@ -46,11 +50,15 @@ test('sanitized render mode removes active HTML while preserving safe islands', 
 </agent-risk>
 <agent-metric label="Coverage" value="92" unit="%" trend="up" onclick="steal()"></agent-metric>
 <agent-copy-block label="Install command" lang="bash" onclick="steal()">npm install agent-isles</agent-copy-block>
+<agent-tabs label="Safe tabs" onclick="steal()"><agent-tab title="One" active>Body</agent-tab></agent-tabs>
+<agent-timeline label="Safe timeline"><agent-step status="done" label="Reviewed" onclick="steal()">Done</agent-step></agent-timeline>
 `, { renderMode: 'sanitized' });
 
   assert.match(html, /<agent-risk level="high" title="Review">/);
   assert.match(html, /<agent-metric label="Coverage" value="92" unit="%" trend="up"><\/agent-metric>/);
   assert.match(html, /<agent-copy-block label="Install command" lang="bash">npm install agent-isles<\/agent-copy-block>/);
+  assert.match(html, /<agent-tabs label="Safe tabs"><agent-tab title="One" active>Body<\/agent-tab><\/agent-tabs>/);
+  assert.match(html, /<agent-timeline label="Safe timeline"><agent-step status="done" label="Reviewed">Done<\/agent-step><\/agent-timeline>/);
   assert.match(html, /class="btn btn-danger"/);
   assert.match(html, /data-bs-toggle="modal"/);
   assert.match(html, /bad link/);
@@ -139,4 +147,28 @@ test('isles render rejects non-Markdown inputs before rendering', () => {
   assert.match(result.stderr, /Unsupported input file extension:/);
   assert.match(result.stderr, /Expected a Markdown file ending in \.md or \.markdown\./);
   assert.equal(result.stdout, '');
+});
+
+test('component bundle registers tabs and timeline islands', () => {
+  const bundle = readFileSync(componentBundle, 'utf8');
+
+  for (const tagName of ['agent-tabs', 'agent-tab', 'agent-timeline', 'agent-step']) {
+    assertCustomElementDefinition(bundle, tagName);
+  }
+  assert.match(bundle, /role\W*tablist/);
+  assert.match(bundle, /role\W*tabpanel/);
+});
+
+test('demo renders a multi-phase plan with tabs and timeline steps', async () => {
+  const { renderMarkdownFile } = await import('../src/render.mjs');
+
+  const { html } = await renderMarkdownFile(demo);
+
+  assert.match(html, /<agent-tabs>/);
+  assert.match(html, /<agent-tab title="Phase 1 — Discover">/);
+  assert.match(html, /<agent-tab title="Phase 2 — Build">/);
+  assert.match(html, /<agent-timeline label="Discovery progress">/);
+  assert.match(html, /<agent-step status="done" label="Renderer baseline">/);
+  assert.match(html, /<agent-step status="active" label="Component expansion">/);
+  assert.match(html, /<agent-step status="pending" label="Browser polish">/);
 });

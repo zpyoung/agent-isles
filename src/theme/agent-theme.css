@@ -31,7 +31,9 @@ body {
 agent-decision,
 agent-risk,
 agent-metric,
-agent-copy-block {
+agent-copy-block,
+agent-tabs,
+agent-timeline {
   display: block;
   margin: 1rem 0;
 }
