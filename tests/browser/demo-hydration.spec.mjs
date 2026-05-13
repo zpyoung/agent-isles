@@ -48,6 +48,20 @@ test('rendered demo loads without console errors and hydrates agent components',
       .toBe(true);
     await expect(decision).toContainText('Use Markdown islands');
 
+    await page.evaluate(() => {
+      const risk = document.createElement('agent-risk');
+      risk.setAttribute('level', 'high');
+      risk.setAttribute('title', 'Hydration check');
+      risk.textContent = 'Injected risk component';
+      document.querySelector('main')?.append(risk);
+    });
+
+    const risk = page.locator('agent-risk').first();
+    await expect
+      .poll(() => risk.evaluate((element) => Boolean(element.shadowRoot?.querySelector('.risk'))))
+      .toBe(true);
+    await expect(risk).toContainText('Injected risk component');
+
     await mkdir(artifactDir, { recursive: true });
     await page.screenshot({ path: resolve(artifactDir, 'demo-hydrated.png'), fullPage: true });
 
@@ -58,39 +72,11 @@ test('rendered demo loads without console errors and hydrates agent components',
 });
 
 async function serveDist() {
-  const server = createServer(async (request, response) => {
-    const requestUrl = new URL(request.url ?? '/', 'http://agent-isles.local');
-    const pathname = requestUrl.pathname === '/' ? '/demo.html' : requestUrl.pathname;
-    const filePath = resolve(distDir, `.${decodeURIComponent(pathname)}`);
-    const relativePath = relative(distDir, filePath);
-
-    if (relativePath.startsWith('..') || relativePath === '' || resolve(filePath) === distDir) {
-      response.writeHead(403);
-      response.end('Forbidden');
-      return;
-    }
-
-    try {
-      const fileStat = await stat(filePath);
-      if (!fileStat.isFile()) {
-        response.writeHead(404);
-        response.end('Not found');
-        return;
-      }
-
-      response.writeHead(200, {
-        'Content-Type': contentTypes.get(extname(filePath)) ?? 'application/octet-stream',
-      });
-      createReadStream(filePath).pipe(response);
-    } catch (error) {
-      if (error.code === 'ENOENT') {
-        response.writeHead(404);
-        response.end('Not found');
-        return;
-      }
+  const server = createServer((request, response) => {
+    void handleStaticRequest(request, response).catch((error) => {
       response.writeHead(500);
       response.end(error.message);
-    }
+    });
   });
 
   await new Promise((resolveListen) => {
@@ -104,4 +90,47 @@ async function serveDist() {
       server.close((error) => (error ? rejectClose(error) : resolveClose()));
     }),
   };
+}
+
+async function handleStaticRequest(request, response) {
+  let pathname;
+  try {
+    const requestUrl = new URL(request.url ?? '/', 'http://agent-isles.local');
+    pathname = requestUrl.pathname === '/' ? '/demo.html' : decodeURIComponent(requestUrl.pathname);
+  } catch {
+    response.writeHead(400);
+    response.end('Bad request');
+    return;
+  }
+
+  const filePath = resolve(distDir, `.${pathname}`);
+  const relativePath = relative(distDir, filePath);
+
+  if (relativePath.startsWith('..') || relativePath === '' || resolve(filePath) === distDir) {
+    response.writeHead(403);
+    response.end('Forbidden');
+    return;
+  }
+
+  try {
+    const fileStat = await stat(filePath);
+    if (!fileStat.isFile()) {
+      response.writeHead(404);
+      response.end('Not found');
+      return;
+    }
+
+    response.writeHead(200, {
+      'Content-Type': contentTypes.get(extname(filePath)) ?? 'application/octet-stream',
+    });
+    createReadStream(filePath).pipe(response);
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      response.writeHead(404);
+      response.end('Not found');
+      return;
+    }
+    response.writeHead(500);
+    response.end(error.message);
+  }
 }

@@ -10,7 +10,7 @@
     "build": "rollup -c",
     "test": "npm run test:unit && npm run test:browser",
     "test:unit": "npm run build && node --test tests/*.test.mjs",
-    "test:browser": "npm run build && npm run render -- --out dist/demo.html && PLAYWRIGHT_BROWSERS_PATH=0 playwright test",
+    "test:browser": "npm run build && npm run render -- --out dist/demo.html && playwright test",
     "render": "node ./bin/isles.mjs render examples/demo.md"
   },
   "keywords": [
