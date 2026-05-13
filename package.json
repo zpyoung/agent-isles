@@ -8,9 +8,10 @@
   },
   "scripts": {
     "build": "rollup -c",
-    "test": "node --test",
-    "render": "node ./bin/isles.mjs render examples/demo.md",
-    "pretest": "npm run build"
+    "test": "npm run test:unit && npm run test:browser",
+    "test:unit": "npm run build && node --test tests/*.test.mjs",
+    "test:browser": "npm run build && npm run render -- --out dist/demo.html && PLAYWRIGHT_BROWSERS_PATH=0 playwright test",
+    "render": "node ./bin/isles.mjs render examples/demo.md"
   },
   "keywords": [
     "markdown",
@@ -42,6 +43,7 @@
     "unified": "^11.0.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@rollup/plugin-node-resolve": "^16.0.3",
     "@rollup/plugin-terser": "^1.0.0",
     "rollup": "^4.60.3"

@@ -1,0 +1,107 @@
+import { createReadStream } from 'node:fs';
+import { mkdir, stat } from 'node:fs/promises';
+import { createServer } from 'node:http';
+import { extname, relative, resolve } from 'node:path';
+import { expect, test } from '@playwright/test';
+
+const distDir = resolve('dist');
+const artifactDir = resolve(distDir, 'browser-smoke-artifacts');
+
+const contentTypes = new Map([
+  ['.html', 'text/html; charset=utf-8'],
+  ['.js', 'text/javascript; charset=utf-8'],
+  ['.css', 'text/css; charset=utf-8'],
+]);
+const expectedCustomElements = ['agent-decision', 'agent-risk'];
+
+test('rendered demo loads without console errors and hydrates agent components', async ({ page }) => {
+  const server = await serveDist();
+  const consoleErrors = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') {
+      consoleErrors.push(message.text());
+    }
+  });
+  page.on('pageerror', (error) => {
+    consoleErrors.push(error.message);
+  });
+
+  try {
+    await page.goto(`${server.origin}/demo.html`);
+
+    await expect(page.locator('h1')).toContainText('Agent Isles Demo');
+
+    const renderedAgentTags = await page.locator('agent-decision, agent-risk').evaluateAll((elements) => [
+      ...new Set(elements.map((element) => element.localName)),
+    ]);
+    expect(renderedAgentTags).toEqual(['agent-decision']);
+
+    for (const tag of expectedCustomElements) {
+      await expect
+        .poll(() => page.evaluate((customElementTag) => Boolean(customElements.get(customElementTag)), tag))
+        .toBe(true);
+    }
+
+    const decision = page.locator('agent-decision').first();
+    await expect
+      .poll(() => decision.evaluate((element) => Boolean(element.shadowRoot?.querySelector('.decision'))))
+      .toBe(true);
+    await expect(decision).toContainText('Use Markdown islands');
+
+    await mkdir(artifactDir, { recursive: true });
+    await page.screenshot({ path: resolve(artifactDir, 'demo-hydrated.png'), fullPage: true });
+
+    expect(consoleErrors).toEqual([]);
+  } finally {
+    await server.close();
+  }
+});
+
+async function serveDist() {
+  const server = createServer(async (request, response) => {
+    const requestUrl = new URL(request.url ?? '/', 'http://agent-isles.local');
+    const pathname = requestUrl.pathname === '/' ? '/demo.html' : requestUrl.pathname;
+    const filePath = resolve(distDir, `.${decodeURIComponent(pathname)}`);
+    const relativePath = relative(distDir, filePath);
+
+    if (relativePath.startsWith('..') || relativePath === '' || resolve(filePath) === distDir) {
+      response.writeHead(403);
+      response.end('Forbidden');
+      return;
+    }
+
+    try {
+      const fileStat = await stat(filePath);
+      if (!fileStat.isFile()) {
+        response.writeHead(404);
+        response.end('Not found');
+        return;
+      }
+
+      response.writeHead(200, {
+        'Content-Type': contentTypes.get(extname(filePath)) ?? 'application/octet-stream',
+      });
+      createReadStream(filePath).pipe(response);
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        response.writeHead(404);
+        response.end('Not found');
+        return;
+      }
+      response.writeHead(500);
+      response.end(error.message);
+    }
+  });
+
+  await new Promise((resolveListen) => {
+    server.listen(0, '127.0.0.1', resolveListen);
+  });
+
+  const address = server.address();
+  return {
+    origin: `http://127.0.0.1:${address.port}`,
+    close: () => new Promise((resolveClose, rejectClose) => {
+      server.close((error) => (error ? rejectClose(error) : resolveClose()));
+    }),
+  };
+}
