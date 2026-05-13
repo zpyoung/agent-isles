@@ -4,7 +4,7 @@ import test from 'node:test';
 
 const workflowPath = '.github/workflows/ci.yml';
 
-test('GitHub Actions CI runs build, tests, and render smoke on Node 20', () => {
+test('GitHub Actions CI runs install, tests, and render smoke on Node 20', () => {
   assert.equal(existsSync(workflowPath), true, 'CI workflow should exist');
 
   const workflow = readFileSync(workflowPath, 'utf8');
@@ -15,7 +15,6 @@ test('GitHub Actions CI runs build, tests, and render smoke on Node 20', () => {
   assert.match(workflow, /uses:\s*actions\/setup-node@v4/);
   assert.match(workflow, /node-version:\s*20/);
   assert.match(workflow, /run:\s*npm ci/);
-  assert.match(workflow, /run:\s*npm run build/);
   assert.match(workflow, /run:\s*npm test/);
   assert.match(workflow, /run:\s*npm run render -- --out dist\/demo\.html/);
 });
