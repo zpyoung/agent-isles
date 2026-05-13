@@ -14,7 +14,7 @@ Repo source: `docs/component-vocabulary.md`. Wiki mirror: `docs/wiki/Component-V
 
 ## Rendering and trust model
 
-Current MVP rendering is trusted: the renderer preserves raw HTML islands with `rehype-raw` and loads `dist/agent-components.js`. Only render Markdown from trusted repo/workspace sources in this mode.
+Current MVP rendering is trusted: the renderer preserves raw HTML islands with `rehype-raw`, copies the built component bundle next to the rendered output, and injects it as `./agent-components.js`. Only render Markdown from trusted repo/workspace sources in this mode.
 
 The planned sanitized mode should preserve documented `<agent-*>` tags and documented attributes while rejecting executable/event-handler HTML such as `onclick`, arbitrary scripts, and unsupported component attributes. Until that mode lands, every component below should be treated as part of the trusted authoring contract rather than a security boundary.
 
