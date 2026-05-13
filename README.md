@@ -60,6 +60,42 @@ That renders `examples/demo.md` to `dist/demo.html` and copies the component bun
 
 The rendered demo is published by the GitHub Pages workflow after changes land on `main`.
 
+## Installation and npm prerelease path
+
+Agent Isles is prepared for a first npm prerelease, but publication is still a deliberate release action. Do not publish from routine development or automation without explicit maintainer approval.
+
+Local development usage:
+
+```bash
+npm install
+npm run build
+node ./bin/isles.mjs render examples/demo.md --out dist/demo.html
+```
+
+To smoke-test the installed command locally before any registry publish:
+
+```bash
+npm link
+isles render examples/demo.md --out dist/demo.html
+```
+
+After an approved npm prerelease is published, the expected consumer paths are:
+
+```bash
+npm install -g agent-isles@next
+isles render ./report.md --out ./report.html
+
+npx agent-isles@next render ./report.md --out ./report.html
+```
+
+The first prerelease versioning scheme is `0.1.0-alpha.N` under the npm `next` dist-tag. Before publishing, verify package contents with:
+
+```bash
+npm run pack:dry-run -- --json
+```
+
+The dry-run package should include only the CLI, renderer source, component source, built component bundle, demo Markdown, README, LICENSE, and package metadata.
+
 ## CLI
 
 ```bash

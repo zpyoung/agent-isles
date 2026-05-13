@@ -1,17 +1,26 @@
 {
   "name": "agent-isles",
-  "version": "0.0.0",
+  "version": "0.1.0-alpha.0",
   "description": "Markdown seas, component islands: render agent-authored Markdown with Bootstrap and Lit Web Components.",
   "type": "module",
   "bin": {
     "isles": "./bin/isles.mjs"
   },
+  "files": [
+    "bin/",
+    "src/",
+    "dist/agent-components.js",
+    "dist/agent-components.js.map",
+    "examples/demo.md"
+  ],
   "scripts": {
     "build": "rollup -c",
     "test": "npm run test:unit && npm run test:browser",
     "test:unit": "npm run build && node --test tests/*.test.mjs",
     "test:browser": "npm run build && npm run render -- --out dist/demo.html && playwright test",
-    "render": "node ./bin/isles.mjs render examples/demo.md"
+    "render": "node ./bin/isles.mjs render examples/demo.md",
+    "prepack": "npm run build",
+    "pack:dry-run": "npm pack --dry-run"
   },
   "keywords": [
     "markdown",
@@ -31,6 +40,10 @@
     "url": "https://github.com/zpyoung/agent-isles/issues"
   },
   "homepage": "https://github.com/zpyoung/agent-isles#readme",
+  "publishConfig": {
+    "access": "public",
+    "tag": "next"
+  },
   "dependencies": {
     "@popperjs/core": "^2.11.8",
     "bootstrap": "^5.3.3",
