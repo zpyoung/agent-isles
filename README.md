@@ -16,6 +16,31 @@ Agent output should be:
 
 Agent Isles keeps the source format simple while giving agents a compact UI vocabulary.
 
+## Demo: source Markdown to rendered report
+
+The public demo lives in `examples/demo.md`. It is intentionally readable as plain Markdown, but it also includes richer islands:
+
+- Bootstrap cards for quick metrics,
+- Markdown tables and code fences for portable evidence,
+- `<agent-decision>` elements for recommendations,
+- `<agent-risk>` elements for caveats and mitigations.
+
+Render it locally:
+
+```bash
+npm install
+npm test
+npm run render -- --out dist/demo.html
+```
+
+Then open:
+
+```txt
+dist/demo.html
+```
+
+The renderer turns the Markdown source into a browser-ready HTML report, injects Bootstrap and the Agent Isles theme, and copies the component bundle next to the generated page. This makes the workflow reviewable in pull requests while still producing a credible artifact for humans.
+
 ## Current status
 
 The first renderer slice exists:
