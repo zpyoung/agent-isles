@@ -61,7 +61,7 @@ test('renderMarkdownFile rejects missing inputs with a friendly error', async ()
     (error) => {
       assert.equal(error.code, 'ERR_AGENT_ISLES_INPUT_NOT_FOUND');
       assert.match(error.message, /Input file not found:/);
-      assert.match(error.message, /tests\/fixtures\/missing\.md/);
+      assert.match(error.message, new RegExp(missingFile.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
       return true;
     },
   );
