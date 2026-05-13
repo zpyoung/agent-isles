@@ -32,6 +32,9 @@
   },
   "homepage": "https://github.com/zpyoung/agent-isles#readme",
   "dependencies": {
+    "@popperjs/core": "^2.11.8",
+    "bootstrap": "^5.3.3",
+    "highlight.js": "^11.9.0",
     "lit": "^3.3.2",
     "rehype-highlight": "^7.0.2",
     "rehype-raw": "^7.0.0",

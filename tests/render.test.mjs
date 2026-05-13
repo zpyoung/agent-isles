@@ -172,3 +172,37 @@ test('demo renders a multi-phase plan with tabs and timeline steps', async () =>
   assert.match(html, /<agent-step status="active" label="Component expansion">/);
   assert.match(html, /<agent-step status="pending" label="Browser polish">/);
 });
+
+test('local asset mode writes network-free HTML and copies third-party assets', async () => {
+  const { renderMarkdownFile } = await import('../src/render.mjs');
+  const dir = mkdtempSync(join(tmpdir(), 'agent-isles-local-'));
+  const outFile = join(dir, 'simple.html');
+
+  const { html } = await renderMarkdownFile(fixture, { outFile, assetMode: 'local' });
+
+  assert.doesNotMatch(html, /https?:\/\//);
+  assert.match(html, /href="\.\/assets\/bootstrap\.min\.css"/);
+  assert.match(html, /href="\.\/assets\/github-dark\.min\.css"/);
+  assert.match(html, /src="\.\/assets\/bootstrap\.bundle\.min\.js"/);
+  assert.match(html, /<script type="module" src="\.\/agent-components\.js"><\/script>/);
+  assert.ok(existsSync(join(dir, 'assets', 'bootstrap.min.css')));
+  assert.ok(existsSync(join(dir, 'assets', 'github-dark.min.css')));
+  assert.ok(existsSync(join(dir, 'assets', 'bootstrap.bundle.min.js')));
+  assert.ok(existsSync(join(dir, 'agent-components.js')));
+});
+
+test('CLI --assets local selects local asset mode', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'agent-isles-cli-local-'));
+  const outFile = join(dir, 'simple.html');
+
+  const stdout = execFileSync(
+    process.execPath,
+    ['bin/isles.mjs', 'render', fixture, '--assets', 'local', '--out', outFile],
+    { encoding: 'utf8' },
+  );
+  const html = readFileSync(outFile, 'utf8');
+
+  assert.match(stdout, /Assets: local/);
+  assert.doesNotMatch(html, /https?:\/\//);
+  assert.ok(existsSync(join(dir, 'assets', 'bootstrap.min.css')));
+});
