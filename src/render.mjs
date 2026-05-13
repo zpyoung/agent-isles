@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync, copyFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { unified } from 'unified';
@@ -14,6 +14,36 @@ const projectRoot = resolve(moduleDir, '..');
 const themePath = join(projectRoot, 'src', 'theme', 'agent-theme.css');
 const componentBundlePath = join(projectRoot, 'dist', 'agent-components.js');
 const componentScriptName = 'agent-components.js';
+const markdownExtensions = new Set(['.md', '.markdown']);
+
+export class AgentIslesInputError extends Error {
+  constructor(message, code) {
+    super(message);
+    this.name = 'AgentIslesInputError';
+    this.code = code;
+  }
+}
+
+export function validateMarkdownInput(inputPath) {
+  const filePath = resolve(inputPath);
+
+  if (!existsSync(filePath)) {
+    throw new AgentIslesInputError(
+      `Input file not found: ${filePath}`,
+      'ERR_AGENT_ISLES_INPUT_NOT_FOUND',
+    );
+  }
+
+  const extension = extname(filePath).toLowerCase();
+  if (!markdownExtensions.has(extension)) {
+    throw new AgentIslesInputError(
+      `Unsupported input file extension: ${filePath}\nExpected a Markdown file ending in .md or .markdown.`,
+      'ERR_AGENT_ISLES_UNSUPPORTED_INPUT_EXTENSION',
+    );
+  }
+
+  return filePath;
+}
 
 export async function renderMarkdown(markdown, options = {}) {
   const body = await unified()
@@ -29,7 +59,7 @@ export async function renderMarkdown(markdown, options = {}) {
 }
 
 export async function renderMarkdownFile(inputPath, options = {}) {
-  const filePath = resolve(inputPath);
+  const filePath = validateMarkdownInput(inputPath);
   const markdown = readFileSync(filePath, 'utf8');
   const outFile = options.outFile ? resolve(options.outFile) : undefined;
   const html = await renderMarkdown(markdown, { ...options, sourcePath: filePath });

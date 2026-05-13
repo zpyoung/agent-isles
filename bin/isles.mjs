@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 
-import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { defaultOutFile, renderMarkdownFile } from '../src/render.mjs';
+import { AgentIslesInputError, defaultOutFile, renderMarkdownFile } from '../src/render.mjs';
 
 const USAGE = `Agent Isles — Markdown seas, component islands.
 
@@ -39,9 +37,7 @@ if (command === 'render') {
 }
 
 async function runRender(args) {
-  const input = args.find((arg) => !arg.startsWith('-'));
-  const outFlagIndex = args.indexOf('--out');
-  const outFile = outFlagIndex >= 0 ? args[outFlagIndex + 1] : defaultOutFile(input || 'output.md');
+  const { input, outFile } = parseRenderArgs(args);
 
   if (!input) {
     console.error('Missing Markdown file for render.\n');
@@ -49,17 +45,43 @@ async function runRender(args) {
     process.exit(2);
   }
 
-  if (outFlagIndex >= 0 && !args[outFlagIndex + 1]) {
-    console.error('Missing value for --out.');
-    process.exit(2);
+  try {
+    const result = await renderMarkdownFile(input, { outFile: outFile || defaultOutFile(input) });
+    console.log(`Rendered: ${result.outFile}`);
+  } catch (error) {
+    if (error instanceof AgentIslesInputError) {
+      console.error(error.message);
+      process.exit(1);
+    }
+
+    throw error;
+  }
+}
+
+function parseRenderArgs(args) {
+  let input;
+  let outFile;
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+
+    if (arg === '--out') {
+      outFile = args[index + 1];
+      if (!outFile) {
+        console.error('Missing value for --out.');
+        process.exit(2);
+      }
+      index += 1;
+    } else if (arg.startsWith('-')) {
+      console.error(`Unknown option for render: ${arg}`);
+      process.exit(2);
+    } else if (!input) {
+      input = arg;
+    } else {
+      console.error(`Unexpected extra argument for render: ${arg}`);
+      process.exit(2);
+    }
   }
 
-  const inputPath = resolve(input);
-  if (!existsSync(inputPath)) {
-    console.error(`Input file not found: ${inputPath}`);
-    process.exit(1);
-  }
-
-  const result = await renderMarkdownFile(inputPath, { outFile });
-  console.log(`Rendered: ${result.outFile}`);
+  return { input, outFile };
 }
