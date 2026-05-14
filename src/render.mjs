@@ -7,6 +7,7 @@ import remarkGfm from 'remark-gfm';
 import remarkRehype from 'remark-rehype';
 import rehypeRaw from 'rehype-raw';
 import rehypeHighlight from 'rehype-highlight';
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import rehypeStringify from 'rehype-stringify';
 
 const moduleDir = dirname(fileURLToPath(import.meta.url));
@@ -45,17 +46,63 @@ export function validateMarkdownInput(inputPath) {
   return filePath;
 }
 
+export const RENDER_MODES = Object.freeze({
+  TRUSTED: 'trusted',
+  SANITIZED: 'sanitized',
+});
+
+const sanitizedSchema = {
+  ...defaultSchema,
+  tagNames: [
+    ...new Set([
+      ...(defaultSchema.tagNames || []),
+      'agent-decision',
+      'agent-risk',
+      'agent-metric',
+      'agent-copy-block',
+    ]),
+  ],
+  attributes: {
+    ...defaultSchema.attributes,
+    '*': [
+      'className',
+      'data*',
+      'role',
+      'title',
+      /^aria-[a-z][a-z0-9-]*$/,
+      ...(defaultSchema.attributes?.['*'] || []),
+    ],
+    a: ['className', 'target', 'rel', ...(defaultSchema.attributes?.a || [])],
+    div: ['className', 'role', ...(defaultSchema.attributes?.div || [])],
+    span: ['className', 'role', ...(defaultSchema.attributes?.span || [])],
+    img: ['className', 'alt', 'src', 'title', ...(defaultSchema.attributes?.img || [])],
+    code: ['className', ...(defaultSchema.attributes?.code || [])],
+    pre: ['className', ...(defaultSchema.attributes?.pre || [])],
+    'agent-decision': ['className', 'title', 'verdict'],
+    'agent-risk': ['className', 'title', 'level'],
+    'agent-metric': ['className', 'label', 'value', 'unit', 'trend'],
+    'agent-copy-block': ['className', 'label', 'lang'],
+  },
+};
+
 export async function renderMarkdown(markdown, options = {}) {
-  const body = await unified()
+  const renderMode = normalizeRenderMode(options.renderMode);
+  const processor = unified()
     .use(remarkParse)
     .use(remarkGfm)
     .use(remarkRehype, { allowDangerousHtml: true })
-    .use(rehypeRaw)
+    .use(rehypeRaw);
+
+  if (renderMode === RENDER_MODES.SANITIZED) {
+    processor.use(dropUnsafeRawHtmlElements).use(rehypeSanitize, sanitizedSchema);
+  }
+
+  const body = await processor
     .use(rehypeHighlight)
-    .use(rehypeStringify, { allowDangerousHtml: true })
+    .use(rehypeStringify, { allowDangerousHtml: renderMode === RENDER_MODES.TRUSTED })
     .process(markdown);
 
-  return buildHtmlPage(String(body), options);
+  return buildHtmlPage(String(body), { ...options, renderMode });
 }
 
 export async function renderMarkdownFile(inputPath, options = {}) {
@@ -78,6 +125,49 @@ export function defaultOutFile(inputPath) {
   const ext = extname(filePath);
   const baseName = basename(ext ? filePath.slice(0, -ext.length) : filePath);
   return resolve('dist', `${baseName || 'output'}.html`);
+}
+
+export function normalizeRenderMode(renderMode = RENDER_MODES.TRUSTED) {
+  if (renderMode === RENDER_MODES.TRUSTED || renderMode === RENDER_MODES.SANITIZED) {
+    return renderMode;
+  }
+
+  throw new Error(
+    `Unknown render mode: ${renderMode}. Use "${RENDER_MODES.TRUSTED}" or "${RENDER_MODES.SANITIZED}".`,
+  );
+}
+
+function dropUnsafeRawHtmlElements() {
+  const blockedTagNames = new Set(['script', 'style', 'iframe', 'object', 'embed']);
+
+  return (tree) => {
+    visitChildren(tree, (children, index, node) => {
+      if (node.type === 'element' && blockedTagNames.has(node.tagName)) {
+        children.splice(index, 1);
+        return index;
+      }
+
+      return undefined;
+    });
+  };
+}
+
+function visitChildren(node, visitor) {
+  if (!Array.isArray(node.children)) {
+    return;
+  }
+
+  for (let index = 0; index < node.children.length; index += 1) {
+    const child = node.children[index];
+    const nextIndex = visitor(node.children, index, child);
+
+    if (typeof nextIndex === 'number') {
+      index = nextIndex - 1;
+      continue;
+    }
+
+    visitChildren(child, visitor);
+  }
 }
 
 function buildHtmlPage(body, options = {}) {

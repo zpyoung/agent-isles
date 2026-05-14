@@ -6,6 +6,7 @@ import { join, resolve } from 'node:path';
 import test from 'node:test';
 
 const fixture = resolve('tests/fixtures/simple.md');
+const componentBundle = resolve('dist/agent-components.js');
 
 test('renderMarkdownFile renders Markdown with preserved agent islands and injected assets', async () => {
   const { renderMarkdownFile } = await import('../src/render.mjs');
@@ -15,9 +16,67 @@ test('renderMarkdownFile renders Markdown with preserved agent islands and injec
   assert.match(html, /<h1>Demo Island<\/h1>/);
   assert.match(html, /<agent-decision verdict="go" title="Proceed">/);
   assert.match(html, /Ship the first renderer slice\./);
+  assert.match(html, /<agent-metric label="Coverage" value="92" unit="%" trend="up">\s*<\/agent-metric>/);
+  assert.match(html, /<agent-copy-block lang="bash" label="Install command">/);
+  assert.match(html, /npm install agent-isles/);
   assert.match(html, /bootstrap@5\.3\.3/);
   assert.match(html, /agent-components\.js/);
   assert.match(html, /Agent Isles theme/);
+});
+
+test('component bundle registers the initial agent island vocabulary', () => {
+  const bundle = readFileSync(componentBundle, 'utf8');
+
+  assert.match(bundle, /customElements\.define\("agent-decision"/);
+  assert.match(bundle, /customElements\.define\("agent-risk"/);
+  assert.match(bundle, /customElements\.define\("agent-metric"/);
+  assert.match(bundle, /customElements\.define\("agent-copy-block"/);
+});
+
+test('sanitized render mode removes active HTML while preserving safe islands', async () => {
+  const { renderMarkdown } = await import('../src/render.mjs');
+
+  const html = await renderMarkdown(`
+# Safety Check
+
+<agent-risk level="high" title="Review" onclick="steal()">
+  <a href="javascript:alert(1)" class="btn btn-danger" data-bs-toggle="modal">bad link</a>
+  <script>alert('owned')</script>
+  <img src="x" onerror="steal()" alt="probe">
+</agent-risk>
+<agent-metric label="Coverage" value="92" unit="%" trend="up" onclick="steal()"></agent-metric>
+<agent-copy-block label="Install command" lang="bash" onclick="steal()">npm install agent-isles</agent-copy-block>
+`, { renderMode: 'sanitized' });
+
+  assert.match(html, /<agent-risk level="high" title="Review">/);
+  assert.match(html, /<agent-metric label="Coverage" value="92" unit="%" trend="up"><\/agent-metric>/);
+  assert.match(html, /<agent-copy-block label="Install command" lang="bash">npm install agent-isles<\/agent-copy-block>/);
+  assert.match(html, /class="btn btn-danger"/);
+  assert.match(html, /data-bs-toggle="modal"/);
+  assert.match(html, /bad link/);
+  assert.doesNotMatch(html, /<script>alert\('owned'\)<\/script>/i);
+  assert.doesNotMatch(html, /alert\('owned'\)/);
+  assert.doesNotMatch(html, /onclick=/i);
+  assert.doesNotMatch(html, /onerror=/i);
+  assert.doesNotMatch(html, /javascript:/i);
+});
+
+test('isles render --safe writes sanitized HTML', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'agent-isles-safe-'));
+  const inputFile = join(dir, 'unsafe.md');
+  const outFile = join(dir, 'unsafe.html');
+
+  writeFileSync(inputFile, '# Unsafe\n\n<div onclick="steal()"><script>bad()</script>Text</div>');
+
+  execFileSync(process.execPath, ['bin/isles.mjs', 'render', inputFile, '--safe', '--out', outFile], {
+    encoding: 'utf8',
+  });
+  const html = readFileSync(outFile, 'utf8');
+
+  assert.match(html, /<div>Text<\/div>/);
+  assert.doesNotMatch(html, /<script>bad\(\)<\/script>/i);
+  assert.doesNotMatch(html, /onclick=/i);
+  assert.doesNotMatch(html, /bad\(\)/i);
 });
 
 test('isles render writes a complete HTML file and component bundle to --out', () => {
