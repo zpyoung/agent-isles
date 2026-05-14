@@ -1,6 +1,12 @@
 #!/usr/bin/env node
 
-import { AgentIslesInputError, defaultOutFile, renderMarkdownFile } from '../src/render.mjs';
+import {
+  AgentIslesInputError,
+  defaultOutFile,
+  normalizeRenderMode,
+  renderMarkdownFile,
+  RENDER_MODES,
+} from '../src/render.mjs';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { watchMarkdownFile } from '../src/watch.mjs';
@@ -8,7 +14,8 @@ import { watchMarkdownFile } from '../src/watch.mjs';
 const USAGE = `Agent Isles — Markdown seas, component islands.
 
 Usage:
-  isles render <file.md> [--out <file.html>]
+  isles render <file.md> [--out <file.html>] [--mode trusted|sanitized]
+  isles render <file.md> [--out <file.html>] [--safe|--sanitize]
   isles watch <file.md> [--out <file.html>]
 
 Commands:
@@ -39,7 +46,8 @@ if (command === 'render') {
 }
 
 async function runRender(args) {
-  const { input, outFile } = parseRenderArgs(args);
+  const parsed = parseRenderArgs(args);
+  const input = parsed.input;
 
   if (!input) {
     console.error('Missing Markdown file for render.\n');
@@ -48,8 +56,11 @@ async function runRender(args) {
   }
 
   try {
-    const result = await renderMarkdownFile(input, { outFile: outFile || defaultOutFile(input) });
-    console.log(`Rendered: ${result.outFile}`);
+    const result = await renderMarkdownFile(input, {
+      outFile: parsed.outFile || defaultOutFile(input),
+      renderMode: parsed.renderMode,
+    });
+    console.log(`Rendered: ${result.outFile} (${parsed.renderMode} mode)`);
   } catch (error) {
     if (error instanceof AgentIslesInputError) {
       console.error(error.message);
@@ -61,31 +72,63 @@ async function runRender(args) {
 }
 
 function parseRenderArgs(args) {
-  let input;
-  let outFile;
+  const parsed = {
+    input: undefined,
+    outFile: undefined,
+    renderMode: RENDER_MODES.TRUSTED,
+  };
 
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
 
     if (arg === '--out') {
-      outFile = args[index + 1];
-      if (!outFile) {
+      const value = args[index + 1];
+      if (!value || value.startsWith('-')) {
         console.error('Missing value for --out.');
         process.exit(2);
       }
+      parsed.outFile = value;
       index += 1;
-    } else if (arg.startsWith('-')) {
-      console.error(`Unknown option for render: ${arg}`);
-      process.exit(2);
-    } else if (!input) {
-      input = arg;
-    } else {
-      console.error(`Unexpected extra argument for render: ${arg}`);
+      continue;
+    }
+
+    if (arg === '--mode') {
+      const value = args[index + 1];
+      if (!value || value.startsWith('-')) {
+        console.error('Missing value for --mode. Use trusted or sanitized.');
+        process.exit(2);
+      }
+
+      try {
+        parsed.renderMode = normalizeRenderMode(value);
+      } catch (error) {
+        console.error(error.message);
+        process.exit(2);
+      }
+
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--safe' || arg === '--sanitize') {
+      parsed.renderMode = RENDER_MODES.SANITIZED;
+      continue;
+    }
+
+    if (arg.startsWith('-')) {
+      console.error(`Unknown render option: ${arg}`);
       process.exit(2);
     }
+
+    if (parsed.input) {
+      console.error(`Unexpected extra argument: ${arg}`);
+      process.exit(2);
+    }
+
+    parsed.input = arg;
   }
 
-  return { input, outFile };
+  return parsed;
 }
 
 async function runWatch(args) {
