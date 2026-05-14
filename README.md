@@ -31,7 +31,8 @@ That renders `examples/demo.md` to `dist/demo.html` and copies the component bun
 ## CLI
 
 ```bash
-isles render <file.md> [--out <file.html>]
+isles render <file.md> [--out <file.html>] [--mode trusted|sanitized]
+isles render <file.md> [--out <file.html>] [--safe|--sanitize]
 ```
 
 During local development, run the CLI directly:
@@ -83,9 +84,24 @@ Planning surfaces:
 
 More components from the guide are planned.
 
-## Security note
+## Security modes
 
-The MVP renderer uses `rehype-raw` so trusted Markdown can include HTML islands. Do **not** render untrusted Markdown with this mode yet. A future sanitization mode should explicitly define which tags and attributes are allowed.
+Agent Isles has two rendering modes. Name the boundary plainly before choosing one:
+
+- **Trusted mode** is the default for authored, reviewable Markdown. It runs `rehype-raw` and preserves raw HTML islands, so scripts, event handlers, and other active HTML from the source can reach the rendered body. Use this only when the Markdown comes from a trusted author or a reviewed repository.
+- **Sanitized mode** is for untrusted or mixed-trust Markdown. Use `--safe`, `--sanitize`, or `--mode sanitized` to remove unsafe raw HTML elements and restrict tags, attributes, and URL protocols while still allowing Markdown, Bootstrap classes/data attributes, and the current `<agent-*>` islands.
+
+Examples:
+
+```bash
+# Trusted authoring mode, default behavior.
+npm run render -- --out dist/demo.html
+
+# Sanitized mode for untrusted Markdown.
+node ./bin/isles.mjs render input.md --safe --out dist/safe.html
+```
+
+Sanitized mode applies to user-authored Markdown content. The generated HTML page still injects Agent Isles runtime assets, including Bootstrap and the component bundle.
 
 ## Development
 

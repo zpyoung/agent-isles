@@ -33,6 +33,48 @@ test('component bundle registers the initial agent island vocabulary', () => {
   assert.match(bundle, /customElements\.define\("agent-copy-block"/);
 });
 
+test('sanitized render mode removes active HTML while preserving safe islands', async () => {
+  const { renderMarkdown } = await import('../src/render.mjs');
+
+  const html = await renderMarkdown(`
+# Safety Check
+
+<agent-risk level="high" title="Review" onclick="steal()">
+  <a href="javascript:alert(1)" class="btn btn-danger" data-bs-toggle="modal">bad link</a>
+  <script>alert('owned')</script>
+  <img src="x" onerror="steal()" alt="probe">
+</agent-risk>
+`, { renderMode: 'sanitized' });
+
+  assert.match(html, /<agent-risk level="high" title="Review">/);
+  assert.match(html, /class="btn btn-danger"/);
+  assert.match(html, /data-bs-toggle="modal"/);
+  assert.match(html, /bad link/);
+  assert.doesNotMatch(html, /<script>alert\('owned'\)<\/script>/i);
+  assert.doesNotMatch(html, /alert\('owned'\)/);
+  assert.doesNotMatch(html, /onclick=/i);
+  assert.doesNotMatch(html, /onerror=/i);
+  assert.doesNotMatch(html, /javascript:/i);
+});
+
+test('isles render --safe writes sanitized HTML', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'agent-isles-safe-'));
+  const inputFile = join(dir, 'unsafe.md');
+  const outFile = join(dir, 'unsafe.html');
+
+  writeFileSync(inputFile, '# Unsafe\n\n<div onclick="steal()"><script>bad()</script>Text</div>');
+
+  execFileSync(process.execPath, ['bin/isles.mjs', 'render', inputFile, '--safe', '--out', outFile], {
+    encoding: 'utf8',
+  });
+  const html = readFileSync(outFile, 'utf8');
+
+  assert.match(html, /<div>Text<\/div>/);
+  assert.doesNotMatch(html, /<script>bad\(\)<\/script>/i);
+  assert.doesNotMatch(html, /onclick=/i);
+  assert.doesNotMatch(html, /bad\(\)/i);
+});
+
 test('isles render writes a complete HTML file and component bundle to --out', () => {
   const dir = mkdtempSync(join(tmpdir(), 'agent-isles-'));
   const outFile = join(dir, 'nested', 'simple.html');
