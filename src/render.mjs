@@ -53,7 +53,15 @@ export const RENDER_MODES = Object.freeze({
 
 const sanitizedSchema = {
   ...defaultSchema,
-  tagNames: [...new Set([...(defaultSchema.tagNames || []), 'agent-decision', 'agent-risk'])],
+  tagNames: [
+    ...new Set([
+      ...(defaultSchema.tagNames || []),
+      'agent-decision',
+      'agent-risk',
+      'agent-metric',
+      'agent-copy-block',
+    ]),
+  ],
   attributes: {
     ...defaultSchema.attributes,
     '*': [
@@ -61,7 +69,7 @@ const sanitizedSchema = {
       'data*',
       'role',
       'title',
-      /^aria[A-Z].*/,
+      /^aria-[a-z][a-z0-9-]*$/,
       ...(defaultSchema.attributes?.['*'] || []),
     ],
     a: ['className', 'target', 'rel', ...(defaultSchema.attributes?.a || [])],
@@ -72,6 +80,8 @@ const sanitizedSchema = {
     pre: ['className', ...(defaultSchema.attributes?.pre || [])],
     'agent-decision': ['className', 'title', 'verdict'],
     'agent-risk': ['className', 'title', 'level'],
+    'agent-metric': ['className', 'label', 'value', 'unit', 'trend'],
+    'agent-copy-block': ['className', 'label', 'lang'],
   },
 };
 
