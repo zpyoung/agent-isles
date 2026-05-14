@@ -69,7 +69,7 @@ const sanitizedSchema = {
       'data*',
       'role',
       'title',
-      /^aria[A-Z].*/,
+      /^aria-[a-z][a-z0-9-]*$/,
       ...(defaultSchema.attributes?.['*'] || []),
     ],
     a: ['className', 'target', 'rel', ...(defaultSchema.attributes?.a || [])],
