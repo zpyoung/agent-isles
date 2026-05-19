@@ -25,6 +25,7 @@ test('GitHub Pages workflow publishes the rendered demo from dist', () => {
   assert.match(workflow, /npm run render -- --out dist\/demo\.html/);
   assert.match(workflow, /upload-pages-artifact@v3/);
   assert.match(workflow, /path:\s*dist/);
+  assert.match(workflow, /enablement:\s*true/);
   assert.match(workflow, /deploy-pages@v4/);
 });
 
