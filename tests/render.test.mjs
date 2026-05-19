@@ -187,6 +187,25 @@ test('demo can render source Markdown beside rendered output', async () => {
   assert.match(html, /<agent-decision verdict="ship-with-guardrails" title="Use Markdown islands for agent reports">/);
 });
 
+test('source view uses a wide equal split and flush source indentation', async () => {
+  const { renderMarkdownFile } = await import('../src/render.mjs');
+
+  const { html } = await renderMarkdownFile(demo, { showSource: true });
+  const theme = readFileSync('src/theme/agent-theme.css', 'utf8');
+
+  assert.match(html, /agent-isles-source-pane col-12 col-xl-6/);
+  assert.match(html, /agent-isles-rendered-pane col-12 col-xl-6/);
+  assert.ok(
+    html.includes('<code class="language-markdown"># Agent Isles Demo: Launch Readiness Report\n\n&lt;p class=&quot;lead&quot;&gt;'),
+    'expected source Markdown to start flush without renderer-added indentation',
+  );
+  assert.doesNotMatch(html, /<code class="language-markdown">\s{2,}# Agent Isles Demo/);
+  assert.match(theme, /\.agent-isles-page--source-view\s*{[^}]*max-width:\s*min\(1920px,\s*100vw\)/s);
+  assert.doesNotMatch(theme, /\.agent-isles-source-pane\s*{[^}]*position:\s*sticky/s);
+  assert.doesNotMatch(theme, /\.agent-isles-source-markdown\s*{[^}]*max-height:/s);
+  assert.doesNotMatch(theme, /\.agent-isles-source-markdown\s*{[^}]*overflow:\s*auto/s);
+});
+
 test('CLI --show-source writes source comparison HTML', () => {
   const dir = mkdtempSync(join(tmpdir(), 'agent-isles-source-view-'));
   const outFile = join(dir, 'demo.html');
