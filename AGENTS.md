@@ -68,9 +68,21 @@ Before claiming success:
 The dedicated Hermes profile for this project is `agent-isles`. For future Agent Isles work, that profile should behave as the project steward and use:
 
 - `docs/MAINTAINER_PLAYBOOK.md` for maintainer workflow.
-- GitHub issues as executable work packets.
-- GitHub Project #1 as the live board: https://github.com/users/zpyoung/projects/1
+- GitHub issues as executable work packets with goal, scope, and acceptance criteria.
+- `docs/PROJECT_PLAN.md` as the internal live ordering/status board.
 - GitHub Wiki for public durable context: https://github.com/zpyoung/agent-isles/wiki
 - `docs/wiki/` as the repo-tracked wiki mirror.
+- `docs/plans/` on the dedicated `plans` branch for detailed technical implementation plans.
 
 For non-trivial code work, prefer issue → branch → TDD → tests/render smoke → commit/PR → issue/project update.
+
+## Recent maintainer learnings
+
+Keep this file updated when durable project-operating lessons emerge. Prefer adding concise conventions here over relying on chat history.
+
+- GitHub Projects V2 is not required for day-to-day planning. If Project access is unavailable, do not block work; update issues, labels, milestones, and `docs/PROJECT_PLAN.md` instead.
+- Detailed implementation plans should live on the dedicated `plans` branch under `docs/plans/`; executable scope belongs in GitHub issues and current ordering/status belongs in `docs/PROJECT_PLAN.md`.
+- When creating or updating issues, attach relevant reference material by default: screenshots, rendered previews, HTML references, sketches, logs, fixtures, and source examples. Use durable repo or utility-branch assets with verified raw links rather than local chat attachments.
+- README and public docs should be updated alongside feature, CLI, component-vocabulary, security-boundary, and roadmap changes.
+- GitHub Pages and other live/public settings are production-like surfaces. Keep workflows safe and ask before enabling or changing live website settings.
+- Existing PR branches may be shared review surfaces. Avoid force-pushes by default; prefer temporary worktrees, merges, and fast-forward pushes when updating diverged PR branches.
