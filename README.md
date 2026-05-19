@@ -121,6 +121,8 @@ Supported islands so far:
 
 - `<agent-decision verdict="..." title="...">...</agent-decision>`
 - `<agent-risk level="low|medium|high|critical" title="...">...</agent-risk>`
+- `<agent-tabs>...</agent-tabs>` with `<agent-tab title="...">...</agent-tab>` panels
+- `<agent-timeline label="...">...</agent-timeline>` with `<agent-step status="done|active|pending|failed" label="...">...</agent-step>` entries
 
 The reference documents supported attributes, child content expectations, accessibility notes, trusted/sanitized rendering behavior, and planned placeholders for the next component set.
 

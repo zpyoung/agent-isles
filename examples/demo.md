@@ -60,9 +60,40 @@ npm run render -- --out dist/demo.html
 | Area | Status | Evidence |
 | --- | --- | --- |
 | Renderer smoke path | Ready | `npm run render -- --out dist/demo.html` writes a standalone page. |
-| Component vocabulary | Seeded | Decision, risk, metric, and copy-block islands render as reusable Lit components. |
+| Component vocabulary | Expanded | Decision, risk, metric, copy-block, tabs, and timeline islands render as reusable Lit components. |
 | Public narrative | Improved | This demo now explains why Markdown islands matter. |
 | Plain Markdown readability | Preserved | The report still reads coherently before rendering. |
+
+## Multi-phase plan
+
+<agent-tabs>
+  <agent-tab title="Phase 1 — Discover">
+    <p>Map the report shape, decide which details need richer UI, and keep the source document readable in plain Markdown.</p>
+    <agent-timeline label="Discovery progress">
+      <agent-step status="done" label="Renderer baseline">
+        Markdown renders to a complete HTML page with Bootstrap, theme CSS, and the component bundle.
+      </agent-step>
+      <agent-step status="active" label="Component expansion">
+        Tabs and timeline islands now cover multi-phase plans without hand-writing Bootstrap boilerplate.
+      </agent-step>
+      <agent-step status="pending" label="Browser polish">
+        Add deeper browser smoke coverage for keyboard and hydration behavior as the vocabulary grows.
+      </agent-step>
+    </agent-timeline>
+  </agent-tab>
+  <agent-tab title="Phase 2 — Build">
+    <p>Use explicit islands when structure matters. The tab component owns its own state; it does not rely on global framework state.</p>
+    <ul>
+      <li><code>&lt;agent-tabs&gt;</code> provides the tablist and keyboard navigation.</li>
+      <li><code>&lt;agent-tab title="..."&gt;</code> marks each named panel.</li>
+      <li><code>&lt;agent-timeline&gt;</code> groups ordered progress steps.</li>
+      <li><code>&lt;agent-step status="done|active|pending|failed" label="..."&gt;</code> labels each status-bearing step.</li>
+    </ul>
+  </agent-tab>
+  <agent-tab title="Phase 3 — Review">
+    <p>Rendered output should be inspectable HTML with accessible labels, ARIA tab semantics, and no hidden dependency on app-level state.</p>
+  </agent-tab>
+</agent-tabs>
 
 ## Decisions
 
@@ -110,4 +141,4 @@ End with verification evidence and concrete next actions.
 
 ## Why this matters
 
-Plain Markdown is the sea: durable, portable, and easy to navigate. Islands are the landmarks: decisions, risks, metrics, and actions that deserve stronger shape. Agent Isles lets an agent produce both in one source file.
+Plain Markdown is the sea: durable, portable, and easy to navigate. Islands are the landmarks: decisions, risks, metrics, timelines, and actions that deserve stronger shape. Agent Isles lets an agent produce both in one source file.
