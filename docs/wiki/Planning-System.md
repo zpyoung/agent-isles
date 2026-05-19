@@ -52,4 +52,4 @@ The wiki should hold context that should not be rediscovered from issue comments
 - Put **work to do** in issues.
 - Put **work ordering** in Projects.
 - Put **why the system is shaped this way** in the wiki.
-- Put **code-adjacent technical plans** in `docs/plans/` so they version with the repository.
+- Put **code-adjacent technical plans** on the dedicated `plans` branch under `docs/plans/` so they stay versioned without shipping on `main`.

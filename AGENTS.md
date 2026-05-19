@@ -28,23 +28,24 @@ Agent Isles renders agent-authored Markdown that may contain HTML “islands”:
   - CLI renderer,
   - theme/assets.
 
-## Initial implementation target
+## Current implementation baseline
 
-Start from `docs/implementation-guide.md` and build the first usable vertical slice:
+The first usable vertical slice now exists:
 
 ```bash
 isles render examples/demo.md
 isles watch examples/demo.md
 ```
 
-The first milestone should include:
+Core implementation surfaces:
 
 - `bin/isles.mjs` CLI entrypoint
-- Markdown renderer using `remark-parse`, `remark-gfm`, `remark-rehype`, `rehype-raw`, `rehype-highlight`, `rehype-stringify`
-- Lit component bundle for initial `<agent-*>` elements
-- Bootstrap/theme injection
-- One example Markdown document
-- Basic smoke test or render test
+- `src/render.mjs` Markdown renderer
+- `src/watch.mjs` live rebuild workflow
+- `src/components/` Lit component bundle
+- `src/theme/agent-theme.css` theme and layout styles
+- `examples/demo.md` public demo source
+- `tests/` unit and browser smoke coverage
 
 ## Naming/API preferences
 
