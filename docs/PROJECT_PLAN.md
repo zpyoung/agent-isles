@@ -45,15 +45,16 @@ When adding substantial work:
 | 5 | Ready | P2 | Demo and Components | Components | [#28 Components: add comparison bar island](https://github.com/zpyoung/agent-isles/issues/28) | Comparison/reporting visual island. |
 | 6 | Ready | P2 | Demo and Components | Components | [#49 Components: add status board island](https://github.com/zpyoung/agent-isles/issues/49) | RAG/workstream status board based on Zach's provided HTML reference. |
 | 7 | Ready | P2 | Demo and Components | Components | [#50 Components: add action list island](https://github.com/zpyoung/agent-isles/issues/50) | Action/next-step list component. |
+| 8 | Ready | P2 | Demo and Components | Components | [#52 Components: add vertical dependency DAG island](https://github.com/zpyoung/agent-isles/issues/52) | Agent-component dependency map rendered as a native vertical DAG; Mermaid not required. |
 
 ### Blocked / dependent
 
 | Order | Status | Priority | Phase | Workstream | Issue | Notes / blocker |
 | ---: | --- | --- | --- | --- | --- | --- |
-| 8 | Blocked | P1 | Interactive Writeback | Writeback / Renderer | [#34 Writeback 2/5: add edit-mode task-list source metadata](https://github.com/zpyoung/agent-isles/issues/34) | Blocked by #33. |
-| 9 | Blocked | P1 | Interactive Writeback | Writeback / Renderer / Security | [#35 Writeback 3/5: implement task-list patcher and writeback API](https://github.com/zpyoung/agent-isles/issues/35) | Blocked by #34. |
-| 10 | Blocked | P1 | Interactive Writeback | Writeback / Renderer | [#36 Writeback 4/5: add browser writeback client for task checkboxes](https://github.com/zpyoung/agent-isles/issues/36) | Blocked by #35. |
-| 11 | Blocked | P1 | Interactive Writeback | Writeback / Docs / CI | [#37 Writeback 5/5: add browser smoke tests and documentation](https://github.com/zpyoung/agent-isles/issues/37) | Blocked by #36. |
+| 9 | Blocked | P1 | Interactive Writeback | Writeback / Renderer | [#34 Writeback 2/5: add edit-mode task-list source metadata](https://github.com/zpyoung/agent-isles/issues/34) | Blocked by #33. |
+| 10 | Blocked | P1 | Interactive Writeback | Writeback / Renderer / Security | [#35 Writeback 3/5: implement task-list patcher and writeback API](https://github.com/zpyoung/agent-isles/issues/35) | Blocked by #34. |
+| 11 | Blocked | P1 | Interactive Writeback | Writeback / Renderer | [#36 Writeback 4/5: add browser writeback client for task checkboxes](https://github.com/zpyoung/agent-isles/issues/36) | Blocked by #35. |
+| 12 | Blocked | P1 | Interactive Writeback | Writeback / Docs / CI | [#37 Writeback 5/5: add browser smoke tests and documentation](https://github.com/zpyoung/agent-isles/issues/37) | Blocked by #36. |
 
 ## Maintenance rules
 
