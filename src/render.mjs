@@ -262,6 +262,8 @@ function buildHtmlPage(body, options = {}) {
   const styles = buildStyles(assetMode);
   const scripts = buildScripts(assetMode, missingBundleComment);
 
+  const mainBody = options.showSource ? pageBody : indent(pageBody, 4);
+
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -273,7 +275,7 @@ ${styles}
 </head>
 <body>
   <main class="${mainClass}">
-${indent(pageBody, 4)}
+${mainBody}
   </main>
 ${scripts}
   <script type="module" src="./${componentScriptName}"></script>
@@ -283,7 +285,7 @@ ${scripts}
 
 function buildSourceComparison(renderedBody, sourceMarkdown) {
   return `<section class="agent-isles-source-comparison row g-4 align-items-start">
-  <aside class="agent-isles-source-pane col-12 col-xl-5" aria-labelledby="agent-isles-source-heading">
+  <aside class="agent-isles-source-pane col-12 col-xl-6" aria-labelledby="agent-isles-source-heading">
     <div class="agent-isles-source-card card shadow-sm">
       <div class="card-header bg-dark text-light">
         <p class="text-uppercase text-info fw-bold small mb-1">Simple source</p>
@@ -294,7 +296,7 @@ function buildSourceComparison(renderedBody, sourceMarkdown) {
       </div>
     </div>
   </aside>
-  <section class="agent-isles-rendered-pane col-12 col-xl-7" aria-labelledby="agent-isles-rendered-heading">
+  <section class="agent-isles-rendered-pane col-12 col-xl-6" aria-labelledby="agent-isles-rendered-heading">
     <div class="agent-isles-rendered-card card shadow-sm">
       <div class="card-header bg-white">
         <p class="text-uppercase text-primary fw-bold small mb-1">Expressive output</p>
