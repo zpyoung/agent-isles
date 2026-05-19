@@ -21,7 +21,7 @@ The planned sanitized mode should preserve documented `<agent-*>` tags and docum
 ## Status levels
 
 - **Supported**: implemented in `src/components/` and exported by `src/components/index.js`.
-- **Planned**: named in the public vocabulary, but not implemented yet. Use placeholders only in docs/plans unless the matching implementation PR has merged.
+- **Planned**: named in the public vocabulary, but not implemented yet. Use placeholders only in issues, wiki context, or plans on the dedicated `plans` branch unless the matching implementation PR has merged.
 
 ## Supported components
 

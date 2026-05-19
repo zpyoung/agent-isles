@@ -11,7 +11,7 @@ Use the planning surfaces in this order:
 3. **Milestones** — phase/release grouping.
 4. **GitHub Wiki** — durable public context: https://github.com/zpyoung/agent-isles/wiki
 5. **Repo-tracked wiki mirror** — versioned copies under `docs/wiki/`.
-6. **Implementation plans** — detailed code plans under `docs/plans/`.
+6. **Implementation plans** — detailed code plans on the dedicated `plans` branch under `docs/plans/`.
 
 ## Start every substantial task
 
@@ -25,7 +25,7 @@ Then read:
 
 - `AGENTS.md`
 - relevant issue body
-- relevant file under `docs/plans/` or `docs/wiki/`
+- relevant file on the `plans` branch or under `docs/wiki/`
 
 ## Creating new work
 
@@ -42,7 +42,7 @@ If the work is non-trivial and does not already have an issue:
    - usually `status:ready`
 3. Attach the appropriate milestone.
 4. Add the issue to Project #1.
-5. If the work needs a detailed implementation plan, create `docs/plans/YYYY-MM-DD-short-name.md`.
+5. If the work needs a detailed implementation plan, commit it to the dedicated `plans` branch under `docs/plans/YYYY-MM-DD-short-name.md` and link the branch URL from the tracking issue.
 
 ## Implementing code
 

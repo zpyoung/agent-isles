@@ -184,12 +184,6 @@ Layers:
 
 Static rendering and source writeback are separate boundaries. `isles render` and `isles watch` should remain inert document-generation tools; `isles edit` should be the only mode that can patch the selected source file.
 
-The seed implementation guide lives at:
-
-```txt
-docs/implementation-guide.md
-```
-
 Implementation plans live on the dedicated `plans` branch so planning artifacts remain versioned without shipping on `main`:
 
 - Plans branch: https://github.com/zpyoung/agent-isles/tree/plans
