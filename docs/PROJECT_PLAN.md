@@ -40,7 +40,7 @@ When adding substantial work:
 | ---: | --- | --- | --- | --- | --- | --- |
 | 1 | Ready | P1 | Interactive Writeback | Writeback / CLI | [#33 Writeback 1/5: add explicit `isles edit` localhost server](https://github.com/zpyoung/agent-isles/issues/33) | First executable slice for writeback MVP. |
 | 2 | Ready | P1 | Interactive Writeback | Writeback | [#31 Writeback: task-list writeback MVP](https://github.com/zpyoung/agent-isles/issues/31) | Parent/tracking issue for the writeback chain. |
-| 3 | Ready | P1 | Demo and Components | Components | [#26 Components: add data-driven Gantt schedule island](https://github.com/zpyoung/agent-isles/issues/26) | Highest-priority component expansion. |
+| 3 | Ready | P1 | Demo and Components | Components | [#26 Components: add focused Gantt chart island](https://github.com/zpyoung/agent-isles/issues/26) | Chart-only Gantt island; milestone cards, titles, summaries, and narrative wrappers stay in Markdown or separate components. |
 | 4 | Ready | P2 | Demo and Components | Components | [#27 Components: add KPI strip island for grouped metrics](https://github.com/zpyoung/agent-isles/issues/27) | Executive-summary metric island. |
 | 5 | Ready | P2 | Demo and Components | Components | [#28 Components: add comparison bar island](https://github.com/zpyoung/agent-isles/issues/28) | Comparison/reporting visual island. |
 | 6 | Ready | P2 | Demo and Components | Components | [#49 Components: add status board island](https://github.com/zpyoung/agent-isles/issues/49) | RAG/workstream status board based on Zach's provided HTML reference. |
