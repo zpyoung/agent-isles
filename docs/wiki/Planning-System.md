@@ -19,11 +19,11 @@ Labels:
 - `priority:*` — ordering signal
 - `status:*` — readiness/blocking signal
 
-## Projects are the live board
+## The internal project plan is the live board
 
-The GitHub Project is the current operating surface:
+`docs/PROJECT_PLAN.md` is the current operating surface:
 
-https://github.com/users/zpyoung/projects/1
+https://github.com/zpyoung/agent-isles/blob/main/docs/PROJECT_PLAN.md
 
 Use it to answer:
 
@@ -32,10 +32,14 @@ Use it to answer:
 - What is blocked?
 - Which milestone are we moving toward?
 
-Custom fields created:
+Board fields:
 
+- `Status`
+- `Priority`
 - `Phase`
 - `Workstream`
+- `Issue`
+- `Notes / blocker`
 
 ## Wiki is durable context
 
@@ -50,6 +54,6 @@ The wiki should hold context that should not be rediscovered from issue comments
 ## Rule of thumb
 
 - Put **work to do** in issues.
-- Put **work ordering** in Projects.
+- Put **work ordering** in `docs/PROJECT_PLAN.md`.
 - Put **why the system is shaped this way** in the wiki.
 - Put **code-adjacent technical plans** on the dedicated `plans` branch under `docs/plans/` so they stay versioned without shipping on `main`.

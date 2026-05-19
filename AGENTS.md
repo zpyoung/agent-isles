@@ -69,8 +69,8 @@ The dedicated Hermes profile for this project is `agent-isles`. For future Agent
 
 - `docs/MAINTAINER_PLAYBOOK.md` for maintainer workflow.
 - GitHub issues as executable work packets.
-- GitHub Project #1 as the live board: https://github.com/users/zpyoung/projects/1
+- `docs/PROJECT_PLAN.md` as the internal live ordering/status board.
 - GitHub Wiki for public durable context: https://github.com/zpyoung/agent-isles/wiki
 - `docs/wiki/` as the repo-tracked wiki mirror.
 
-For non-trivial code work, prefer issue → branch → TDD → tests/render smoke → commit/PR → issue/project update.
+For non-trivial code work, prefer issue → project-plan row → branch → TDD → tests/render smoke → commit/PR → issue/project-plan update.

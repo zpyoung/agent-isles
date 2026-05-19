@@ -1,25 +1,15 @@
 # Roadmap
 
-This roadmap uses GitHub issues as executable planning units, a GitHub Project for sequencing, and this wiki for durable architecture/context.
+This roadmap uses GitHub issues as executable planning units, `docs/PROJECT_PLAN.md` for sequencing, and this wiki for durable architecture/context.
 
 ## Current execution order
 
-The board is the source of truth for live status. The intended near-term sequence is:
+`docs/PROJECT_PLAN.md` is the source of truth for live status. It currently tracks the active queue across:
 
-1. [#1 MVP: harden `isles render` into the baseline renderer](https://github.com/zpyoung/agent-isles/issues/1)
-2. [#7 Infra: add GitHub Actions CI for build, test, and render smoke](https://github.com/zpyoung/agent-isles/issues/7)
-3. [#2 Feature: add `isles watch` for live Markdown rebuilds](https://github.com/zpyoung/agent-isles/issues/2)
-4. [#6 Security: add trusted vs sanitized rendering modes](https://github.com/zpyoung/agent-isles/issues/6)
-5. [#3 Components: implement `<agent-metric>` and `<agent-copy-block>`](https://github.com/zpyoung/agent-isles/issues/3)
-6. [#10 Docs: define Agent Isles component vocabulary reference](https://github.com/zpyoung/agent-isles/issues/10)
-7. [#5 Docs: turn `examples/demo.md` into a compelling public demo](https://github.com/zpyoung/agent-isles/issues/5)
-8. [#4 Components: implement tabs and timeline islands](https://github.com/zpyoung/agent-isles/issues/4)
-9. [#9 Test: add browser smoke test for rendered demo hydration](https://github.com/zpyoung/agent-isles/issues/9)
-10. [#12 Renderer: support local asset mode for offline/reliable output](https://github.com/zpyoung/agent-isles/issues/12)
-11. [#11 Docs: publish rendered demo via GitHub Pages](https://github.com/zpyoung/agent-isles/issues/11)
-12. [#8 Release: prepare npm package publishing path](https://github.com/zpyoung/agent-isles/issues/8)
+- Interactive Writeback: #31 and #33–#37
+- Demo and Components: #26–#28, #49, and #50
 
-Rationale: baseline renderer first, then CI guardrails, then authoring loop, then security posture, then richer demo/component work, then release-facing polish.
+Use the plan file for exact ordering, readiness, and blocker notes. This roadmap records the broader shape; the project plan records the day-to-day queue.
 
 ## Milestones
 
@@ -56,13 +46,13 @@ Issues:
 - [#11 Docs: publish rendered demo via GitHub Pages](https://github.com/zpyoung/agent-isles/issues/11)
 - [#8 Release: prepare npm package publishing path](https://github.com/zpyoung/agent-isles/issues/8)
 
-## Project board
+## Internal project plan
 
-Use the project board as the live work queue:
+Use the repo-tracked internal project plan as the live work queue:
 
-https://github.com/users/zpyoung/projects/1
+https://github.com/zpyoung/agent-isles/blob/main/docs/PROJECT_PLAN.md
 
-Board fields:
+Plan fields:
 
 - **Status** — live execution status.
 - **Priority** — P0/P1/P2 execution priority.
@@ -74,5 +64,5 @@ Suggested flow:
 1. Keep all planned work as issues.
 2. Use labels for area, type, priority, and readiness.
 3. Use milestones for release grouping.
-4. Use the project board for current ordering and execution status.
+4. Use `docs/PROJECT_PLAN.md` for current ordering and execution status.
 5. Keep architecture rationale in this wiki rather than burying it in issue comments.

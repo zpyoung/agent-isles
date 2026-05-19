@@ -7,7 +7,7 @@ This playbook is for the dedicated `agent-isles` Hermes profile and any future m
 Use the planning surfaces in this order:
 
 1. **GitHub issues** — executable work packets with acceptance criteria.
-2. **GitHub Project** — live ordering/status: https://github.com/users/zpyoung/projects/1
+2. **Internal project plan** — live ordering/status in `docs/PROJECT_PLAN.md`.
 3. **Milestones** — phase/release grouping.
 4. **GitHub Wiki** — durable public context: https://github.com/zpyoung/agent-isles/wiki
 5. **Repo-tracked wiki mirror** — versioned copies under `docs/wiki/`.
@@ -18,12 +18,12 @@ Use the planning surfaces in this order:
 ```bash
 git status --short --branch
 gh issue list --repo zpyoung/agent-isles --state open --limit 20
-gh project view 1 --owner zpyoung --format json --jq '{title,url,items:.items.totalCount}'
 ```
 
 Then read:
 
 - `AGENTS.md`
+- `docs/PROJECT_PLAN.md`
 - relevant issue body
 - relevant file on the `plans` branch or under `docs/wiki/`
 
@@ -41,8 +41,10 @@ If the work is non-trivial and does not already have an issue:
    - one `priority:*`
    - usually `status:ready`
 3. Attach the appropriate milestone.
-4. Add the issue to Project #1.
-5. If the work needs a detailed implementation plan, commit it to the dedicated `plans` branch under `docs/plans/YYYY-MM-DD-short-name.md` and link the branch URL from the tracking issue.
+4. Attach or link relevant reference material by default: HTML references, screenshots, sketches, source examples, design notes, logs, fixtures, or other artifacts that inform the work.
+5. Store reference files on a durable repo branch or utility branch and link verified raw URLs from the issue rather than relying on local chat attachments.
+6. Add or reposition the issue in `docs/PROJECT_PLAN.md`.
+7. If the work needs a detailed implementation plan, commit it to the dedicated `plans` branch under `docs/plans/YYYY-MM-DD-short-name.md` and link the branch URL from the tracking issue.
 
 ## Implementing code
 
@@ -101,7 +103,7 @@ Always include proof:
 
 - tests/build output,
 - render smoke output for renderer/component work,
-- GitHub issue/project/wiki URLs for planning work,
+- GitHub issue URLs and `docs/PROJECT_PLAN.md` diffs for planning work,
 - commit SHA or PR URL for code changes.
 
 ## Approval boundaries
@@ -109,7 +111,7 @@ Always include proof:
 Autonomous:
 
 - branches, commits, PRs,
-- issues, labels, milestones, project updates,
+- issues, labels, milestones, project-plan updates,
 - wiki/docs updates,
 - local tests/builds.
 
