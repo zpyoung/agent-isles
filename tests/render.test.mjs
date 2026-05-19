@@ -57,7 +57,7 @@ test('sanitized render mode removes active HTML while preserving safe islands', 
   assert.match(html, /<agent-risk level="high" title="Review">/);
   assert.match(html, /<agent-metric label="Coverage" value="92" unit="%" trend="up"><\/agent-metric>/);
   assert.match(html, /<agent-copy-block label="Install command" lang="bash">npm install agent-isles<\/agent-copy-block>/);
-  assert.match(html, /<agent-tabs label="Safe tabs"><agent-tab title="One" active>Body<\/agent-tab><\/agent-tabs>/);
+  assert.match(html, /<agent-tabs label="Safe tabs"><agent-tab title="One" active(?:="")?>Body<\/agent-tab><\/agent-tabs>/);
   assert.match(html, /<agent-timeline label="Safe timeline"><agent-step status="done" label="Reviewed">Done<\/agent-step><\/agent-timeline>/);
   assert.match(html, /class="btn btn-danger"/);
   assert.match(html, /data-bs-toggle="modal"/);
