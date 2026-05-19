@@ -25,7 +25,7 @@ When adding substantial work:
 
 | Field | Meaning |
 | --- | --- |
-| Status | `Ready`, `Blocked`, `In progress`, `Done`, or `Deferred`. Mirrors `status:*` labels where possible. |
+| Status | `Draft`, `Ready`, `Blocked`, `In progress`, `Done`, or `Deferred`. Mirrors `status:*` labels where possible. |
 | Priority | `P0`, `P1`, or `P2`. Mirrors `priority:*` labels. |
 | Phase | Milestone or release group. |
 | Workstream | Primary subsystem: CLI, Renderer, Components, Docs, Security, CI, Release, or Writeback. |
@@ -55,6 +55,18 @@ When adding substantial work:
 | 10 | Blocked | P1 | Interactive Writeback | Writeback / Renderer / Security | [#35 Writeback 3/5: implement task-list patcher and writeback API](https://github.com/zpyoung/agent-isles/issues/35) | Blocked by #34. |
 | 11 | Blocked | P1 | Interactive Writeback | Writeback / Renderer | [#36 Writeback 4/5: add browser writeback client for task checkboxes](https://github.com/zpyoung/agent-isles/issues/36) | Blocked by #35. |
 | 12 | Blocked | P1 | Interactive Writeback | Writeback / Docs / CI | [#37 Writeback 5/5: add browser smoke tests and documentation](https://github.com/zpyoung/agent-isles/issues/37) | Blocked by #36. |
+
+### Draft component backlog
+
+| Order | Status | Priority | Phase | Workstream | Issue | Notes / blocker |
+| ---: | --- | --- | --- | --- | --- | --- |
+| 13 | Draft | P2 | Demo and Components | Components | [#53 Components: add roadmap milestone island](https://github.com/zpyoung/agent-isles/issues/53) | Draft concept for Now/Next/Later and milestone roadmap views. |
+| 14 | Draft | P2 | Demo and Components | Components | [#54 Components: add RAID log island](https://github.com/zpyoung/agent-isles/issues/54) | Draft concept for grouped risks, assumptions, issues, and dependencies. |
+| 15 | Draft | P2 | Demo and Components | Components | [#55 Components: add owner matrix island](https://github.com/zpyoung/agent-isles/issues/55) | Draft concept for RACI/DACI-style ownership views. |
+| 16 | Draft | P2 | Demo and Components | Components | [#56 Components: add progress meter island](https://github.com/zpyoung/agent-isles/issues/56) | Draft concept for completion/readiness progress groups. |
+| 17 | Draft | P2 | Demo and Components | Components | [#57 Components: add scope table island](https://github.com/zpyoung/agent-isles/issues/57) | Draft concept for explicit in/out/later scope boundaries. |
+| 18 | Draft | P2 | Demo and Components | Components | [#58 Components: add deliverable table island](https://github.com/zpyoung/agent-isles/issues/58) | Draft concept for owner/status/due-date deliverable matrices. |
+| 19 | Draft | P2 | Demo and Components | Components | [#59 Components: add change log island](https://github.com/zpyoung/agent-isles/issues/59) | Draft concept for scope, schedule, requirement, and decision changes. |
 
 ## Maintenance rules
 
