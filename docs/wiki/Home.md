@@ -24,5 +24,7 @@ The renderer turns that Markdown into HTML, injects the Agent Isles theme, and l
 ## Links
 
 - Repository: https://github.com/zpyoung/agent-isles
+- Source demo Markdown: [examples/demo.md](https://github.com/zpyoung/agent-isles/blob/main/examples/demo.md)
+- Published rendered demo: https://zpyoung.github.io/agent-isles/demo.html
 - Project board: https://github.com/users/zpyoung/projects/1
 - MVP plan: `docs/plans/2026-05-12-mvp-renderer.md`

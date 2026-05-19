@@ -53,6 +53,13 @@ npm run render -- --out dist/demo.html
 
 That renders `examples/demo.md` to `dist/demo.html` and copies the component bundle beside it.
 
+## Demo
+
+- Source Markdown: [`examples/demo.md`](examples/demo.md)
+- Published rendered demo: https://zpyoung.github.io/agent-isles/demo.html
+
+The rendered demo is published by the GitHub Pages workflow after changes land on `main`.
+
 ## CLI
 
 ```bash
