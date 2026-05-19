@@ -48,6 +48,17 @@ Agent Isles is useful when the output must satisfy two audiences at once:
 Ship the report format as Markdown plus explicit HTML islands. Keep prose portable, use Bootstrap for one-off layout, and reserve Lit components for recurring decision and risk patterns.
 </agent-decision>
 
+<agent-comparison-bar
+  label="Timeline comparison"
+  baseline-label="Original — no AI, new design"
+  baseline-value="38"
+  revised-label="Revised — AI + 1:1 parity + existing assets"
+  revised-value="28"
+  unit="wks"
+  summary="26% faster · ~10 weeks saved"
+  direction="lower-better">
+</agent-comparison-bar>
+
 <agent-metric label="Renderer confidence" value="92" unit="%" trend="up">
 </agent-metric>
 

@@ -33,7 +33,8 @@ agent-risk,
 agent-metric,
 agent-copy-block,
 agent-tabs,
-agent-timeline {
+agent-timeline,
+agent-comparison-bar {
   display: block;
   margin: 1rem 0;
 }

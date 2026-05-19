@@ -81,6 +81,7 @@ const sanitizedSchema = {
       'agent-tab',
       'agent-timeline',
       'agent-step',
+      'agent-comparison-bar',
     ]),
   ],
   attributes: {
@@ -107,6 +108,7 @@ const sanitizedSchema = {
     'agent-tab': ['className', 'title', 'active'],
     'agent-timeline': ['className', 'label'],
     'agent-step': ['className', 'status', 'label'],
+    'agent-comparison-bar': ['className', 'label', 'baseline-label', 'baseline-value', 'revised-label', 'revised-value', 'unit', 'summary', 'direction'],
   },
 };
 

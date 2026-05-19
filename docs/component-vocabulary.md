@@ -152,6 +152,54 @@ Example placeholder:
 <agent-metric label="Tests" value="42" unit="passing" trend="up" tone="good"></agent-metric>
 ```
 
+
+### `<agent-comparison-bar>`
+
+Use for before/after comparisons such as original vs revised timeline, baseline vs optimized latency, old vs new cost, or eval score deltas.
+
+Status: supported.
+
+Attributes:
+
+| Attribute | Required | Allowed values | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `label` | No | Plain text | `Comparison` | Visible and accessible comparison label. |
+| `baseline-label` | No | Plain text | `Baseline` | Label for the original/current value. |
+| `baseline-value` | Yes | Non-negative number | `0` | Used for proportional bar width. |
+| `revised-label` | No | Plain text | `Revised` | Label for the optimized/new value. |
+| `revised-value` | Yes | Non-negative number | `0` | Used for proportional bar width. |
+| `unit` | No | Plain text | none | Shared unit shown beside both values. |
+| `summary` | No | Plain text | none | Human-readable delta summary. |
+| `direction` | No | `lower-better`, `higher-better`, `neutral` | `neutral` | Controls which bar receives preferred emphasis. |
+
+Child content: none for the initial two-value shape.
+
+Accessibility notes:
+
+- The component exposes an accessible summary containing both labels, values, unit, and summary text.
+- Proportional bars are decorative; numeric text remains visible.
+- Direction semantics color the preferred bar but do not replace the text summary.
+
+Trusted/sanitized behavior:
+
+- Trusted mode preserves the tag and documented attributes.
+- Sanitized mode allows documented comparison attributes while removing scripts and event handlers.
+
+Minimal example:
+
+```markdown
+<agent-comparison-bar
+  label="Timeline comparison"
+  baseline-label="Original — no AI, new design"
+  baseline-value="38"
+  revised-label="Revised — AI + 1:1 parity + existing assets"
+  revised-value="28"
+  unit="wks"
+  summary="26% faster · ~10 weeks saved"
+  direction="lower-better">
+</agent-comparison-bar>
+```
+
 ### `<agent-copy-block>`
 
 Intended use: command snippets, config fragments, prompts, or generated code that users are likely to copy.
