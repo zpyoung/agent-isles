@@ -99,6 +99,104 @@ The backfill query may lock writes during peak traffic. Run it in batches and ke
 </agent-risk>
 ```
 
+### `<agent-metric>`
+
+Use for compact report measurements such as counts, durations, pass rates, cost, token usage, coverage, latency, or scores.
+
+Status: supported.
+
+Attributes:
+
+| Attribute | Required | Allowed values | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `label` | Yes | Plain text | `Metric` | Metric name. |
+| `value` | Yes | Plain text or number | `—` | Displayed value. |
+| `unit` | No | Plain text | none | Unit suffix such as `%`, `ms`, `files`, `$`, or `wks`. |
+| `trend` | No | `up`, `down`, `flat` | none | Direction only; pair with `tone` or surrounding prose for meaning. |
+| `tone` | No | `neutral`, `good`, `warning`, `danger` | `neutral` | Semantic interpretation of the value. |
+
+Child content: optional explanatory note; should be short and readable if the component is ignored.
+
+Accessibility notes:
+
+- The visible label, value, unit, trend text, and tone are represented as text, not color alone.
+- `trend` is intentionally directional only; use `tone` or prose to say whether the movement is good or bad.
+- Keep long explanations outside the metric or in surrounding Markdown.
+
+Trusted/sanitized behavior:
+
+- Trusted mode preserves the tag, documented attributes, and child HTML.
+- Sanitized mode allows `label`, `value`, `unit`, `trend`, and `tone` while removing scripts and event handlers.
+
+Example:
+
+```markdown
+<agent-metric label="Tests" value="42" unit="passing" trend="up" tone="good"></agent-metric>
+```
+
+### `<agent-delta>`
+
+Use for signed change summaries such as weeks saved, percent improvement, cost reduction, latency regression, score lift, or coverage movement.
+
+Status: supported.
+
+Attributes:
+
+| Attribute | Required | Allowed values | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `label` | No | Plain text | `Delta` | Short label for the change. |
+| `value` | Yes | Signed number or text | `—` | Primary signed change value, such as `-10` or `+18`. |
+| `unit` | No | Plain text | none | Unit suffix such as `wks`, `%`, `$`, `ms`, or `pts`. |
+| `percent` | No | Signed number or text without `%` | none | Optional percent change displayed alongside the value. |
+| `direction` | No | `lower-better`, `higher-better`, `neutral` | `neutral` | Interprets whether positive/negative movement is good or bad. |
+| `tone` | No | `neutral`, `good`, `warning`, `danger` | computed from `value` + `direction` | Optional override for semantic emphasis. |
+
+Child content: concise human summary of what changed and why it matters.
+
+Accessibility notes:
+
+- The value, unit, percent, direction semantics, and computed/explicit tone are exposed as text.
+- Do not rely on green/red styling alone; include a child summary such as `26% faster · ~10 weeks saved`.
+- Use `direction` whenever possible so a negative value can be interpreted correctly.
+
+Trusted/sanitized behavior:
+
+- Trusted mode preserves the tag, documented attributes, and child HTML.
+- Sanitized mode allows `label`, `value`, `unit`, `percent`, `direction`, and `tone` while removing scripts and event handlers.
+
+Example:
+
+```markdown
+<agent-delta label="Timeline delta" value="-10" unit="wks" percent="-26" direction="lower-better">
+  26% faster · ~10 weeks saved
+</agent-delta>
+```
+
+### Composition recipe: comparison card
+
+Use ordinary Markdown/Bootstrap layout for the one-off card wrapper and compose report primitives inside it:
+
+```markdown
+<div class="card shadow-sm my-3">
+  <div class="card-body">
+    <h3 class="h5">Timeline comparison</h3>
+    <div class="row g-3">
+      <div class="col-md-6">
+        <agent-metric label="Original — no AI, new design" value="38" unit="wks" tone="neutral"></agent-metric>
+      </div>
+      <div class="col-md-6">
+        <agent-metric label="Revised — AI + 1:1 parity + existing assets" value="28" unit="wks" tone="good"></agent-metric>
+      </div>
+    </div>
+    <agent-delta label="Timeline delta" value="-10" unit="wks" percent="-26" direction="lower-better">
+      26% faster · ~10 weeks saved
+    </agent-delta>
+  </div>
+</div>
+```
+
+Do not introduce `<agent-comparison-bar>` for this slice. If a specific comparison visualization repeats often enough later, promote it from this composition recipe into its own semantic island.
+
 ## Planned components
 
 These names are reserved by the vocabulary so docs, examples, and implementation can converge without inventing new tags later.
@@ -126,78 +224,6 @@ Example placeholder:
 <agent-finding severity="medium" file="src/render.mjs" line="22" title="Raw HTML mode is trusted-only">
 Add sanitized-mode coverage before accepting untrusted Markdown input.
 </agent-finding>
-```
-
-### `<agent-metric>`
-
-Intended use: compact report KPIs such as counts, durations, pass rates, cost, token usage, or coverage.
-
-Planned attributes:
-
-| Attribute | Required | Allowed values | Notes |
-| --- | --- | --- | --- |
-| `label` | Yes | Plain text | Metric name. |
-| `value` | Yes | Plain text or number | Displayed value. |
-| `unit` | No | Plain text | Unit suffix such as `%`, `ms`, `files`, or `$`. |
-| `trend` | No | `up`, `down`, `flat` | Direction only; pair with surrounding prose for meaning. |
-| `tone` | No | `neutral`, `good`, `warning`, `danger` | Semantic interpretation of the value. |
-
-Child content: optional explanatory note; should be short.
-
-Accessibility placeholder: trend arrows must include text labels or accessible names, not just glyphs.
-
-Example placeholder:
-
-```markdown
-<agent-metric label="Tests" value="42" unit="passing" trend="up" tone="good"></agent-metric>
-```
-
-
-### `<agent-comparison-bar>`
-
-Use for before/after comparisons such as original vs revised timeline, baseline vs optimized latency, old vs new cost, or eval score deltas.
-
-Status: supported.
-
-Attributes:
-
-| Attribute | Required | Allowed values | Default | Notes |
-| --- | --- | --- | --- | --- |
-| `label` | No | Plain text | `Comparison` | Visible and accessible comparison label. |
-| `baseline-label` | No | Plain text | `Baseline` | Label for the original/current value. |
-| `baseline-value` | Yes | Non-negative number | `0` | Used for proportional bar width. |
-| `revised-label` | No | Plain text | `Revised` | Label for the optimized/new value. |
-| `revised-value` | Yes | Non-negative number | `0` | Used for proportional bar width. |
-| `unit` | No | Plain text | none | Shared unit shown beside both values. |
-| `summary` | No | Plain text | none | Human-readable delta summary. |
-| `direction` | No | `lower-better`, `higher-better`, `neutral` | `neutral` | Controls which bar receives preferred emphasis. |
-
-Child content: none for the initial two-value shape.
-
-Accessibility notes:
-
-- The component exposes an accessible summary containing both labels, values, unit, and summary text.
-- Proportional bars are decorative; numeric text remains visible.
-- Direction semantics color the preferred bar but do not replace the text summary.
-
-Trusted/sanitized behavior:
-
-- Trusted mode preserves the tag and documented attributes.
-- Sanitized mode allows documented comparison attributes while removing scripts and event handlers.
-
-Minimal example:
-
-```markdown
-<agent-comparison-bar
-  label="Timeline comparison"
-  baseline-label="Original — no AI, new design"
-  baseline-value="38"
-  revised-label="Revised — AI + 1:1 parity + existing assets"
-  revised-value="28"
-  unit="wks"
-  summary="26% faster · ~10 weeks saved"
-  direction="lower-better">
-</agent-comparison-bar>
 ```
 
 ### `<agent-copy-block>`

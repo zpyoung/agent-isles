@@ -31,10 +31,10 @@ body {
 agent-decision,
 agent-risk,
 agent-metric,
+agent-delta,
 agent-copy-block,
 agent-tabs,
-agent-timeline,
-agent-comparison-bar {
+agent-timeline {
   display: block;
   margin: 1rem 0;
 }
