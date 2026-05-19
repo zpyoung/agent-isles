@@ -460,7 +460,12 @@ export class AgentGantt extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.observer.observe(this, { attributes: true, childList: true, subtree: true });
+    this.observer.observe(this, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['tone'],
+    });
     this.refreshChart();
   }
 
@@ -501,7 +506,6 @@ export class AgentGantt extends LitElement {
   }
 
   legendItems() {
-    this.revision;
     const toneNames = this.tasks.map((task) => task.getAttribute('tone') || 'default');
     return [...new Set(toneNames)].map((toneName) => ({ name: toneName, ...toneStyle(toneName) }));
   }
