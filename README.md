@@ -2,7 +2,9 @@
 
 > Markdown seas, component islands.
 
-**Agent Isles** is a renderer and component vocabulary for AI-agent output. Agents write standard Markdown, then embed small HTML islands where richer UI is useful. Those islands can be raw Bootstrap markup for simple cases or semantic Lit Web Components for reusable patterns like risks, decisions, findings, metrics, tabs, copy blocks, and timelines.
+**Agent Isles** is a semantic Markdown renderer for AI-agent artifacts. Agents write standard Markdown, then embed small HTML “islands” where richer UI is useful. Those islands can be raw Bootstrap markup for simple one-off layout or semantic Lit Web Components for repeated agent-output patterns like risks, decisions, metrics, plans, timelines, checklists, and review surfaces.
+
+Agent Isles is intentionally not a general data-app framework. Its center of gravity is agent-authored documents: plans, reports, decision records, implementation notes, reviews, checklists, and other artifacts that should stay readable as Markdown, reviewable in git, and useful when rendered for humans.
 
 ## Why this exists
 
@@ -12,9 +14,43 @@ Agent output should be:
 - easy to diff,
 - easy to store in git,
 - richer than plain Markdown when the task calls for it,
-- renderable without forcing every agent to hand-author verbose UI boilerplate.
+- renderable without forcing every agent to hand-author verbose UI boilerplate,
+- structured enough for humans and agents to inspect, patch, and reuse later.
 
-Agent Isles keeps the source format simple while giving agents a compact UI vocabulary.
+Agent Isles keeps the source format simple while giving agents a compact UI vocabulary. The aim is not maximum frontend expressiveness; the aim is a constrained, reliable document grammar that agents can emit consistently and humans can maintain.
+
+## What Agent Isles is for
+
+Agent Isles is designed for artifacts such as:
+
+- project plans and implementation plans,
+- decision records and recommendations,
+- risk registers and mitigation notes,
+- release checklists and review checklists,
+- compact status reports and executive summaries,
+- migration timelines and roadmap views,
+- AI-generated reports that need more structure than a wall of Markdown.
+
+The source should remain boring:
+
+```md
+# Migration Plan
+
+<agent-decision verdict="go" title="Use Markdown islands">
+Ship the first renderer slice and keep source reviewable.
+</agent-decision>
+
+- [ ] Review launch gates
+- [x] Add render smoke test
+```
+
+The rendered output can be polished and interactive, but the Markdown source remains the primary artifact.
+
+## What Agent Isles is not trying to be
+
+Agent Isles should not grow into a broad dashboard or application framework. It should avoid becoming a place where every report requires custom JavaScript, complex data pipelines, or bespoke UI code.
+
+Use Agent Isles when the valuable thing is the **document artifact**: a readable source file, semantic islands, and a rendered view that helps people review or act on it. For heavy data exploration, custom charting, multi-page analytical apps, or production analytics workflows, use a purpose-built data-app stack and let Agent Isles stay focused on agent-authored documents.
 
 ## Demo: source Markdown to rendered report
 
@@ -101,7 +137,16 @@ The dry-run package should include only the CLI, renderer source, component sour
 ```bash
 isles render <file.md> [--out <file.html>] [--mode trusted|sanitized] [--assets cdn|local]
 isles render <file.md> [--out <file.html>] [--safe|--sanitize] [--assets cdn|local]
+isles watch <file.md> [--out <file.html>]
 ```
+
+Planned explicit edit/writeback mode:
+
+```bash
+isles edit <file.md>
+```
+
+`isles edit` is not static rendering. It is planned as a localhost-only editing surface that can mutate the selected Markdown source file for supported interactions, starting with Markdown task-list checkboxes.
 
 During local development, run the CLI directly:
 
@@ -126,7 +171,7 @@ Example local/offline render:
 node ./bin/isles.mjs render examples/demo.md --out dist/demo.html --assets local
 ```
 
-`isles watch` is reserved for the next slice.
+`isles watch` renders immediately and rebuilds when the Markdown source changes. It remains source-driven: browser interactions in the generated HTML do not write back to the Markdown file.
 
 ## Architecture
 
@@ -135,6 +180,9 @@ Layers:
 1. **Source format** — Markdown with explicit HTML islands.
 2. **Component vocabulary** — Bootstrap primitives plus Lit Web Components for agent-specific patterns.
 3. **CLI renderer** — remark/rehype pipeline that injects assets and writes browser-ready HTML.
+4. **Local edit/writeback mode** — planned explicit localhost mode for source-backed interactions, starting with Markdown task-list toggles.
+
+Static rendering and source writeback are separate boundaries. `isles render` and `isles watch` should remain inert document-generation tools; `isles edit` should be the only mode that can patch the selected source file.
 
 The seed implementation guide lives at:
 
@@ -142,11 +190,17 @@ The seed implementation guide lives at:
 docs/implementation-guide.md
 ```
 
-The active MVP plan lives at:
+The active plans live under:
 
 ```txt
-docs/plans/2026-05-12-mvp-renderer.md
+docs/plans/
 ```
+
+Notable plans:
+
+- `docs/plans/2026-05-12-mvp-renderer.md` — initial renderer slice.
+
+The task-list writeback roadmap is tracked in #31 with ordered implementation issues.
 
 Planning surfaces:
 
@@ -171,6 +225,12 @@ Supported islands so far:
 - `<agent-tabs>...</agent-tabs>` with `<agent-tab title="...">...</agent-tab>` panels
 - `<agent-timeline label="...">...</agent-timeline>` with `<agent-step status="done|active|pending|failed" label="...">...</agent-step>` entries
 
+Planned component directions include:
+
+- `<agent-gantt>` for compact, data-driven schedule and roadmap visuals,
+- `<agent-kpi-strip>` for grouped executive-summary metrics,
+- `<agent-comparison-bar>` for before/after comparisons such as timeline, cost, latency, or score deltas.
+
 The reference documents supported attributes, child content expectations, accessibility notes, trusted/sanitized rendering behavior, and planned placeholders for the next component set.
 
 ## Security modes
@@ -191,6 +251,43 @@ node ./bin/isles.mjs render input.md --safe --out dist/safe.html
 ```
 
 Sanitized mode applies to user-authored Markdown content. The generated HTML page still injects Agent Isles runtime assets, including Bootstrap and the component bundle.
+
+## Source writeback roadmap
+
+Agent Isles currently treats Markdown as the source of truth and rendered HTML as output. Checking a box or changing UI state in a static render does **not** update the original Markdown file.
+
+The planned writeback feature is deliberately explicit:
+
+```bash
+isles edit report.md
+```
+
+`isles edit` should start a localhost-only editing server, render the selected Markdown with writeback metadata, and accept authenticated local writeback requests for supported interactions. The first MVP is narrow by design: Markdown task-list checkboxes.
+
+Example source:
+
+```md
+- [ ] Review launch gates
+- [x] Add render smoke test
+```
+
+In edit mode, checking the first item should patch the source to:
+
+```md
+- [x] Review launch gates
+- [x] Add render smoke test
+```
+
+Guardrails for this roadmap:
+
+- static `isles render` and `isles watch` remain inert,
+- writeback binds to localhost by default,
+- a per-session token protects writeback requests,
+- only the selected source file may be patched,
+- stale source metadata returns a conflict instead of fuzzy-patching,
+- richer component writeback is future work, not part of the task-list MVP.
+
+The tracking issue is #31.
 
 ## Development
 
