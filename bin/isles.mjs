@@ -15,8 +15,8 @@ import { watchMarkdownFile } from '../src/watch.mjs';
 const USAGE = `Agent Isles — Markdown seas, component islands.
 
 Usage:
-  isles render <file.md> [--out <file.html>] [--mode trusted|sanitized] [--assets cdn|local]
-  isles render <file.md> [--out <file.html>] [--safe|--sanitize] [--assets cdn|local]
+  isles render <file.md> [--out <file.html>] [--mode trusted|sanitized] [--assets cdn|local] [--show-source]
+  isles render <file.md> [--out <file.html>] [--safe|--sanitize] [--assets cdn|local] [--show-source]
   isles watch <file.md> [--out <file.html>]
 
 Commands:
@@ -25,6 +25,7 @@ Commands:
 
 Options:
   --assets cdn|local   Use CDN assets by default, or copy local offline assets
+  --show-source        Display escaped source Markdown beside rendered output
 `;
 
 const packageJson = JSON.parse(readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '..', 'package.json'), 'utf8'));
@@ -65,9 +66,11 @@ async function runRender(args) {
       outFile: parsed.outFile || defaultOutFile(input),
       renderMode: parsed.renderMode,
       assetMode: parsed.assetMode,
+      showSource: parsed.showSource,
     });
     console.log(`Rendered: ${result.outFile} (${parsed.renderMode} mode)`);
     console.log(`Assets: ${parsed.assetMode}`);
+    console.log(`Source view: ${parsed.showSource ? 'enabled' : 'disabled'}`);
   } catch (error) {
     if (error instanceof AgentIslesInputError) {
       console.error(error.message);
@@ -84,6 +87,7 @@ function parseRenderArgs(args) {
     outFile: undefined,
     renderMode: RENDER_MODES.TRUSTED,
     assetMode: 'cdn',
+    showSource: false,
   };
 
   for (let index = 0; index < args.length; index += 1) {
@@ -135,6 +139,11 @@ function parseRenderArgs(args) {
 
     if (arg === '--safe' || arg === '--sanitize') {
       parsed.renderMode = RENDER_MODES.SANITIZED;
+      continue;
+    }
+
+    if (arg === '--show-source') {
+      parsed.showSource = true;
       continue;
     }
 

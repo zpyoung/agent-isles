@@ -173,6 +173,36 @@ test('demo renders a multi-phase plan with tabs and timeline steps', async () =>
   assert.match(html, /<agent-step status="pending" label="Browser polish">/);
 });
 
+test('demo can render source Markdown beside rendered output', async () => {
+  const { renderMarkdownFile } = await import('../src/render.mjs');
+
+  const { html } = await renderMarkdownFile(demo, { showSource: true });
+
+  assert.match(html, /class="agent-isles-source-comparison/);
+  assert.match(html, /Source Markdown/);
+  assert.match(html, /Rendered output/);
+  assert.match(html, /<code class="language-markdown">/);
+  assert.match(html, /# Agent Isles Demo: Launch Readiness Report/);
+  assert.match(html, /&lt;agent-decision verdict=&quot;ship-with-guardrails&quot;/);
+  assert.match(html, /<agent-decision verdict="ship-with-guardrails" title="Use Markdown islands for agent reports">/);
+});
+
+test('CLI --show-source writes source comparison HTML', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'agent-isles-source-view-'));
+  const outFile = join(dir, 'demo.html');
+
+  const stdout = execFileSync(
+    process.execPath,
+    ['bin/isles.mjs', 'render', demo, '--show-source', '--out', outFile],
+    { encoding: 'utf8' },
+  );
+  const html = readFileSync(outFile, 'utf8');
+
+  assert.match(stdout, /Source view: enabled/);
+  assert.match(html, /class="agent-isles-source-comparison/);
+  assert.match(html, /&lt;agent-risk level=&quot;medium&quot; title=&quot;Raw HTML is a trust boundary&quot;&gt;/);
+});
+
 test('local asset mode writes network-free HTML and copies third-party assets', async () => {
   const { renderMarkdownFile } = await import('../src/render.mjs');
   const dir = mkdtempSync(join(tmpdir(), 'agent-isles-local-'));

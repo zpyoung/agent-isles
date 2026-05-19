@@ -37,3 +37,45 @@ agent-timeline {
   display: block;
   margin: 1rem 0;
 }
+
+.agent-isles-page--source-view {
+  max-width: 1440px;
+}
+
+.agent-isles-source-card,
+.agent-isles-rendered-card {
+  border-color: var(--agent-isles-border);
+  overflow: hidden;
+}
+
+.agent-isles-source-pane {
+  position: sticky;
+  top: 1rem;
+}
+
+.agent-isles-source-markdown {
+  background: #0f172a;
+  color: #dbeafe;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  max-height: 80vh;
+  overflow: auto;
+  padding: 1rem;
+  tab-size: 2;
+  white-space: pre-wrap;
+}
+
+.agent-isles-rendered-output > :first-child {
+  margin-top: 0;
+}
+
+@media (max-width: 1199.98px) {
+  .agent-isles-source-pane {
+    position: static;
+  }
+
+  .agent-isles-source-markdown {
+    max-height: 32rem;
+  }
+}
+

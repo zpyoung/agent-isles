@@ -113,6 +113,7 @@ const sanitizedSchema = {
 export async function renderMarkdown(markdown, options = {}) {
   const renderMode = normalizeRenderMode(options.renderMode);
   const assetMode = normalizeAssetMode(options.assetMode);
+  const sourceMarkdown = typeof options.sourceMarkdown === 'string' ? options.sourceMarkdown : markdown;
   const processor = unified()
     .use(remarkParse)
     .use(remarkGfm)
@@ -128,7 +129,7 @@ export async function renderMarkdown(markdown, options = {}) {
     .use(rehypeStringify, { allowDangerousHtml: renderMode === RENDER_MODES.TRUSTED })
     .process(markdown);
 
-  return buildHtmlPage(String(body), { ...options, renderMode, assetMode });
+  return buildHtmlPage(String(body), { ...options, renderMode, assetMode, sourceMarkdown });
 }
 
 export async function renderMarkdownFile(inputPath, options = {}) {
@@ -204,6 +205,10 @@ function buildHtmlPage(body, options = {}) {
   const title = options.title || 'Agent Isles Output';
   const assetMode = normalizeAssetMode(options.assetMode);
   const theme = readTheme();
+  const mainClass = options.showSource
+    ? 'agent-isles-page agent-isles-page--source-view container-fluid py-4'
+    : 'agent-isles-page container py-4';
+  const pageBody = options.showSource ? buildSourceComparison(body, options.sourceMarkdown || '') : body;
   const missingBundleComment = existsSync(componentBundlePath)
     ? ''
     : '\n  <!-- Agent Isles warning: dist/agent-components.js is missing. Run `npm run build`. -->';
@@ -220,13 +225,40 @@ ${styles}
   <style>${theme}</style>
 </head>
 <body>
-  <main class="agent-isles-page container py-4">
-${indent(body, 4)}
+  <main class="${mainClass}">
+${indent(pageBody, 4)}
   </main>
 ${scripts}
   <script type="module" src="./${componentScriptName}"></script>
 </body>
 </html>`;
+}
+
+function buildSourceComparison(renderedBody, sourceMarkdown) {
+  return `<section class="agent-isles-source-comparison row g-4 align-items-start">
+  <aside class="agent-isles-source-pane col-12 col-xl-5" aria-labelledby="agent-isles-source-heading">
+    <div class="agent-isles-source-card card shadow-sm">
+      <div class="card-header bg-dark text-light">
+        <p class="text-uppercase text-info fw-bold small mb-1">Simple source</p>
+        <h2 id="agent-isles-source-heading" class="h5 mb-0 text-light">Source Markdown</h2>
+      </div>
+      <div class="card-body p-0">
+        <pre class="agent-isles-source-markdown mb-0"><code class="language-markdown">${escapeHtml(sourceMarkdown)}</code></pre>
+      </div>
+    </div>
+  </aside>
+  <section class="agent-isles-rendered-pane col-12 col-xl-7" aria-labelledby="agent-isles-rendered-heading">
+    <div class="agent-isles-rendered-card card shadow-sm">
+      <div class="card-header bg-white">
+        <p class="text-uppercase text-primary fw-bold small mb-1">Expressive output</p>
+        <h2 id="agent-isles-rendered-heading" class="h5 mb-0">Rendered output</h2>
+      </div>
+      <div class="card-body agent-isles-rendered-output">
+${indent(renderedBody, 8)}
+      </div>
+    </div>
+  </section>
+</section>`;
 }
 
 function buildStyles(assetMode) {
