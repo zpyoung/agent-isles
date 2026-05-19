@@ -190,15 +190,10 @@ The seed implementation guide lives at:
 docs/implementation-guide.md
 ```
 
-The active plans live under:
+Implementation plans live on the dedicated `plans` branch so planning artifacts remain versioned without shipping on `main`:
 
-```txt
-docs/plans/
-```
-
-Notable plans:
-
-- `docs/plans/2026-05-12-mvp-renderer.md` — initial renderer slice.
+- Plans branch: https://github.com/zpyoung/agent-isles/tree/plans
+- Plans directory: https://github.com/zpyoung/agent-isles/tree/plans/docs/plans
 
 The task-list writeback roadmap is tracked in #31 with ordered implementation issues.
 
@@ -208,6 +203,7 @@ Planning surfaces:
 - Project board: https://github.com/users/zpyoung/projects/1
 - GitHub Wiki: https://github.com/zpyoung/agent-isles/wiki
 - Repo-tracked wiki mirror: `docs/wiki/`
+- Plans branch: `plans`
 - Maintainer playbook: `docs/MAINTAINER_PLAYBOOK.md`
 
 ## Component vocabulary
