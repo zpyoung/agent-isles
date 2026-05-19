@@ -214,14 +214,14 @@ Supported islands so far:
 - `<agent-risk level="low|medium|high|critical" title="...">...</agent-risk>`
 - `<agent-metric label="..." value="..." unit="..." tone="neutral|good|warning|danger">...</agent-metric>`
 - `<agent-delta label="..." value="..." unit="..." percent="..." direction="lower-better|higher-better|neutral">...</agent-delta>`
+- `<agent-kpi label="..." value="..." unit="..." delta="..." tone="primary|success|warning|danger|neutral">...</agent-kpi>`
 - `<agent-copy-block lang="..." label="...">...</agent-copy-block>`
 - `<agent-tabs>...</agent-tabs>` with `<agent-tab title="...">...</agent-tab>` panels
 - `<agent-timeline label="...">...</agent-timeline>` with `<agent-step status="done|active|pending|failed" label="...">...</agent-step>` entries
 
 Planned component directions include:
 
-- `<agent-gantt>` for compact, data-driven schedule and roadmap visuals,
-- `<agent-kpi-strip>` for grouped executive-summary metrics built from the same metric vocabulary when the repeated layout earns a dedicated island.
+- `<agent-gantt>` for compact, data-driven schedule and roadmap visuals.
 
 The reference documents supported attributes, child content expectations, accessibility notes, trusted/sanitized rendering behavior, and planned placeholders for the next component set.
 

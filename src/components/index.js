@@ -5,3 +5,4 @@ export * from './agent-delta.js';
 export * from './agent-copy-block.js';
 export * from './agent-tabs.js';
 export * from './agent-timeline.js';
+export * from './agent-kpi.js';

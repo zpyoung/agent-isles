@@ -34,7 +34,8 @@ agent-metric,
 agent-delta,
 agent-copy-block,
 agent-tabs,
-agent-timeline {
+agent-timeline,
+agent-kpi {
   display: block;
   margin: 1rem 0;
 }
@@ -67,4 +68,5 @@ agent-timeline {
 .agent-isles-rendered-output > :first-child {
   margin-top: 0;
 }
+
 

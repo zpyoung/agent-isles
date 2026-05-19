@@ -197,6 +197,47 @@ Use ordinary Markdown/Bootstrap layout for the one-off card wrapper and compose 
 
 Do not introduce `<agent-comparison-bar>` for this slice. If a specific comparison visualization repeats often enough later, promote it from this composition recipe into its own semantic island.
 
+### `<agent-kpi>`
+
+Use for compact report KPIs, milestone summaries, exec dashboards, and before/after status bands. Use a single `<agent-metric>` when there is only one number; use multiple `<agent-kpi>` cards when the numbers are meaningfully scanned as a set.
+
+Status: supported.
+
+Attributes:
+
+| Tag | Attribute | Required | Allowed values | Default | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `agent-kpi` | `label` | Yes | Plain text | `KPI` | Metric card label. |
+| `agent-kpi` | `value` | Yes | Plain text or number | `—` | Main value. |
+| `agent-kpi` | `unit` | No | Plain text | none | Unit suffix such as `wks`, `%`, `ms`, or `$`. |
+| `agent-kpi` | `delta` | No | Plain text | none | Short comparison note such as `was ~26 wks`. |
+| `agent-kpi` | `tone` | No | `primary`, `success`, `warning`, `danger`, `neutral` | `neutral` | Semantic emphasis for the delta badge and border. |
+
+Child content: each `<agent-kpi>` may include one short detail sentence.
+
+Accessibility notes:
+
+- Each KPI receives an accessible label composed from label, value, unit, and delta.
+- Color is only emphasis; label/value/delta text carries the meaning.
+- When grouping KPIs, prefer semantic list markup (for example `role="list"` with `role="listitem"` wrappers).
+
+Trusted/sanitized behavior:
+
+- Trusted mode preserves the tags, attributes, and child content.
+- Sanitized mode allows documented KPI tags and attributes while removing scripts and event handlers.
+
+Minimal example:
+
+```markdown
+<div class="row g-3" role="list" aria-label="Migration milestones">
+  <div class="col-md-4" role="listitem">
+    <agent-kpi label="Phase 1 dev complete" value="~12" unit="wks" delta="was ~26 wks" tone="success">
+      From kick-off
+    </agent-kpi>
+  </div>
+</div>
+```
+
 ## Planned components
 
 These names are reserved by the vocabulary so docs, examples, and implementation can converge without inventing new tags later.
