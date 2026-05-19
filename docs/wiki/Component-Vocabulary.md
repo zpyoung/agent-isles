@@ -10,6 +10,7 @@ Repo source: `docs/component-vocabulary.md`. Wiki mirror: `docs/wiki/Component-V
 - Keep child content readable as plain text or Markdown-friendly HTML. A reviewer should understand the source without rendering it.
 - Prefer explicit attributes over hidden conventions. Attribute values should be lowercase, hyphenated tokens when they behave like enums.
 - Put long prose in the element body, not in attributes.
+- Keep nested custom-element HTML blocks continuous: blank lines inside raw HTML islands can make CommonMark close the HTML block and turn later indented custom elements into escaped code.
 - Use Bootstrap classes directly for one-off layout primitives; use `<agent-*>` components for repeated agent-report patterns.
 
 ## Rendering and trust model
