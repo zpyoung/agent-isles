@@ -218,7 +218,7 @@ Supported islands so far:
 Planned component directions include:
 
 - `<agent-gantt>` for compact, data-driven schedule and roadmap visuals,
-- `<agent-kpi-strip>` for grouped executive-summary metrics,
+- `<agent-kpi>` for grouped executive-summary metrics,
 - `<agent-comparison-bar>` for before/after comparisons such as timeline, cost, latency, or score deltas.
 
 The reference documents supported attributes, child content expectations, accessibility notes, trusted/sanitized rendering behavior, and planned placeholders for the next component set.

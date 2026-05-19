@@ -153,9 +153,9 @@ Example placeholder:
 ```
 
 
-### `<agent-kpi-strip>` and `<agent-kpi>`
+### `<agent-kpi>`
 
-Use for compact groups of report metrics, milestone summaries, exec dashboards, and before/after status bands. Use a single `<agent-metric>` when there is only one number; use a KPI strip when the numbers are meaningfully scanned as a set.
+Use for compact report KPIs, milestone summaries, exec dashboards, and before/after status bands. Use a single `<agent-metric>` when there is only one number; use multiple `<agent-kpi>` cards when the numbers are meaningfully scanned as a set.
 
 Status: supported.
 
@@ -163,8 +163,6 @@ Attributes:
 
 | Tag | Attribute | Required | Allowed values | Default | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `agent-kpi-strip` | `columns` | No | Positive integer, clamped for readability | `3` | Preferred desktop column count; wraps to one column on small screens. |
-| `agent-kpi-strip` | `label` | No | Plain text | `KPI strip` | Accessible group label. |
 | `agent-kpi` | `label` | Yes | Plain text | `KPI` | Metric card label. |
 | `agent-kpi` | `value` | Yes | Plain text or number | `—` | Main value. |
 | `agent-kpi` | `unit` | No | Plain text | none | Unit suffix such as `wks`, `%`, `ms`, or `$`. |
@@ -175,9 +173,9 @@ Child content: each `<agent-kpi>` may include one short detail sentence.
 
 Accessibility notes:
 
-- The strip renders as a list and each KPI renders as a list item.
 - Each KPI receives an accessible label composed from label, value, unit, and delta.
 - Color is only emphasis; label/value/delta text carries the meaning.
+- When grouping KPIs, prefer semantic list markup (for example `role="list"` with `role="listitem"` wrappers).
 
 Trusted/sanitized behavior:
 
@@ -187,11 +185,13 @@ Trusted/sanitized behavior:
 Minimal example:
 
 ```markdown
-<agent-kpi-strip columns="3" label="Migration milestones">
-  <agent-kpi label="Phase 1 dev complete" value="~12" unit="wks" delta="was ~26 wks" tone="success">
-    From kick-off
-  </agent-kpi>
-</agent-kpi-strip>
+<div class="row g-3" role="list" aria-label="Migration milestones">
+  <div class="col-md-4" role="listitem">
+    <agent-kpi label="Phase 1 dev complete" value="~12" unit="wks" delta="was ~26 wks" tone="success">
+      From kick-off
+    </agent-kpi>
+  </div>
+</div>
 ```
 
 ### `<agent-copy-block>`

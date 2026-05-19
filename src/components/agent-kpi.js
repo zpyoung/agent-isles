@@ -6,42 +6,6 @@ function normalizeTone(tone) {
   return TONES.has(tone) ? tone : 'neutral';
 }
 
-export class AgentKpiStrip extends LitElement {
-  static properties = {
-    columns: { type: Number },
-    label: { type: String },
-  };
-
-  static styles = css`
-    :host { display: block; }
-    .strip {
-      display: grid;
-      gap: 0.9rem;
-      grid-template-columns: repeat(var(--agent-kpi-columns, 3), minmax(0, 1fr));
-    }
-    ::slotted(agent-kpi) { min-width: 0; }
-    @media (max-width: 767.98px) {
-      .strip { grid-template-columns: 1fr; }
-    }
-  `;
-
-  updated() {
-    this.setAttribute('aria-label', this.label || 'KPI strip');
-  }
-
-  render() {
-    const columns = Number.isFinite(this.columns) && this.columns > 0 ? Math.min(this.columns, 6) : 3;
-
-    return html`
-      <section class="strip" role="list" aria-label=${this.label || 'KPI strip'} style=${`--agent-kpi-columns: ${columns};`}>
-        <slot></slot>
-      </section>
-    `;
-  }
-}
-
-customElements.define('agent-kpi-strip', AgentKpiStrip);
-
 export class AgentKpi extends LitElement {
   static properties = {
     label: { type: String },
@@ -109,7 +73,6 @@ export class AgentKpi extends LitElement {
 
   updated() {
     const pieces = [this.label || 'KPI', this.value, this.unit, this.delta].filter(Boolean);
-    this.setAttribute('role', 'listitem');
     this.setAttribute('aria-label', pieces.join(' '));
   }
 
