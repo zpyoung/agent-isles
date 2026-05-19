@@ -14,9 +14,10 @@ Repo source: `docs/component-vocabulary.md`. Wiki mirror: `docs/wiki/Component-V
 
 ## Rendering and trust model
 
-Current MVP rendering is trusted: the renderer preserves raw HTML islands with `rehype-raw`, copies the built component bundle next to the rendered output, and injects it as `./agent-components.js`. Only render Markdown from trusted repo/workspace sources in this mode.
+The renderer has two explicit trust modes:
 
-The planned sanitized mode should preserve documented `<agent-*>` tags and documented attributes while rejecting executable/event-handler HTML such as `onclick`, arbitrary scripts, and unsupported component attributes. Until that mode lands, every component below should be treated as part of the trusted authoring contract rather than a security boundary.
+- Trusted mode preserves raw HTML islands with `rehype-raw`, copies the built component bundle next to the rendered output, and injects it as `./agent-components.js`. Only render Markdown from trusted repo/workspace sources in this mode.
+- Sanitized mode preserves documented `<agent-*>` tags and documented safe attributes while rejecting executable/event-handler HTML such as `onclick`, arbitrary scripts, unsupported component attributes, and unsafe URL protocols.
 
 ## Status levels
 
@@ -97,6 +98,81 @@ Example:
 <agent-risk level="high" title="Migration lock">
 The backfill query may lock writes during peak traffic. Run it in batches and keep rollback SQL nearby.
 </agent-risk>
+```
+
+### `<agent-gantt>`, `<agent-gantt-phase>`, and `<agent-gantt-task>`
+
+Use for compact, data-driven project schedules where parallel work, phase lanes, milestone markers, and task duration bars matter more than narrative step order.
+
+Status: supported.
+
+Authoring guidance:
+
+- Use Markdown headings and prose around the chart. `<agent-gantt>` should render only the chart itself.
+- Keep milestone cards, KPI summaries, comparison cards, and narrative wrappers outside the component.
+- Put concise task labels in attributes and longer explanation in `detail` or the task body.
+
+Attributes:
+
+| Tag | Attribute | Required | Allowed values | Default | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `agent-gantt` | `weeks` | No | Positive integer | `12` | Total chart width in week columns. |
+| `agent-gantt` | `milestones` | No | Comma-separated positive week numbers | empty | Renders milestone markers and legend text. |
+| `agent-gantt` | `label` | No | Plain text | `Gantt chart` | Accessible chart label. |
+| `agent-gantt-phase` | `label` | No | Plain text | `Phase` | Lane-group label. |
+| `agent-gantt-task` | `label` | No | Plain text | `Gantt task` | Visible task label. |
+| `agent-gantt-task` | `start` | No | Positive integer | `1` | Starting week column. |
+| `agent-gantt-task` | `end` | No | Positive integer | same as `start` | Ending week column, inclusive. |
+| `agent-gantt-task` | `tone` | No | `components`, `testing`, `validation`, `launch`, `risk`, or any token (unknown tokens render as default) | default | Drives bar color and generated legend entry. |
+| `agent-gantt-task` | `detail` | No | Plain text | empty | Short detail shown in the native disclosure panel. |
+| `agent-gantt-task` | `parallel` | No | Boolean attribute | false | Adds a dashed/striped style for continuous or overlapping tracks. |
+
+Child content:
+
+- `<agent-gantt>` should contain one or more `<agent-gantt-phase>` children.
+- `<agent-gantt-phase>` should contain `<agent-gantt-task>` children.
+- `<agent-gantt-task>` may contain concise details, evidence, or notes that stay readable in source form.
+
+Accessibility notes:
+
+- The chart renders as a labeled grid with phase row groups and visible week headers.
+- Task bars use native `<details>/<summary>` disclosure so keyboard and mouse users can expose detail text without bespoke tooltip code.
+- Task accessible names include label, week range, tone label, parallel status, and `detail` text where present.
+- Tone is represented in the legend and accessible labels, not color alone.
+
+Trusted/sanitized behavior:
+
+- Trusted mode preserves the tags, attributes, and child HTML.
+- Sanitized mode allows `weeks`, `milestones`, `label`, `start`, `end`, `tone`, `detail`, and `parallel` on the Gantt tags while stripping event handlers and unsafe raw HTML.
+
+Example:
+
+```markdown
+## Revised migration schedule
+
+Use Markdown for surrounding context. The component owns only the chart.
+
+<agent-gantt weeks="28" milestones="12,15,28" label="Migration schedule">
+  <agent-gantt-phase label="Core build">
+    <agent-gantt-task
+      label="Components + Storybook"
+      start="3"
+      end="5"
+      tone="components"
+      detail="2 wks — was 8 wks">
+      Component parity removes a design review loop.
+    </agent-gantt-task>
+
+    <agent-gantt-task
+      label="Testing — parallel"
+      start="3"
+      end="12"
+      tone="testing"
+      parallel>
+      Regression coverage runs alongside build work.
+    </agent-gantt-task>
+  </agent-gantt-phase>
+</agent-gantt>
 ```
 
 ## Planned components

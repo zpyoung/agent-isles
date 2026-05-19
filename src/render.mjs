@@ -81,6 +81,9 @@ const sanitizedSchema = {
       'agent-tab',
       'agent-timeline',
       'agent-step',
+      'agent-gantt',
+      'agent-gantt-phase',
+      'agent-gantt-task',
     ]),
   ],
   attributes: {
@@ -107,6 +110,9 @@ const sanitizedSchema = {
     'agent-tab': ['className', 'title', 'active'],
     'agent-timeline': ['className', 'label'],
     'agent-step': ['className', 'status', 'label'],
+    'agent-gantt': ['className', 'weeks', 'milestones', 'label'],
+    'agent-gantt-phase': ['className', 'label'],
+    'agent-gantt-task': ['className', 'label', 'start', 'end', 'tone', 'detail', 'parallel'],
   },
 };
 

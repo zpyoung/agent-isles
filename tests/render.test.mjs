@@ -159,6 +159,42 @@ test('component bundle registers tabs and timeline islands', () => {
   assert.match(bundle, /role\W*tabpanel/);
 });
 
+test('component bundle registers the Gantt chart island vocabulary', () => {
+  const bundle = readFileSync(componentBundle, 'utf8');
+
+  for (const tagName of ['agent-gantt', 'agent-gantt-phase', 'agent-gantt-task']) {
+    assertCustomElementDefinition(bundle, tagName);
+  }
+  assert.match(bundle, /role\W*grid/);
+  assert.match(bundle, /agent-gantt-legend/);
+});
+
+test('sanitized render mode preserves safe Gantt tags and attributes', async () => {
+  const { renderMarkdown } = await import('../src/render.mjs');
+
+  const html = await renderMarkdown(`
+# Safe Gantt
+
+<agent-gantt weeks="28" milestones="12,15,28" label="Migration schedule" onclick="steal()">
+  <agent-gantt-phase label="Core build" onclick="steal()">
+    <agent-gantt-task label="Components + Storybook" start="3" end="5" tone="components" detail="2 wks" parallel onclick="steal()">
+      <script>alert('owned')</script>
+      Accessible notes survive.
+    </agent-gantt-task>
+  </agent-gantt-phase>
+</agent-gantt>
+`, { renderMode: 'sanitized' });
+
+  assert.match(html, /<agent-gantt weeks="28" milestones="12,15,28" label="Migration schedule">/);
+  assert.match(html, /<agent-gantt-phase label="Core build">/);
+  assert.match(
+    html,
+    /<agent-gantt-task label="Components \+ Storybook" start="3" end="5" tone="components" detail="2 wks" parallel(?:="")?>\s*Accessible notes survive\.\s*<\/agent-gantt-task>/,
+  );
+  assert.doesNotMatch(html, /<script>/i);
+  assert.doesNotMatch(html, /onclick=/i);
+});
+
 test('demo renders a multi-phase plan with tabs and timeline steps', async () => {
   const { renderMarkdownFile } = await import('../src/render.mjs');
 
@@ -171,6 +207,18 @@ test('demo renders a multi-phase plan with tabs and timeline steps', async () =>
   assert.match(html, /<agent-step status="done" label="Renderer baseline">/);
   assert.match(html, /<agent-step status="active" label="Component expansion">/);
   assert.match(html, /<agent-step status="pending" label="Browser polish">/);
+});
+
+test('demo renders a focused Gantt chart embedded in Markdown prose', async () => {
+  const { renderMarkdownFile } = await import('../src/render.mjs');
+
+  const { html } = await renderMarkdownFile(demo);
+
+  assert.match(html, /<h2>Revised migration schedule<\/h2>/i);
+  assert.match(html, /<agent-gantt weeks="28" milestones="12,15,28" label="Migration schedule">/);
+  assert.match(html, /<agent-gantt-phase label="Core build">/);
+  assert.match(html, /<agent-gantt-task label="Components \+ Storybook" start="3" end="5" tone="components" detail="2 wks/);
+  assert.match(html, /<agent-gantt-task label="Testing — parallel" start="3" end="12" tone="testing" detail="Runs continuously beside component work" parallel(?:="")?>/);
 });
 
 test('demo can render source Markdown beside rendered output', async () => {
