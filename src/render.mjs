@@ -1,5 +1,6 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, extname, join, resolve } from 'node:path';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
@@ -10,12 +11,28 @@ import rehypeHighlight from 'rehype-highlight';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import rehypeStringify from 'rehype-stringify';
 
+const require = createRequire(import.meta.url);
 const moduleDir = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(moduleDir, '..');
 const themePath = join(projectRoot, 'src', 'theme', 'agent-theme.css');
 const componentBundlePath = join(projectRoot, 'dist', 'agent-components.js');
 const componentScriptName = 'agent-components.js';
 const markdownExtensions = new Set(['.md', '.markdown']);
+const localAssetDirName = 'assets';
+const localAssets = [
+  {
+    source: require.resolve('bootstrap/dist/css/bootstrap.min.css'),
+    fileName: 'bootstrap.min.css',
+  },
+  {
+    source: require.resolve('highlight.js/styles/github-dark.min.css'),
+    fileName: 'github-dark.min.css',
+  },
+  {
+    source: require.resolve('bootstrap/dist/js/bootstrap.bundle.min.js'),
+    fileName: 'bootstrap.bundle.min.js',
+  },
+];
 
 export class AgentIslesInputError extends Error {
   constructor(message, code) {
@@ -95,6 +112,7 @@ const sanitizedSchema = {
 
 export async function renderMarkdown(markdown, options = {}) {
   const renderMode = normalizeRenderMode(options.renderMode);
+  const assetMode = normalizeAssetMode(options.assetMode);
   const processor = unified()
     .use(remarkParse)
     .use(remarkGfm)
@@ -110,19 +128,23 @@ export async function renderMarkdown(markdown, options = {}) {
     .use(rehypeStringify, { allowDangerousHtml: renderMode === RENDER_MODES.TRUSTED })
     .process(markdown);
 
-  return buildHtmlPage(String(body), { ...options, renderMode });
+  return buildHtmlPage(String(body), { ...options, renderMode, assetMode });
 }
 
 export async function renderMarkdownFile(inputPath, options = {}) {
   const filePath = validateMarkdownInput(inputPath);
   const markdown = readFileSync(filePath, 'utf8');
   const outFile = options.outFile ? resolve(options.outFile) : undefined;
-  const html = await renderMarkdown(markdown, { ...options, sourcePath: filePath });
+  const assetMode = normalizeAssetMode(options.assetMode);
+  const html = await renderMarkdown(markdown, { ...options, assetMode, sourcePath: filePath });
 
   if (outFile) {
     mkdirSync(dirname(outFile), { recursive: true });
     writeFileSync(outFile, html);
     copyComponentBundle(dirname(outFile));
+    if (assetMode === 'local') {
+      copyLocalAssets(dirname(outFile));
+    }
   }
 
   return { html, outFile };
@@ -180,10 +202,13 @@ function visitChildren(node, visitor) {
 
 function buildHtmlPage(body, options = {}) {
   const title = options.title || 'Agent Isles Output';
+  const assetMode = normalizeAssetMode(options.assetMode);
   const theme = readTheme();
   const missingBundleComment = existsSync(componentBundlePath)
     ? ''
     : '\n  <!-- Agent Isles warning: dist/agent-components.js is missing. Run `npm run build`. -->';
+  const styles = buildStyles(assetMode);
+  const scripts = buildScripts(assetMode, missingBundleComment);
 
   return `<!doctype html>
 <html lang="en">
@@ -191,7 +216,26 @@ function buildHtmlPage(body, options = {}) {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${escapeHtml(title)}</title>
-  <link
+${styles}
+  <style>${theme}</style>
+</head>
+<body>
+  <main class="agent-isles-page container py-4">
+${indent(body, 4)}
+  </main>
+${scripts}
+  <script type="module" src="./${componentScriptName}"></script>
+</body>
+</html>`;
+}
+
+function buildStyles(assetMode) {
+  if (assetMode === 'local') {
+    return `  <link href="./${localAssetDirName}/bootstrap.min.css" rel="stylesheet" />
+  <link href="./${localAssetDirName}/github-dark.min.css" rel="stylesheet" />`;
+  }
+
+  return `  <link
     href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
     rel="stylesheet"
     crossorigin="anonymous"
@@ -199,20 +243,18 @@ function buildHtmlPage(body, options = {}) {
   <link
     href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css"
     rel="stylesheet"
-  />
-  <style>${theme}</style>
-</head>
-<body>
-  <main class="agent-isles-page container py-4">
-${indent(body, 4)}
-  </main>
-  <script
+  />`;
+}
+
+function buildScripts(assetMode, missingBundleComment) {
+  const bootstrapScript = assetMode === 'local'
+    ? `  <script src="./${localAssetDirName}/bootstrap.bundle.min.js"></script>`
+    : `  <script
     src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
     crossorigin="anonymous">
-  </script>${missingBundleComment}
-  <script type="module" src="./${componentScriptName}"></script>
-</body>
-</html>`;
+  </script>`;
+
+  return `${bootstrapScript}${missingBundleComment}`;
 }
 
 function readTheme() {
@@ -229,6 +271,26 @@ function copyComponentBundle(outDir) {
   }
 
   copyFileSync(componentBundlePath, join(outDir, componentScriptName));
+}
+
+function copyLocalAssets(outDir) {
+  const assetsDir = join(outDir, localAssetDirName);
+  mkdirSync(assetsDir, { recursive: true });
+
+  for (const asset of localAssets) {
+    if (!existsSync(asset.source)) {
+      throw new Error(`Local asset source missing: ${asset.source}`);
+    }
+    copyFileSync(asset.source, join(assetsDir, asset.fileName));
+  }
+}
+
+function normalizeAssetMode(assetMode = 'cdn') {
+  if (assetMode === 'cdn' || assetMode === 'local') {
+    return assetMode;
+  }
+
+  throw new Error(`Unsupported asset mode: ${assetMode}. Expected "cdn" or "local".`);
 }
 
 function indent(text, spaces) {

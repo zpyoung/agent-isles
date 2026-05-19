@@ -63,8 +63,8 @@ The rendered demo is published by the GitHub Pages workflow after changes land o
 ## CLI
 
 ```bash
-isles render <file.md> [--out <file.html>] [--mode trusted|sanitized]
-isles render <file.md> [--out <file.html>] [--safe|--sanitize]
+isles render <file.md> [--out <file.html>] [--mode trusted|sanitized] [--assets cdn|local]
+isles render <file.md> [--out <file.html>] [--safe|--sanitize] [--assets cdn|local]
 ```
 
 During local development, run the CLI directly:
@@ -77,6 +77,17 @@ Or use the package script:
 
 ```bash
 npm run render -- --out dist/demo.html
+```
+
+Asset modes:
+
+- `--assets cdn` is the default prototype-friendly mode. It references Bootstrap and the Highlight.js theme from public CDNs, while still copying the Agent Isles component bundle beside the output HTML.
+- `--assets local` writes network-free HTML references and copies Bootstrap CSS, Bootstrap JS, Highlight.js CSS, and the Agent Isles component bundle into the output directory. Use this for offline review, durable artifacts, or environments where CDN access is unreliable.
+
+Example local/offline render:
+
+```bash
+node ./bin/isles.mjs render examples/demo.md --out dist/demo.html --assets local
 ```
 
 `isles watch` is reserved for the next slice.
