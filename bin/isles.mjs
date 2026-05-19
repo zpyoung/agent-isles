@@ -7,8 +7,9 @@ import {
   renderMarkdownFile,
   RENDER_MODES,
 } from '../src/render.mjs';
-import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { watchMarkdownFile } from '../src/watch.mjs';
 
 const USAGE = `Agent Isles — Markdown seas, component islands.
@@ -26,6 +27,7 @@ Options:
   --assets cdn|local   Use CDN assets by default, or copy local offline assets
 `;
 
+const packageJson = JSON.parse(readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '..', 'package.json'), 'utf8'));
 const [, , command, ...args] = process.argv;
 
 if (!command || command === '--help' || command === '-h') {
@@ -34,7 +36,7 @@ if (!command || command === '--help' || command === '-h') {
 }
 
 if (command === '--version' || command === '-v') {
-  console.log('0.0.0');
+  console.log(packageJson.version);
   process.exit(0);
 }
 
