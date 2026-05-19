@@ -77,12 +77,20 @@ Planning surfaces:
 - Repo-tracked wiki mirror: `docs/wiki/`
 - Maintainer playbook: `docs/MAINTAINER_PLAYBOOK.md`
 
-## Supported islands so far
+## Component vocabulary
+
+The durable component vocabulary reference lives at:
+
+```txt
+docs/component-vocabulary.md
+```
+
+Supported islands so far:
 
 - `<agent-decision verdict="..." title="...">...</agent-decision>`
 - `<agent-risk level="low|medium|high|critical" title="...">...</agent-risk>`
 
-More components from the guide are planned.
+The reference documents supported attributes, child content expectations, accessibility notes, trusted/sanitized rendering behavior, and planned placeholders for the next component set.
 
 ## Security modes
 

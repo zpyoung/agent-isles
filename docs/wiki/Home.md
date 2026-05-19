@@ -6,6 +6,7 @@ Start here:
 
 - [Roadmap](Roadmap) — current milestones and issue map
 - [Architecture](Architecture) — how Markdown becomes browser-ready HTML
+- [Component Vocabulary](Component-Vocabulary) — supported and planned `<agent-*>` islands
 - [Planning System](Planning-System) — how we use issues, projects, and wiki together
 
 ## Core idea
