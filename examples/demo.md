@@ -48,15 +48,11 @@ Agent Isles is useful when the output must satisfy two audiences at once:
 Ship the report format as Markdown plus explicit HTML islands. Keep prose portable, use Bootstrap for one-off layout, and reserve Lit components for recurring decision and risk patterns.
 </agent-decision>
 
-<agent-gantt
-  title="Revised Migration Timeline"
-  weeks="28"
-  milestones="12,15,28"
-  baseline-label="Original — no AI, new design"
-  baseline-weeks="38"
-  revised-label="Revised — AI + 1:1 parity + existing assets"
-  revised-weeks="28"
-  summary="26% faster · ~10 weeks saved">
+## Revised Migration Timeline
+
+Markdown owns the section heading and summary: the focused Gantt island below owns only the chart grid, lanes, milestones, task bars, details, and legend.
+
+<agent-gantt aria-label="Revised migration timeline" weeks="28" milestones="12,15,28">
   <agent-gantt-phase label="PHASE 1 — CORE BUILD">
     <agent-gantt-task
       label="Components + Storybook"
@@ -73,7 +69,22 @@ Ship the report format as Markdown plus explicit HTML islands. Keep prose portab
       parallel>
     </agent-gantt-task>
   </agent-gantt-phase>
-  <agent-gantt-note badge="AI">Components: 8 wks → 2 wks.</agent-gantt-note>
+  <agent-gantt-phase label="PHASE 2 — LAUNCH READINESS">
+    <agent-gantt-task
+      label="UAT"
+      start="13"
+      end="15"
+      tone="validation"
+      detail="Migration-critical paths validated before launch">
+    </agent-gantt-task>
+    <agent-gantt-task
+      label="Launch window"
+      start="28"
+      end="28"
+      tone="launch"
+      detail="Week 28 milestone">
+    </agent-gantt-task>
+  </agent-gantt-phase>
 </agent-gantt>
 
 <agent-metric label="Renderer confidence" value="92" unit="%" trend="up">

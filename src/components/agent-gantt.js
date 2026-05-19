@@ -3,6 +3,7 @@ import { LitElement, css, html } from 'lit';
 const TONE_LABELS = {
   components: 'Components',
   testing: 'Testing',
+  validation: 'Validation',
   launch: 'Launch',
   content: 'Content',
   platform: 'Platform',
@@ -27,14 +28,8 @@ function parseMilestones(value) {
 
 export class AgentGantt extends LitElement {
   static properties = {
-    title: { type: String },
     weeks: { type: Number },
     milestones: { type: String },
-    baselineLabel: { type: String, attribute: 'baseline-label' },
-    baselineWeeks: { type: Number, attribute: 'baseline-weeks' },
-    revisedLabel: { type: String, attribute: 'revised-label' },
-    revisedWeeks: { type: Number, attribute: 'revised-weeks' },
-    summary: { type: String },
   };
 
   static styles = css`
@@ -47,27 +42,6 @@ export class AgentGantt extends LitElement {
       overflow-x: auto;
       padding: 1rem;
     }
-    .header {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem 1rem;
-      justify-content: space-between;
-      margin-bottom: 0.85rem;
-    }
-    h3 { color: #0f172a; font-size: 1.05rem; margin: 0; }
-    .summary { color: #1d4ed8; font-weight: 850; }
-    .comparison {
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 0.8rem;
-      color: #334155;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem 1rem;
-      margin-bottom: 0.9rem;
-      padding: 0.7rem 0.85rem;
-    }
-    .comparison strong { color: #0f172a; }
     .week-grid {
       border-bottom: 1px solid #e2e8f0;
       display: grid;
@@ -106,6 +80,7 @@ export class AgentGantt extends LitElement {
     }
     .components { --tone-color: #2563eb; }
     .testing { --tone-color: #7c3aed; }
+    .validation { --tone-color: #0d9488; }
     .launch { --tone-color: #16a34a; }
     .content { --tone-color: #ea580c; }
     .platform { --tone-color: #0891b2; }
@@ -113,7 +88,8 @@ export class AgentGantt extends LitElement {
   `;
 
   updated() {
-    this.setAttribute('aria-label', this.title || 'Gantt schedule');
+    if (!this.hasAttribute('role')) this.setAttribute('role', 'group');
+    if (!this.hasAttribute('aria-label')) this.setAttribute('aria-label', 'Gantt schedule');
   }
 
   render() {
@@ -122,17 +98,13 @@ export class AgentGantt extends LitElement {
     const tones = this.collectTones();
 
     return html`
-      <section class="gantt" role="group" aria-label=${this.title || 'Gantt schedule'} style=${`--agent-gantt-weeks: ${weeks};`}>
-        <div class="header">
-          <h3>${this.title || 'Schedule'}</h3>
-          ${this.summary ? html`<div class="summary">${this.summary}</div>` : null}
-        </div>
-        ${this.renderComparison()}
+      <section class="gantt" style=${`--agent-gantt-weeks: ${weeks};`}>
         <div class="week-grid" aria-label=${`${weeks} week schedule grid`} style=${`grid-template-columns: repeat(${weeks}, minmax(1.35rem, 1fr));`}>
           ${Array.from({ length: weeks }, (_, index) => {
             const week = index + 1;
             const isMilestone = milestones.includes(week);
-            return html`<span class=${`week-marker${isMilestone ? ' milestone' : ''}`} title=${isMilestone ? `Week ${week} milestone` : `Week ${week}`}>${isMilestone || week === 1 || week === weeks || week % 4 === 0 ? week : ''}<span class="sr-only">${isMilestone ? `Week ${week} milestone` : `Week ${week}`}</span></span>`;
+            const visibleLabel = isMilestone || week === 1 || week === weeks || week % 4 === 0 ? week : '';
+            return html`<span class=${`week-marker${isMilestone ? ' milestone' : ''}`} title=${isMilestone ? `Week ${week} milestone` : `Week ${week}`}>${visibleLabel}<span class="sr-only">${isMilestone ? `Week ${week} milestone` : `Week ${week}`}</span></span>`;
           })}
         </div>
         <slot @slotchange=${() => this.requestUpdate()}></slot>
@@ -140,17 +112,6 @@ export class AgentGantt extends LitElement {
           ${tones.map((tone) => html`<span class=${`legend-item ${tone}`}><span class="swatch" aria-hidden="true"></span>${TONE_LABELS[tone] || tone}</span>`)}
         </div>
       </section>
-    `;
-  }
-
-  renderComparison() {
-    if (!this.baselineWeeks && !this.revisedWeeks) return null;
-
-    return html`
-      <div class="comparison" aria-label="Schedule comparison">
-        ${this.baselineWeeks ? html`<span><strong>${this.baselineLabel || 'Baseline'}:</strong> ${this.baselineWeeks} weeks</span>` : null}
-        ${this.revisedWeeks ? html`<span><strong>${this.revisedLabel || 'Revised'}:</strong> ${this.revisedWeeks} weeks</span>` : null}
-      </div>
     `;
   }
 
@@ -241,6 +202,7 @@ export class AgentGanttTask extends LitElement {
     }
     .components { --tone-color: #2563eb; }
     .testing { --tone-color: #7c3aed; }
+    .validation { --tone-color: #0d9488; }
     .launch { --tone-color: #16a34a; }
     .content { --tone-color: #ea580c; }
     .platform { --tone-color: #0891b2; }
@@ -273,36 +235,3 @@ export class AgentGanttTask extends LitElement {
 }
 
 customElements.define('agent-gantt-task', AgentGanttTask);
-
-export class AgentGanttNote extends LitElement {
-  static properties = {
-    badge: { type: String },
-  };
-
-  static styles = css`
-    :host { display: block; margin-top: 0.7rem; }
-    .note {
-      background: #eef2ff;
-      border: 1px solid #c7d2fe;
-      border-radius: 0.85rem;
-      color: #3730a3;
-      font-size: 0.9rem;
-      padding: 0.65rem 0.8rem;
-    }
-    .badge {
-      background: #4f46e5;
-      border-radius: 999px;
-      color: #ffffff;
-      font-size: 0.72rem;
-      font-weight: 850;
-      margin-right: 0.45rem;
-      padding: 0.18rem 0.45rem;
-    }
-  `;
-
-  render() {
-    return html`<aside class="note">${this.badge ? html`<span class="badge">${this.badge}</span>` : null}<slot></slot></aside>`;
-  }
-}
-
-customElements.define('agent-gantt-note', AgentGanttNote);

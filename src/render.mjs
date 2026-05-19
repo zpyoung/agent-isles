@@ -84,7 +84,6 @@ const sanitizedSchema = {
       'agent-gantt',
       'agent-gantt-phase',
       'agent-gantt-task',
-      'agent-gantt-note',
     ]),
   ],
   attributes: {
@@ -111,11 +110,16 @@ const sanitizedSchema = {
     'agent-tab': ['className', 'title', 'active'],
     'agent-timeline': ['className', 'label'],
     'agent-step': ['className', 'status', 'label'],
-    'agent-gantt': ['className', 'title', 'weeks', 'milestones', 'baseline-label', 'baseline-weeks', 'revised-label', 'revised-weeks', 'summary'],
+    'agent-gantt': ['className', 'ariaLabel', 'role', 'weeks', 'milestones'],
     'agent-gantt-phase': ['className', 'label'],
-    'agent-gantt-task': ['className', 'label', 'start', 'end', 'tone', 'detail', 'parallel'],
-    'agent-gantt-note': ['className', 'badge'],
+    'agent-gantt-task': ['className', 'ariaLabel', 'label', 'start', 'end', 'tone', 'detail', 'parallel'],
   },
+};
+
+const focusedGanttAttributes = {
+  'agent-gantt': new Set(['className', 'ariaLabel', 'role', 'weeks', 'milestones']),
+  'agent-gantt-phase': new Set(['className', 'label']),
+  'agent-gantt-task': new Set(['className', 'ariaLabel', 'label', 'start', 'end', 'tone', 'detail', 'parallel']),
 };
 
 export async function renderMarkdown(markdown, options = {}) {
@@ -129,7 +133,10 @@ export async function renderMarkdown(markdown, options = {}) {
     .use(rehypeRaw);
 
   if (renderMode === RENDER_MODES.SANITIZED) {
-    processor.use(dropUnsafeRawHtmlElements).use(rehypeSanitize, sanitizedSchema);
+    processor
+      .use(dropUnsafeRawHtmlElements)
+      .use(dropUnsupportedAgentGanttMarkup)
+      .use(rehypeSanitize, sanitizedSchema);
   }
 
   const body = await processor
@@ -185,6 +192,26 @@ function dropUnsafeRawHtmlElements() {
         children.splice(index, 1);
         return index;
       }
+
+      return undefined;
+    });
+  };
+}
+
+function dropUnsupportedAgentGanttMarkup() {
+  return (tree) => {
+    visitChildren(tree, (children, index, node) => {
+      if (node.tagName === 'agent-gantt-note') {
+        children.splice(index, 1);
+        return index;
+      }
+
+      const allowed = focusedGanttAttributes[node.tagName];
+      if (!allowed || !node.properties) return undefined;
+
+      node.properties = Object.fromEntries(
+        Object.entries(node.properties).filter(([key]) => allowed.has(key) || key.startsWith('data')),
+      );
 
       return undefined;
     });

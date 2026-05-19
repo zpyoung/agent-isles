@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { serveDist } from './support/static-server.mjs';
 
-test('Gantt schedule hydrates phases, milestones, legend, comparison, and accessible task details', async ({ page }) => {
+test('Gantt schedule hydrates phases, milestones, legend, and accessible task details', async ({ page }) => {
   const server = await serveDist();
   const consoleErrors = [];
   page.on('console', (message) => {
@@ -16,11 +16,13 @@ test('Gantt schedule hydrates phases, milestones, legend, comparison, and access
     await expect(gantt).toBeVisible();
     await expect.poll(() => page.evaluate(() => Boolean(customElements.get('agent-gantt')))).toBe(true);
     await expect.poll(() => page.evaluate(() => Boolean(customElements.get('agent-gantt-task')))).toBe(true);
-    await expect(gantt).toHaveAttribute('aria-label', 'Revised Migration Timeline');
+    await expect(gantt).toHaveAttribute('aria-label', 'Revised migration timeline');
+    await expect(page.locator('h2', { hasText: 'Revised Migration Timeline' })).toBeVisible();
     await expect(gantt).toContainText('PHASE 1 — CORE BUILD');
     await expect(gantt).toContainText('Week 12 milestone');
-    await expect(gantt).toContainText('26% faster');
     await expect(gantt).toContainText('Components');
+    await expect(gantt).not.toContainText('26% faster');
+    await expect(page.locator('agent-gantt-note')).toHaveCount(0);
 
     const task = page.locator('agent-gantt-task[label="Components + Storybook"]').first();
     await expect(task).toHaveAttribute('aria-label', /Components \+ Storybook, weeks 3 through 5/);
