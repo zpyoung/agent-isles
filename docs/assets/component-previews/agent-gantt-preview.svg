@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720" role="img" aria-labelledby="title desc">
+  <title id="title">Agent Gantt component preview</title>
+  <desc id="desc">A compact project schedule component with milestone metrics, week grid, colored task bars, legend, comparison bar, and notes.</desc>
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="5" flood-color="#111827" flood-opacity="0.14"/>
+    </filter>
+    <pattern id="diagonal" patternUnits="userSpaceOnUse" width="10" height="10" patternTransform="rotate(-35)">
+      <rect width="10" height="10" fill="#dff4f2"/>
+      <rect width="4" height="10" fill="#9dd7d1" opacity="0.7"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="720" rx="28" fill="#f7f6f2"/>
+  <rect x="50" y="42" width="1100" height="636" rx="18" fill="#fbfbf9" stroke="#d7d2ca" filter="url(#shadow)"/>
+
+  <g transform="translate(82 76)">
+    <text x="0" y="0" fill="#28251d" font-family="Satoshi, Inter, Arial" font-size="28" font-weight="700">Revised Migration Timeline</text>
+    <text x="0" y="30" fill="#7a7974" font-family="Satoshi, Inter, Arial" font-size="15">Headless Shopify migration · AI-assisted · Hydrogen + Oxygen</text>
+  </g>
+
+  <g transform="translate(82 138)">
+    <g>
+      <rect x="0" y="0" width="330" height="88" rx="12" fill="#ffffff" stroke="#ded9d2"/>
+      <text x="22" y="40" fill="#437a22" font-family="Satoshi, Inter, Arial" font-size="34" font-weight="700">~12 wks</text>
+      <text x="22" y="66" fill="#7a7974" font-family="Satoshi, Inter, Arial" font-size="14">Phase 1 dev complete</text>
+      <rect x="230" y="50" width="78" height="22" rx="11" fill="#e5f1dd"/>
+      <text x="269" y="65" fill="#437a22" text-anchor="middle" font-family="Satoshi, Inter, Arial" font-size="12" font-weight="700">was ~26</text>
+    </g>
+    <g transform="translate(354 0)">
+      <rect x="0" y="0" width="330" height="88" rx="12" fill="#ffffff" stroke="#ded9d2"/>
+      <text x="22" y="40" fill="#b87a00" font-family="Satoshi, Inter, Arial" font-size="34" font-weight="700">~15 wks</text>
+      <text x="22" y="66" fill="#7a7974" font-family="Satoshi, Inter, Arial" font-size="14">Live Ireland soft launch</text>
+      <rect x="230" y="50" width="78" height="22" rx="11" fill="#e5f1dd"/>
+      <text x="269" y="65" fill="#437a22" text-anchor="middle" font-family="Satoshi, Inter, Arial" font-size="12" font-weight="700">was ~28</text>
+    </g>
+    <g transform="translate(708 0)">
+      <rect x="0" y="0" width="330" height="88" rx="12" fill="#ffffff" stroke="#ded9d2"/>
+      <text x="22" y="40" fill="#01696f" font-family="Satoshi, Inter, Arial" font-size="34" font-weight="700">~28 wks</text>
+      <text x="22" y="66" fill="#7a7974" font-family="Satoshi, Inter, Arial" font-size="14">Phase 2 full delivery</text>
+      <rect x="230" y="50" width="78" height="22" rx="11" fill="#e5f1dd"/>
+      <text x="269" y="65" fill="#437a22" text-anchor="middle" font-family="Satoshi, Inter, Arial" font-size="12" font-weight="700">was ~38</text>
+    </g>
+  </g>
+
+  <g transform="translate(82 266)">
+    <text x="0" y="0" fill="#9a9791" font-family="Satoshi, Inter, Arial" font-size="12" font-weight="700" letter-spacing="1.2">PHASE / TASK</text>
+    <g transform="translate(210 0)" font-family="Satoshi, Inter, Arial" font-size="11" font-weight="700" fill="#bab9b4">
+      <text x="0" y="0">1</text><text x="64" y="0">4</text><text x="128" y="0">8</text><text x="192" y="0" fill="#01696f">12</text><text x="256" y="0" fill="#01696f">15</text><text x="384" y="0">20</text><text x="512" y="0">24</text><text x="620" y="0" fill="#01696f">28</text>
+    </g>
+    <g transform="translate(210 15)" stroke="#e0ddd7" stroke-width="1">
+      <line x1="0" y1="0" x2="0" y2="308"/><line x1="64" y1="0" x2="64" y2="308"/><line x1="128" y1="0" x2="128" y2="308"/><line x1="192" y1="0" x2="192" y2="308" stroke="#8cbfc3" stroke-dasharray="5 5"/><line x1="256" y1="0" x2="256" y2="308" stroke="#8cbfc3" stroke-dasharray="5 5"/><line x1="384" y1="0" x2="384" y2="308"/><line x1="512" y1="0" x2="512" y2="308"/><line x1="620" y1="0" x2="620" y2="308" stroke="#8cbfc3" stroke-dasharray="5 5"/>
+    </g>
+
+    <g font-family="Satoshi, Inter, Arial" font-size="14" fill="#6f6c66">
+      <text x="0" y="44" fill="#bab9b4" font-size="11" font-weight="700">PHASE 1 — CORE BUILD</text>
+      <text x="0" y="78">Components + Storybook</text>
+      <text x="0" y="112">State management</text>
+      <text x="0" y="146">Markets + geolocation</text>
+      <text x="0" y="180">Meal builder</text>
+      <text x="0" y="214">Checkout + subscriptions</text>
+      <text x="0" y="248">Testing parallel</text>
+      <text x="0" y="292" fill="#bab9b4" font-size="11" font-weight="700">PHASE 1 ROLLOUT</text>
+      <text x="0" y="326">Ireland + UK rollout</text>
+    </g>
+
+    <g transform="translate(210 55)" font-family="Satoshi, Inter, Arial" font-size="12" font-weight="700" fill="#fff">
+      <rect x="46" y="0" width="46" height="23" rx="6" fill="#3b82f6"/><text x="57" y="16">2w</text>
+      <rect x="46" y="34" width="70" height="23" rx="6" fill="#3b82f6"/><text x="58" y="50">3w</text>
+      <rect x="92" y="68" width="70" height="23" rx="6" fill="#0d9488"/><text x="104" y="84">3w</text>
+      <rect x="138" y="102" width="28" height="23" rx="6" fill="#ef4444"/><text x="144" y="118">1w</text>
+      <rect x="164" y="136" width="70" height="23" rx="6" fill="#ec4899"/><text x="176" y="152">3w</text>
+      <rect x="46" y="170" width="210" height="23" rx="6" fill="url(#diagonal)" stroke="#01696f" stroke-dasharray="5 5"/><text x="78" y="186" fill="#01696f">Testing — parallel</text>
+      <rect x="278" y="248" width="160" height="23" rx="6" fill="#ea580c"/><text x="308" y="264">Rollout</text>
+    </g>
+  </g>
+
+  <g transform="translate(82 610)" font-family="Satoshi, Inter, Arial">
+    <text x="0" y="0" fill="#7a7974" font-size="13" font-weight="700">Timeline comparison</text>
+    <rect x="180" y="-10" width="250" height="10" rx="5" fill="#9ca3af"/><text x="446" y="0" fill="#28251d" font-size="13" font-weight="700">38 wks</text>
+    <rect x="545" y="-10" width="184" height="10" rx="5" fill="#01696f"/><text x="745" y="0" fill="#28251d" font-size="13" font-weight="700">28 wks</text>
+    <rect x="830" y="-22" width="170" height="28" rx="14" fill="#e5f1dd"/><text x="915" y="-4" text-anchor="middle" fill="#437a22" font-size="13" font-weight="700">~10 weeks saved</text>
+  </g>
+</svg>

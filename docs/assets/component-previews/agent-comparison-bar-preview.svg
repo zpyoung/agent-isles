@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="430" viewBox="0 0 1200 430" role="img" aria-labelledby="title desc">
+  <title id="title">Agent comparison bar component preview</title>
+  <desc id="desc">A comparison bar component showing original and revised durations, percent improvement, and savings.</desc>
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="5" flood-color="#111827" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="430" rx="28" fill="#f7f6f2"/>
+  <g transform="translate(70 58)" font-family="Satoshi, Inter, Arial">
+    <text x="0" y="0" fill="#28251d" font-size="28" font-weight="700">agent-comparison-bar</text>
+    <text x="0" y="30" fill="#7a7974" font-size="15">A reusable before/after visual for timelines, cost reductions, throughput gains, and model eval deltas.</text>
+  </g>
+
+  <g transform="translate(70 128)" font-family="Satoshi, Inter, Arial" filter="url(#shadow)">
+    <rect x="0" y="0" width="1060" height="210" rx="20" fill="#fbfbf9" stroke="#d7d2ca"/>
+    <text x="34" y="44" fill="#7a7974" font-size="14" font-weight="800" letter-spacing="1.2">TIMELINE COMPARISON</text>
+
+    <g transform="translate(34 82)">
+      <text x="0" y="0" fill="#6f6c66" font-size="15" font-weight="600">Original — no AI, new design</text>
+      <rect x="300" y="-14" width="520" height="18" rx="9" fill="#9ca3af"/>
+      <text x="844" y="2" fill="#28251d" font-size="16" font-weight="800">38 wks</text>
+    </g>
+
+    <g transform="translate(34 132)">
+      <text x="0" y="0" fill="#6f6c66" font-size="15" font-weight="600">Revised — AI + 1:1 parity</text>
+      <rect x="300" y="-14" width="383" height="18" rx="9" fill="#01696f"/>
+      <text x="707" y="2" fill="#28251d" font-size="16" font-weight="800">28 wks</text>
+    </g>
+
+    <g transform="translate(34 174)">
+      <rect x="0" y="-20" width="218" height="34" rx="17" fill="#e5f1dd"/>
+      <text x="109" y="2" fill="#437a22" text-anchor="middle" font-size="14" font-weight="800">↓ 26% faster</text>
+      <rect x="234" y="-20" width="228" height="34" rx="17" fill="#e7f4f5"/>
+      <text x="348" y="2" fill="#01696f" text-anchor="middle" font-size="14" font-weight="800">~10 weeks saved</text>
+    </g>
+  </g>
+
+  <g transform="translate(70 372)" font-family="Satoshi, Inter, Arial">
+    <rect x="0" y="-26" width="1060" height="44" rx="14" fill="#fbfbf9" stroke="#d7d2ca"/>
+    <text x="24" y="2" fill="#7a7974" font-size="14">Authoring shape: </text>
+    <text x="140" y="2" fill="#01696f" font-size="14" font-weight="700">&lt;agent-comparison-bar baseline="38" revised="28" unit="wks" summary="~10 weeks saved" /&gt;</text>
+  </g>
+</svg>
