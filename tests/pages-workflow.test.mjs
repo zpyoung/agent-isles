@@ -23,9 +23,13 @@ test('GitHub Pages workflow publishes the rendered demo from dist', () => {
   assert.match(workflow, /npx playwright install --with-deps chromium/);
   assert.match(workflow, /npm test/);
   assert.match(workflow, /npm run render -- --out dist\/demo\.html/);
+  assert.match(workflow, /Check Pages site configuration/);
+  assert.match(workflow, /repos\/\$\{GITHUB_REPOSITORY\}\/pages/);
+  assert.match(workflow, /GitHub Pages is not enabled/);
+  assert.doesNotMatch(workflow, /enablement:\s*true/);
   assert.match(workflow, /upload-pages-artifact@v3/);
   assert.match(workflow, /path:\s*dist/);
-  assert.match(workflow, /enablement:\s*true/);
+  assert.match(workflow, /steps\.pages-site\.outputs\.enabled == 'true'/);
   assert.match(workflow, /deploy-pages@v4/);
 });
 
