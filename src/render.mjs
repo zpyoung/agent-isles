@@ -81,6 +81,8 @@ const sanitizedSchema = {
       'agent-tab',
       'agent-timeline',
       'agent-step',
+      'agent-kpi-strip',
+      'agent-kpi',
     ]),
   ],
   attributes: {
@@ -107,6 +109,8 @@ const sanitizedSchema = {
     'agent-tab': ['className', 'title', 'active'],
     'agent-timeline': ['className', 'label'],
     'agent-step': ['className', 'status', 'label'],
+    'agent-kpi-strip': ['className', 'columns', 'label'],
+    'agent-kpi': ['className', 'label', 'value', 'unit', 'delta', 'tone'],
   },
 };
 

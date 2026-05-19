@@ -152,6 +152,48 @@ Example placeholder:
 <agent-metric label="Tests" value="42" unit="passing" trend="up" tone="good"></agent-metric>
 ```
 
+
+### `<agent-kpi-strip>` and `<agent-kpi>`
+
+Use for compact groups of report metrics, milestone summaries, exec dashboards, and before/after status bands. Use a single `<agent-metric>` when there is only one number; use a KPI strip when the numbers are meaningfully scanned as a set.
+
+Status: supported.
+
+Attributes:
+
+| Tag | Attribute | Required | Allowed values | Default | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `agent-kpi-strip` | `columns` | No | Positive integer, clamped for readability | `3` | Preferred desktop column count; wraps to one column on small screens. |
+| `agent-kpi-strip` | `label` | No | Plain text | `KPI strip` | Accessible group label. |
+| `agent-kpi` | `label` | Yes | Plain text | `KPI` | Metric card label. |
+| `agent-kpi` | `value` | Yes | Plain text or number | `—` | Main value. |
+| `agent-kpi` | `unit` | No | Plain text | none | Unit suffix such as `wks`, `%`, `ms`, or `$`. |
+| `agent-kpi` | `delta` | No | Plain text | none | Short comparison note such as `was ~26 wks`. |
+| `agent-kpi` | `tone` | No | `primary`, `success`, `warning`, `danger`, `neutral` | `neutral` | Semantic emphasis for the delta badge and border. |
+
+Child content: each `<agent-kpi>` may include one short detail sentence.
+
+Accessibility notes:
+
+- The strip renders as a list and each KPI renders as a list item.
+- Each KPI receives an accessible label composed from label, value, unit, and delta.
+- Color is only emphasis; label/value/delta text carries the meaning.
+
+Trusted/sanitized behavior:
+
+- Trusted mode preserves the tags, attributes, and child content.
+- Sanitized mode allows documented KPI tags and attributes while removing scripts and event handlers.
+
+Minimal example:
+
+```markdown
+<agent-kpi-strip columns="3" label="Migration milestones">
+  <agent-kpi label="Phase 1 dev complete" value="~12" unit="wks" delta="was ~26 wks" tone="success">
+    From kick-off
+  </agent-kpi>
+</agent-kpi-strip>
+```
+
 ### `<agent-copy-block>`
 
 Intended use: command snippets, config fragments, prompts, or generated code that users are likely to copy.
