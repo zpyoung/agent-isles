@@ -31,10 +31,10 @@ test('rendered demo loads without console errors and hydrates agent components',
 
     await expect(page.locator('h1')).toContainText('Agent Isles Demo');
 
-    const renderedAgentTags = await page.locator('agent-decision, agent-risk').evaluateAll((elements) => [
+    const renderedAgentTags = await page.locator('agent-decision').evaluateAll((elements) => [
       ...new Set(elements.map((element) => element.localName)),
     ]);
-    expect(renderedAgentTags).toContain('agent-decision');
+    expect(renderedAgentTags).toEqual(['agent-decision']);
 
     for (const tag of expectedCustomElements) {
       await expect
