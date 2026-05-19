@@ -48,6 +48,34 @@ Agent Isles is useful when the output must satisfy two audiences at once:
 Ship the report format as Markdown plus explicit HTML islands. Keep prose portable, use Bootstrap for one-off layout, and reserve Lit components for recurring decision and risk patterns.
 </agent-decision>
 
+<agent-gantt
+  title="Revised Migration Timeline"
+  weeks="28"
+  milestones="12,15,28"
+  baseline-label="Original — no AI, new design"
+  baseline-weeks="38"
+  revised-label="Revised — AI + 1:1 parity + existing assets"
+  revised-weeks="28"
+  summary="26% faster · ~10 weeks saved">
+  <agent-gantt-phase label="PHASE 1 — CORE BUILD">
+    <agent-gantt-task
+      label="Components + Storybook"
+      start="3"
+      end="5"
+      tone="components"
+      detail="2 wks — was 8 wks&#10;1:1 parity removes design review loop">
+    </agent-gantt-task>
+    <agent-gantt-task
+      label="Testing — parallel"
+      start="3"
+      end="12"
+      tone="testing"
+      parallel>
+    </agent-gantt-task>
+  </agent-gantt-phase>
+  <agent-gantt-note badge="AI">Components: 8 wks → 2 wks.</agent-gantt-note>
+</agent-gantt>
+
 <agent-metric label="Renderer confidence" value="92" unit="%" trend="up">
 </agent-metric>
 

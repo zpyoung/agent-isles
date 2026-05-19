@@ -152,6 +152,58 @@ Example placeholder:
 <agent-metric label="Tests" value="42" unit="passing" trend="up" tone="good"></agent-metric>
 ```
 
+
+### `<agent-gantt>`, `<agent-gantt-phase>`, `<agent-gantt-task>`, and `<agent-gantt-note>`
+
+Use for dense project schedules with parallel workstreams, milestone weeks, task bars, details, generated legends, and before/after delivery summaries.
+
+Status: supported.
+
+Attributes:
+
+| Tag | Attribute | Required | Allowed values | Default | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `agent-gantt` | `title` | No | Plain text | `Schedule` | Visible and accessible schedule title. |
+| `agent-gantt` | `weeks` | Yes | Positive integer | `1` | Total grid length. |
+| `agent-gantt` | `milestones` | No | Comma-separated week numbers | none | Marks milestone columns. |
+| `agent-gantt` | `baseline-label` | No | Plain text | `Baseline` | Comparison label. |
+| `agent-gantt` | `baseline-weeks` | No | Positive integer | none | Baseline duration. |
+| `agent-gantt` | `revised-label` | No | Plain text | `Revised` | Comparison label. |
+| `agent-gantt` | `revised-weeks` | No | Positive integer | none | Revised duration. |
+| `agent-gantt` | `summary` | No | Plain text | none | Human-readable compression summary. |
+| `agent-gantt-phase` | `label` | Yes | Plain text | `Phase` | Phase heading. |
+| `agent-gantt-task` | `label` | Yes | Plain text | `Task` | Task bar label. |
+| `agent-gantt-task` | `start` | Yes | Positive integer week | `1` | Start week, clamped into the grid. |
+| `agent-gantt-task` | `end` | Yes | Positive integer week | `start` | End week, inclusive. |
+| `agent-gantt-task` | `tone` | No | `components`, `testing`, `launch`, `content`, `platform`, `default` | `default` | Bar color and generated legend label. |
+| `agent-gantt-task` | `detail` | No | Plain text | none | Accessible expandable task detail. |
+| `agent-gantt-task` | `parallel` | No | Boolean attribute | false | Adds a striped visual treatment for continuous/overlapping work. |
+| `agent-gantt-note` | `badge` | No | Plain text | none | Small note badge. |
+
+Child content: `<agent-gantt>` contains phases and notes; phases contain tasks; tasks may include extra detail text, though `detail` is preferred for short tooltips/details.
+
+Accessibility notes:
+
+- The Gantt renders a labeled group with visible week and milestone text.
+- Each task exposes an accessible label including the task name and week range.
+- Task details use native `<details>/<summary>` behavior for keyboard and pointer access.
+- The legend is generated from task tones and includes visible text labels.
+
+Trusted/sanitized behavior:
+
+- Trusted mode preserves documented Gantt tags and attributes.
+- Sanitized mode allows documented Gantt tags and attributes while removing scripts and event handlers.
+
+Minimal example:
+
+```markdown
+<agent-gantt title="Revised Migration Timeline" weeks="28" milestones="12,15,28" summary="26% faster">
+  <agent-gantt-phase label="PHASE 1 — CORE BUILD">
+    <agent-gantt-task label="Components + Storybook" start="3" end="5" tone="components" detail="2 wks — was 8 wks"></agent-gantt-task>
+  </agent-gantt-phase>
+</agent-gantt>
+```
+
 ### `<agent-copy-block>`
 
 Intended use: command snippets, config fragments, prompts, or generated code that users are likely to copy.
