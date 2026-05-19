@@ -31,10 +31,10 @@ test('rendered demo loads without console errors and hydrates agent components',
 
     await expect(page.locator('h1')).toContainText('Agent Isles Demo');
 
-    const renderedAgentTags = await page.locator('agent-decision').evaluateAll((elements) => [
+    const renderedAgentTags = await page.locator('agent-decision, agent-risk').evaluateAll((elements) => [
       ...new Set(elements.map((element) => element.localName)),
     ]);
-    expect(renderedAgentTags).toEqual(['agent-decision']);
+    expect(renderedAgentTags).toEqual(expectedCustomElements);
 
     for (const tag of expectedCustomElements) {
       await expect
@@ -48,19 +48,11 @@ test('rendered demo loads without console errors and hydrates agent components',
       .toBe(true);
     await expect(decision).toContainText('Use Markdown islands');
 
-    await page.evaluate(() => {
-      const risk = document.createElement('agent-risk');
-      risk.setAttribute('level', 'high');
-      risk.setAttribute('title', 'Hydration check');
-      risk.textContent = 'Injected risk component';
-      document.querySelector('main')?.append(risk);
-    });
-
     const risk = page.locator('agent-risk').first();
     await expect
       .poll(() => risk.evaluate((element) => Boolean(element.shadowRoot?.querySelector('.risk'))))
       .toBe(true);
-    await expect(risk).toContainText('Injected risk component');
+    await expect(risk).toContainText('Raw HTML is a trust boundary');
 
     await mkdir(artifactDir, { recursive: true });
     await page.screenshot({ path: resolve(artifactDir, 'demo-hydrated.png'), fullPage: true });
