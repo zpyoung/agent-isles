@@ -94,7 +94,10 @@ test('sanitized render mode preserves safe dependency map markup', async () => {
 </agent-dependency-map>
 `, { renderMode: 'sanitized' });
 
-  assert.match(html, /<agent-dependency-map label="Chain" direction="vertical" legend="show">/);
+  assert.match(
+    html,
+    /<agent-dependency-map(?=[^>]*\blabel="Chain")(?=[^>]*\bdirection="vertical")(?=[^>]*\blegend="show")[^>]*>/,
+  );
   assert.match(
     html,
     /<agent-dependency id="(?:user-content-)?edit-server" label="Edit server" status="ready" owner="Merlin" priority="P0" href="https:\/\/example\.com">/,
@@ -252,7 +255,10 @@ test('demo renders a dependency chain map with blocked nodes', async () => {
 
   const { html } = await renderMarkdownFile(demo);
 
-  assert.match(html, /<agent-dependency-map label="Writeback dependency chain" direction="vertical" legend="show">/);
+  assert.match(
+    html,
+    /<agent-dependency-map(?=[^>]*\blabel="Writeback dependency chain")(?=[^>]*\bdirection="vertical")(?=[^>]*\blegend="show")[^>]*>/,
+  );
   assert.match(html, /<agent-dependency id="source-metadata" label="Source metadata" status="blocked" blocked-by="edit-server"/);
   assert.match(html, /<agent-dependency id="writeback-release" label="Writeback release" status="risk" blocked-by="browser-client, docs"/);
 });

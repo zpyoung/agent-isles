@@ -54,6 +54,7 @@ export class AgentDependency extends LitElement {
     this.resolvedBlockers = [];
     this.missingBlockers = [];
     this.missingId = false;
+    this.setAttribute('role', 'listitem');
   }
 
   static styles = css`
@@ -233,7 +234,7 @@ export class AgentDependency extends LitElement {
     ].filter(Boolean);
 
     return html`
-      <article class="card" role="listitem" data-status=${status}>
+      <article class="card" data-status=${status}>
         <header>
           <h3>
             ${href ? html`<a href=${href}>${title}</a>` : title}
@@ -255,4 +256,3 @@ export class AgentDependency extends LitElement {
 }
 
 customElements.define('agent-dependency', AgentDependency);
-

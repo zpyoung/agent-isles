@@ -83,7 +83,7 @@ test('rendered demo loads without console errors and hydrates agent components',
       .poll(() => dependencyMap.evaluate((element) => Boolean(element.shadowRoot?.querySelector('svg.edges'))))
       .toBe(true);
     await expect
-      .poll(() => dependencyMap.evaluate((element) => element.shadowRoot?.querySelectorAll('path').length || 0))
+      .poll(() => dependencyMap.evaluate((element) => element.shadowRoot?.querySelectorAll('svg.edges > path[marker-end]').length || 0))
       .toBeGreaterThan(0);
 
     const editServer = page.locator('agent-dependency#edit-server').first();

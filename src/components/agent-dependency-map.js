@@ -2,8 +2,14 @@ import { LitElement, css, html } from 'lit';
 import { analyzeDependencyGraph, parseDependencyIdList } from './dependency-graph.js';
 
 function normalizeDirection(direction) {
-  const value = String(direction || '').trim().toLowerCase();
-  return value === 'horizontal' ? 'horizontal' : 'vertical';
+  return 'vertical';
+}
+
+const STATUSES = new Set(['ready', 'active', 'blocked', 'done', 'risk']);
+
+function normalizeStatus(status) {
+  const value = String(status || '').trim().toLowerCase();
+  return STATUSES.has(value) ? value : 'ready';
 }
 
 function normalizeLegendMode(value) {
@@ -234,7 +240,7 @@ export class AgentDependencyMap extends LitElement {
       element.resolvedBlockers = resolvedBlockers;
       element.missingBlockers = analysis.missingBlockersById.get(nodeId) || [];
 
-      const status = String(model.status || '').trim().toLowerCase() || 'ready';
+      const status = normalizeStatus(model.status);
       statusSet.add(status);
     }
 
@@ -244,12 +250,7 @@ export class AgentDependencyMap extends LitElement {
     this._edgePairs = analysis.edges;
     this._elementById = elementById;
 
-    const direction = normalizeDirection(this.direction);
-    if (direction === 'horizontal') {
-      grid.style.gridAutoFlow = 'column';
-    } else {
-      grid.style.gridAutoFlow = 'row';
-    }
+    grid.style.gridAutoFlow = 'row';
     grid.style.gridTemplateColumns = `repeat(${analysis.maxDepth + 1}, minmax(16rem, 1fr))`;
 
     this.queueEdgeRender();
