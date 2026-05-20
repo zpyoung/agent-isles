@@ -1,7 +1,9 @@
 import { LitElement, css, html } from 'lit';
 import { analyzeDependencyGraph, parseDependencyIdList } from './dependency-graph.js';
 
-function normalizeDirection(direction) {
+function normalizeDirection(_direction) {
+  // TODO: support horizontal layout once edge routing and axis assignment are implemented.
+  // Horizontal layout is not implemented yet; keep the API stable and default to vertical.
   return 'vertical';
 }
 
@@ -214,6 +216,7 @@ export class AgentDependencyMap extends LitElement {
     for (const model of nodeModels) {
       const nodeId = typeof model.id === 'string' ? model.id.trim() : '';
       const element = model._element;
+      element.setAttribute('role', 'listitem');
 
       if (!nodeId || !analysis.nodesById.has(nodeId)) {
         element.style.gridRow = 'auto';

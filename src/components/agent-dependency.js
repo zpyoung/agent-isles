@@ -54,7 +54,6 @@ export class AgentDependency extends LitElement {
     this.resolvedBlockers = [];
     this.missingBlockers = [];
     this.missingId = false;
-    this.setAttribute('role', 'listitem');
   }
 
   static styles = css`

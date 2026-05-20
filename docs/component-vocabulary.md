@@ -194,7 +194,7 @@ Attributes:
 | Tag | Attribute | Required | Allowed values | Default | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `agent-dependency-map` | `label` | No | Plain text | empty | Visible map title and accessible region label. |
-| `agent-dependency-map` | `direction` | No | `vertical` (default), `horizontal` | `vertical` | Vertical flows top-to-bottom; horizontal may be used for wide layouts. |
+| `agent-dependency-map` | `direction` | No | `vertical` | `vertical` | Vertical top-to-bottom flow. |
 | `agent-dependency-map` | `legend` | No | `auto`, `show`, `hide` | `auto` | `auto` shows the legend when multiple statuses appear. |
 | `agent-dependency` | `id` | Yes (for reference) | Token | empty | Required when referenced by `blocked-by`. |
 | `agent-dependency` | `label` | No | Plain text | `Dependency` | Visible node title. |
