@@ -6,22 +6,45 @@ const TREND_STYLES = {
   flat: { label: 'Flat', icon: '→', tone: 'neutral' },
 };
 
+const METRIC_TONES = new Set(['neutral', 'good', 'warning', 'danger']);
+
+function normalizeTone(tone) {
+  return METRIC_TONES.has(tone) ? tone : 'neutral';
+}
+
 export class AgentMetric extends LitElement {
   static properties = {
     label: { type: String },
     value: { type: String },
     unit: { type: String },
     trend: { type: String },
+    tone: { type: String },
   };
 
   static styles = css`
     :host { display: block; }
     .metric {
-      border: 1px solid #dbeafe;
+      border: 1px solid var(--metric-border, #dbeafe);
       border-radius: 0.9rem;
-      background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+      background: var(--metric-bg, linear-gradient(180deg, #ffffff 0%, #f8fafc 100%));
       box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+      color: var(--metric-color, #0f172a);
       padding: 1rem;
+    }
+    .metric.tone-good {
+      --metric-bg: linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%);
+      --metric-border: #86efac;
+      --metric-color: #14532d;
+    }
+    .metric.tone-warning {
+      --metric-bg: linear-gradient(180deg, #fffbeb 0%, #ffffff 100%);
+      --metric-border: #facc15;
+      --metric-color: #713f12;
+    }
+    .metric.tone-danger {
+      --metric-bg: linear-gradient(180deg, #fef2f2 0%, #ffffff 100%);
+      --metric-border: #fca5a5;
+      --metric-color: #7f1d1d;
     }
     .label {
       color: #475569;
@@ -37,7 +60,7 @@ export class AgentMetric extends LitElement {
       margin-top: 0.25rem;
     }
     .value {
-      color: #0f172a;
+      color: var(--metric-color, #0f172a);
       font-size: clamp(1.8rem, 4vw, 2.5rem);
       font-weight: 800;
       line-height: 1;
@@ -57,25 +80,42 @@ export class AgentMetric extends LitElement {
       margin-top: 0.8rem;
       padding: 0.22rem 0.55rem;
     }
-    .positive { background: #dcfce7; color: #166534; }
-    .negative { background: #fee2e2; color: #991b1b; }
-    .neutral { background: #e2e8f0; color: #334155; }
+    .trend.positive { background: #dcfce7; color: #166534; }
+    .trend.negative { background: #fee2e2; color: #991b1b; }
+    .trend.neutral { background: #e2e8f0; color: #334155; }
+    .note {
+      color: #475569;
+      margin-top: 0.65rem;
+    }
   `;
+
+  accessibleLabel(trend) {
+    const parts = [this.label || 'Metric', this.value || '—'];
+    if (this.unit) parts.push(this.unit);
+    if (this.trend) parts.push(`Trend: ${trend.label}`);
+    const tone = normalizeTone(this.tone);
+    if (tone !== 'neutral') parts.push(`Tone: ${tone}`);
+    return parts.join(' ');
+  }
 
   render() {
     const trend = TREND_STYLES[this.trend || 'flat'] || TREND_STYLES.flat;
+    const tone = normalizeTone(this.tone);
 
     return html`
-      <section class="metric" aria-label=${this.label || 'Metric'}>
+      <section class=${`metric tone-${tone}`} aria-label=${this.accessibleLabel(trend)}>
         <div class="label">${this.label || 'Metric'}</div>
         <div class="value-row">
           <span class="value">${this.value || '—'}</span>
           ${this.unit ? html`<span class="unit">${this.unit}</span>` : null}
         </div>
-        <div class="trend ${trend.tone}" title=${`Trend: ${trend.label}`}>
-          <span aria-hidden="true">${trend.icon}</span>
-          <span>${trend.label}</span>
-        </div>
+        ${this.trend ? html`
+          <div class="trend ${trend.tone}" title=${`Trend: ${trend.label}`}>
+            <span aria-hidden="true">${trend.icon}</span>
+            <span>${trend.label}</span>
+          </div>
+        ` : null}
+        <div class="note"><slot></slot></div>
       </section>
     `;
   }

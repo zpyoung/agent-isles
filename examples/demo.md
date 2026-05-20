@@ -48,6 +48,25 @@ Agent Isles is useful when the output must satisfy two audiences at once:
 Ship the report format as Markdown plus explicit HTML islands. Keep prose portable, use Bootstrap for one-off layout, and reserve Lit components for recurring decision and risk patterns.
 </agent-decision>
 
+<div class="card shadow-sm my-3">
+  <div class="card-body">
+    <h3 class="h5">Timeline comparison</h3>
+    <div class="row g-3">
+      <div class="col-md-6">
+        <agent-metric label="Original — no AI, new design" value="38" unit="wks" tone="neutral">
+        </agent-metric>
+      </div>
+      <div class="col-md-6">
+        <agent-metric label="Revised — AI + 1:1 parity + existing assets" value="28" unit="wks" tone="good">
+        </agent-metric>
+      </div>
+    </div>
+    <agent-delta label="Timeline delta" value="-10" unit="wks" percent="-26" direction="lower-better">
+      26% faster · ~10 weeks saved
+    </agent-delta>
+  </div>
+</div>
+
 <div class="row g-3 my-4" role="list" aria-label="Migration milestones">
   <div class="col-md-4" role="listitem">
     <agent-kpi label="Phase 1 dev complete" value="~12" unit="wks" delta="was ~26 wks" tone="success">

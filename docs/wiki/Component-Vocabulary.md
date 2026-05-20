@@ -176,59 +176,103 @@ Use Markdown for surrounding context. The component owns only the chart.
 </agent-gantt>
 ```
 
-## Planned components
-
-These names are reserved by the vocabulary so docs, examples, and implementation can converge without inventing new tags later.
-
-### `<agent-finding>`
-
-Intended use: code review, audit, QA, or bug-investigation findings where severity and source location matter.
-
-Planned attributes:
-
-| Attribute | Required | Allowed values | Notes |
-| --- | --- | --- | --- |
-| `severity` | No | `info`, `low`, `medium`, `high`, `critical` | Visual priority of the finding. |
-| `file` | No | Repo-relative path | Source file or artifact path. |
-| `line` | No | Positive integer or line range such as `42` or `42-45` | Source location hint. |
-| `title` | No | Plain text | Short finding summary. |
-
-Child content: finding details, evidence, suggested fix, and verification notes.
-
-Accessibility placeholder: severity must be rendered as text, and file/line metadata should be copyable as text.
-
-Example placeholder:
-
-```markdown
-<agent-finding severity="medium" file="src/render.mjs" line="22" title="Raw HTML mode is trusted-only">
-Add sanitized-mode coverage before accepting untrusted Markdown input.
-</agent-finding>
-```
-
 ### `<agent-metric>`
 
-Intended use: compact report KPIs such as counts, durations, pass rates, cost, token usage, or coverage.
+Use for compact report measurements such as counts, durations, pass rates, cost, token usage, coverage, latency, or scores.
 
-Planned attributes:
+Status: supported.
 
-| Attribute | Required | Allowed values | Notes |
-| --- | --- | --- | --- |
-| `label` | Yes | Plain text | Metric name. |
-| `value` | Yes | Plain text or number | Displayed value. |
-| `unit` | No | Plain text | Unit suffix such as `%`, `ms`, `files`, or `$`. |
-| `trend` | No | `up`, `down`, `flat` | Direction only; pair with surrounding prose for meaning. |
-| `tone` | No | `neutral`, `good`, `warning`, `danger` | Semantic interpretation of the value. |
+Attributes:
 
-Child content: optional explanatory note; should be short.
+| Attribute | Required | Allowed values | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `label` | Yes | Plain text | `Metric` | Metric name. |
+| `value` | Yes | Plain text or number | `—` | Displayed value. |
+| `unit` | No | Plain text | none | Unit suffix such as `%`, `ms`, `files`, `$`, or `wks`. |
+| `trend` | No | `up`, `down`, `flat` | none | Direction only; pair with `tone` or surrounding prose for meaning. |
+| `tone` | No | `neutral`, `good`, `warning`, `danger` | `neutral` | Semantic interpretation of the value. |
 
-Accessibility placeholder: trend arrows must include text labels or accessible names, not just glyphs.
+Child content: optional explanatory note; should be short and readable if the component is ignored.
 
-Example placeholder:
+Accessibility notes:
+
+- The visible label, value, unit, trend text, and tone are represented as text, not color alone.
+- `trend` is intentionally directional only; use `tone` or prose to say whether the movement is good or bad.
+- Keep long explanations outside the metric or in surrounding Markdown.
+
+Trusted/sanitized behavior:
+
+- Trusted mode preserves the tag, documented attributes, and child HTML.
+- Sanitized mode allows `label`, `value`, `unit`, `trend`, and `tone` while removing scripts and event handlers.
+
+Example:
 
 ```markdown
 <agent-metric label="Tests" value="42" unit="passing" trend="up" tone="good"></agent-metric>
 ```
 
+### `<agent-delta>`
+
+Use for signed change summaries such as weeks saved, percent improvement, cost reduction, latency regression, score lift, or coverage movement.
+
+Status: supported.
+
+Attributes:
+
+| Attribute | Required | Allowed values | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `label` | No | Plain text | `Delta` | Short label for the change. |
+| `value` | Yes | Signed number or text | `—` | Primary signed change value, such as `-10` or `+18`. |
+| `unit` | No | Plain text | none | Unit suffix such as `wks`, `%`, `$`, `ms`, or `pts`. |
+| `percent` | No | Signed number or text without `%` | none | Optional percent change displayed alongside the value. |
+| `direction` | No | `lower-better`, `higher-better`, `neutral` | `neutral` | Interprets whether positive/negative movement is good or bad. |
+| `tone` | No | `neutral`, `good`, `warning`, `danger` | computed from `value` + `direction` | Optional override for semantic emphasis. |
+
+Child content: concise human summary of what changed and why it matters.
+
+Accessibility notes:
+
+- The value, unit, percent, direction semantics, and computed/explicit tone are exposed as text.
+- Do not rely on green/red styling alone; include a child summary such as `26% faster · ~10 weeks saved`.
+- Use `direction` whenever possible so a negative value can be interpreted correctly.
+
+Trusted/sanitized behavior:
+
+- Trusted mode preserves the tag, documented attributes, and child HTML.
+- Sanitized mode allows `label`, `value`, `unit`, `percent`, `direction`, and `tone` while removing scripts and event handlers.
+
+Example:
+
+```markdown
+<agent-delta label="Timeline delta" value="-10" unit="wks" percent="-26" direction="lower-better">
+  26% faster · ~10 weeks saved
+</agent-delta>
+```
+
+### Composition recipe: comparison card
+
+Use ordinary Markdown/Bootstrap layout for the one-off card wrapper and compose report primitives inside it:
+
+```markdown
+<div class="card shadow-sm my-3">
+  <div class="card-body">
+    <h3 class="h5">Timeline comparison</h3>
+    <div class="row g-3">
+      <div class="col-md-6">
+        <agent-metric label="Original — no AI, new design" value="38" unit="wks" tone="neutral"></agent-metric>
+      </div>
+      <div class="col-md-6">
+        <agent-metric label="Revised — AI + 1:1 parity + existing assets" value="28" unit="wks" tone="good"></agent-metric>
+      </div>
+    </div>
+    <agent-delta label="Timeline delta" value="-10" unit="wks" percent="-26" direction="lower-better">
+      26% faster · ~10 weeks saved
+    </agent-delta>
+  </div>
+</div>
+```
+
+Do not introduce `<agent-comparison-bar>` for this slice. If a specific comparison visualization repeats often enough later, promote it from this composition recipe into its own semantic island.
 
 ### `<agent-kpi>`
 
@@ -269,6 +313,35 @@ Minimal example:
     </agent-kpi>
   </div>
 </div>
+```
+
+## Planned components
+
+These names are reserved by the vocabulary so docs, examples, and implementation can converge without inventing new tags later.
+
+### `<agent-finding>`
+
+Intended use: code review, audit, QA, or bug-investigation findings where severity and source location matter.
+
+Planned attributes:
+
+| Attribute | Required | Allowed values | Notes |
+| --- | --- | --- | --- |
+| `severity` | No | `info`, `low`, `medium`, `high`, `critical` | Visual priority of the finding. |
+| `file` | No | Repo-relative path | Source file or artifact path. |
+| `line` | No | Positive integer or line range such as `42` or `42-45` | Source location hint. |
+| `title` | No | Plain text | Short finding summary. |
+
+Child content: finding details, evidence, suggested fix, and verification notes.
+
+Accessibility placeholder: severity must be rendered as text, and file/line metadata should be copyable as text.
+
+Example placeholder:
+
+```markdown
+<agent-finding severity="medium" file="src/render.mjs" line="22" title="Raw HTML mode is trusted-only">
+Add sanitized-mode coverage before accepting untrusted Markdown input.
+</agent-finding>
 ```
 
 ### `<agent-copy-block>`

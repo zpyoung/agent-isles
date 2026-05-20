@@ -214,14 +214,16 @@ Supported islands so far:
 - `<agent-decision verdict="..." title="...">...</agent-decision>`
 - `<agent-risk level="low|medium|high|critical" title="...">...</agent-risk>`
 - `<agent-gantt weeks="..." milestones="..." label="...">...</agent-gantt>` with `<agent-gantt-phase label="...">` lanes and `<agent-gantt-task label="..." start="..." end="..." tone="..." detail="..." parallel>` bars
+- `<agent-metric label="..." value="..." unit="..." tone="neutral|good|warning|danger">...</agent-metric>`
+- `<agent-delta label="..." value="..." unit="..." percent="..." direction="lower-better|higher-better|neutral">...</agent-delta>`
+- `<agent-kpi label="..." value="..." unit="..." delta="..." tone="primary|success|warning|danger|neutral">...</agent-kpi>`
+- `<agent-copy-block lang="..." label="...">...</agent-copy-block>`
 - `<agent-tabs>...</agent-tabs>` with `<agent-tab title="...">...</agent-tab>` panels
 - `<agent-timeline label="...">...</agent-timeline>` with `<agent-step status="done|active|pending|failed" label="...">...</agent-step>` entries
 
 Planned component directions include:
 
-- `<agent-gantt>` for compact, data-driven schedule and roadmap visuals,
-- `<agent-kpi>` for grouped executive-summary metrics,
-- `<agent-comparison-bar>` for before/after comparisons such as timeline, cost, latency, or score deltas.
+- `<agent-finding>` for structured findings with severity, source location, and remediation context.
 
 The reference documents supported attributes, child content expectations, accessibility notes, trusted/sanitized rendering behavior, and planned placeholders for the next component set.
 
