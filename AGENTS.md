@@ -86,3 +86,4 @@ Keep this file updated when durable project-operating lessons emerge. Prefer add
 - README and public docs should be updated alongside feature, CLI, component-vocabulary, security-boundary, and roadmap changes.
 - GitHub Pages and other live/public settings are production-like surfaces. Keep workflows safe and ask before enabling or changing live website settings.
 - Existing PR branches may be shared review surfaces. Avoid force-pushes by default; prefer temporary worktrees, merges, and fast-forward pushes when updating diverged PR branches.
+- Multistage delegated work should use a bounded shepherd watcher by default when waiting on bots, review, or CI. The watcher should monitor the relevant issue/PR chain, address safe feedback, verify checks, merge only when explicitly authorized and safe, update issue/project state, and report only meaningful state changes.
