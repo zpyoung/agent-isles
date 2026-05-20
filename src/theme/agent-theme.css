@@ -36,7 +36,8 @@ agent-copy-block,
 agent-tabs,
 agent-timeline,
 agent-gantt,
-agent-kpi {
+agent-kpi,
+agent-status-board {
   display: block;
   margin: 1rem 0;
 }
