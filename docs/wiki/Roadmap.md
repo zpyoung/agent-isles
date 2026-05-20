@@ -1,78 +1,81 @@
 # Roadmap
 
-This roadmap uses GitHub issues as executable planning units, a GitHub Project for sequencing, and this wiki for durable architecture/context.
+This roadmap uses GitHub issues as executable planning units, GitHub milestones for release grouping, and this wiki for durable context.
 
-## Current execution order
+## Current focus
 
-The board is the source of truth for live status. The intended near-term sequence is:
+Agent Isles has moved past the first renderer vertical slice. The active work is now split across:
 
-1. [#1 MVP: harden `isles render` into the baseline renderer](https://github.com/zpyoung/agent-isles/issues/1)
-2. [#7 Infra: add GitHub Actions CI for build, test, and render smoke](https://github.com/zpyoung/agent-isles/issues/7)
-3. [#2 Feature: add `isles watch` for live Markdown rebuilds](https://github.com/zpyoung/agent-isles/issues/2)
-4. [#6 Security: add trusted vs sanitized rendering modes](https://github.com/zpyoung/agent-isles/issues/6)
-5. [#3 Components: implement `<agent-metric>` and `<agent-copy-block>`](https://github.com/zpyoung/agent-isles/issues/3)
-6. [#10 Docs: define Agent Isles component vocabulary reference](https://github.com/zpyoung/agent-isles/issues/10)
-7. [#5 Docs: turn `examples/demo.md` into a compelling public demo](https://github.com/zpyoung/agent-isles/issues/5)
-8. [#4 Components: implement tabs and timeline islands](https://github.com/zpyoung/agent-isles/issues/4)
-9. [#9 Test: add browser smoke test for rendered demo hydration](https://github.com/zpyoung/agent-isles/issues/9)
-10. [#12 Renderer: support local asset mode for offline/reliable output](https://github.com/zpyoung/agent-isles/issues/12)
-11. [#11 Docs: publish rendered demo via GitHub Pages](https://github.com/zpyoung/agent-isles/issues/11)
-12. [#8 Release: prepare npm package publishing path](https://github.com/zpyoung/agent-isles/issues/8)
+1. **Demo and Components** — expanding the component vocabulary and improving the public demo.
+2. **Release Readiness** — keeping docs, security, CI, packaging, and planning surfaces coherent.
+3. **Interactive Writeback** — a planned explicit localhost edit mode for safe source writeback.
 
-Rationale: baseline renderer first, then CI guardrails, then authoring loop, then security posture, then richer demo/component work, then release-facing polish.
+See [Active Project Plan](Active-Project-Plan) for the current lightweight operating summary.
 
-## Milestones
+## Release phases
 
-### MVP Renderer
+### [MVP Renderer](Milestones#mvp-renderer)
 
 Goal: make Agent Isles useful as a trusted Markdown-to-HTML renderer with CI guardrails.
 
-Issues:
+Representative issues:
 
 - [#1 MVP: harden `isles render` into the baseline renderer](https://github.com/zpyoung/agent-isles/issues/1)
-- [#7 Infra: add GitHub Actions CI for build, test, and render smoke](https://github.com/zpyoung/agent-isles/issues/7)
 - [#2 Feature: add `isles watch` for live Markdown rebuilds](https://github.com/zpyoung/agent-isles/issues/2)
+- [#7 Infra: add GitHub Actions CI for build, test, and render smoke](https://github.com/zpyoung/agent-isles/issues/7)
 
-### Demo and Components
+### [Demo and Components](Milestones#demo-and-components)
 
 Goal: make the public demo compelling and expand the first component vocabulary.
 
-Issues:
+Representative issues:
 
-- [#3 Components: implement `<agent-metric>` and `<agent-copy-block>`](https://github.com/zpyoung/agent-isles/issues/3)
-- [#10 Docs: define Agent Isles component vocabulary reference](https://github.com/zpyoung/agent-isles/issues/10)
-- [#5 Docs: turn `examples/demo.md` into a compelling public demo](https://github.com/zpyoung/agent-isles/issues/5)
-- [#4 Components: implement tabs and timeline islands](https://github.com/zpyoung/agent-isles/issues/4)
+- [#26 Components: add focused Gantt chart island](https://github.com/zpyoung/agent-isles/issues/26)
+- [#28 Components: add composable metric comparison primitives](https://github.com/zpyoung/agent-isles/issues/28)
+- [#49 Components: add status board island](https://github.com/zpyoung/agent-isles/issues/49)
+- [#50 Components: add action list island](https://github.com/zpyoung/agent-isles/issues/50)
+- [#52 Components: add vertical dependency DAG island](https://github.com/zpyoung/agent-isles/issues/52)
 
-### Release Readiness
+### [Release Readiness](Milestones#release-readiness)
 
 Goal: prepare the project for external contributors and an eventual npm prerelease.
 
-Issues:
+Representative issues:
 
 - [#6 Security: add trusted vs sanitized rendering modes](https://github.com/zpyoung/agent-isles/issues/6)
-- [#9 Test: add browser smoke test for rendered demo hydration](https://github.com/zpyoung/agent-isles/issues/9)
-- [#12 Renderer: support local asset mode for offline/reliable output](https://github.com/zpyoung/agent-isles/issues/12)
-- [#11 Docs: publish rendered demo via GitHub Pages](https://github.com/zpyoung/agent-isles/issues/11)
 - [#8 Release: prepare npm package publishing path](https://github.com/zpyoung/agent-isles/issues/8)
+- [#9 Test: add browser smoke test for rendered demo hydration](https://github.com/zpyoung/agent-isles/issues/9)
+- [#11 Docs: publish rendered demo via GitHub Pages](https://github.com/zpyoung/agent-isles/issues/11)
+- [#12 Renderer: support local asset mode for offline/reliable output](https://github.com/zpyoung/agent-isles/issues/12)
+- [#63 Docs: create wiki planning spine](https://github.com/zpyoung/agent-isles/issues/63)
 
-## Project board
+### [Interactive Writeback](Milestones#interactive-writeback)
 
-Use the project board as the live work queue:
+Goal: add an explicit localhost edit mode that can safely patch supported interactions back to Markdown source.
 
-https://github.com/users/zpyoung/projects/1
+Representative issues:
 
-Board fields:
+- [#31 Writeback: task-list writeback MVP](https://github.com/zpyoung/agent-isles/issues/31)
+- [#33 Writeback 1/5: add explicit `isles edit` localhost server](https://github.com/zpyoung/agent-isles/issues/33)
+- [#34 Writeback 2/5: add edit-mode task-list source metadata](https://github.com/zpyoung/agent-isles/issues/34)
+- [#35 Writeback 3/5: implement task-list patcher and writeback API](https://github.com/zpyoung/agent-isles/issues/35)
+- [#36 Writeback 4/5: add browser writeback client for task checkboxes](https://github.com/zpyoung/agent-isles/issues/36)
+- [#37 Writeback 5/5: add browser smoke tests and documentation](https://github.com/zpyoung/agent-isles/issues/37)
 
-- **Status** — live execution status.
-- **Priority** — P0/P1/P2 execution priority.
-- **Phase** — milestone-level grouping.
-- **Workstream** — primary ownership area: CLI, Renderer, Components, Docs, Security, CI, or Release.
+## Sequencing rationale
 
-Suggested flow:
+The project sequence is intentionally conservative:
 
-1. Keep all planned work as issues.
-2. Use labels for area, type, priority, and readiness.
-3. Use milestones for release grouping.
-4. Use the project board for current ordering and execution status.
-5. Keep architecture rationale in this wiki rather than burying it in issue comments.
+1. Establish a trustworthy Markdown-to-HTML renderer.
+2. Add CI and smoke coverage before expanding behavior.
+3. Improve the authoring loop and public demo.
+4. Expand components where they make agent-authored Markdown more useful.
+5. Treat security and source writeback as explicit boundaries, not incidental features.
+6. Prepare packaging and release surfaces without publishing until explicitly approved.
+
+## Where to update what
+
+- Change executable scope in GitHub issues.
+- Change release grouping in GitHub milestones.
+- Change durable rationale and roadmap narrative in this wiki.
+- Put detailed technical implementation plans on the `plans` branch under `docs/plans/`.
