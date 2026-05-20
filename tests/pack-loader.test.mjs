@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -85,6 +85,24 @@ test('loadPackManifest accepts a direct manifest file path', () => {
 
   assert.equal(pack.name, 'direct-path');
   assert.equal(pack.packDir, packDir);
+});
+
+test('loadPackManifest rejects direct file paths that are not the pack manifest', () => {
+  const packDir = createPackFixture({
+    agentIslesPackVersion: 1,
+    name: 'wrong-file-path',
+  });
+  const otherManifestPath = join(packDir, 'other.json');
+  writeFileSync(otherManifestPath, JSON.stringify({ agentIslesPackVersion: 1, name: 'other-pack' }));
+
+  assert.throws(
+    () => loadPackManifest(otherManifestPath),
+    (error) => {
+      assert.equal(error.code, PACK_ERROR_CODES.MANIFEST_NOT_FOUND);
+      assert.match(error.message, new RegExp(PACK_MANIFEST_FILE));
+      return true;
+    },
+  );
 });
 
 test('loadPackManifest normalizes simple tag names', () => {
@@ -197,8 +215,14 @@ test('loadPackManifest rejects missing manifest file', () => {
 });
 
 test('loadPackManifest rejects non-existent pack path', () => {
+  const missingPackPath = join(
+    mkdtempSync(join(tmpdir(), 'agent-isles-pack-missing-parent-')),
+    `missing-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+  );
+  assert.equal(existsSync(missingPackPath), false);
+
   assert.throws(
-    () => loadPackManifest('/tmp/non-existent-pack-dir'),
+    () => loadPackManifest(missingPackPath),
     (error) => {
       assert.equal(error.code, PACK_ERROR_CODES.MANIFEST_NOT_FOUND);
       assert.match(error.message, /Pack path not found/);
@@ -264,6 +288,38 @@ test('loadPackManifest rejects unsupported pack version', () => {
       assert.equal(error.code, PACK_ERROR_CODES.UNSUPPORTED_VERSION);
       assert.match(error.message, /Unsupported pack version: 99/);
       assert.match(error.message, new RegExp(`Expected version ${SUPPORTED_PACK_VERSION}`));
+      return true;
+    },
+  );
+});
+
+test('loadPackManifest classifies numeric zero pack version as unsupported, not missing', () => {
+  const packDir = createPackFixture({
+    agentIslesPackVersion: 0,
+    name: 'zero-version-pack',
+  });
+
+  assert.throws(
+    () => loadPackManifest(packDir),
+    (error) => {
+      assert.equal(error.code, PACK_ERROR_CODES.UNSUPPORTED_VERSION);
+      assert.match(error.message, /Unsupported pack version: 0/);
+      return true;
+    },
+  );
+});
+
+test('loadPackManifest classifies empty pack name as invalid, not missing', () => {
+  const packDir = createPackFixture({
+    agentIslesPackVersion: 1,
+    name: '',
+  });
+
+  assert.throws(
+    () => loadPackManifest(packDir),
+    (error) => {
+      assert.equal(error.code, PACK_ERROR_CODES.INVALID_NAME);
+      assert.match(error.message, /Pack name must be a non-empty string/);
       return true;
     },
   );

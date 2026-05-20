@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
-import { dirname, join, normalize, resolve, sep } from 'node:path';
+import { basename, dirname, join, normalize, resolve, sep } from 'node:path';
 
 /**
  * Supported pack manifest version.
@@ -211,6 +211,13 @@ function resolvePackDirectory(packPath) {
   }
 
   if (stats.isFile()) {
+    if (basename(absolutePath) !== PACK_MANIFEST_FILE) {
+      throw new PackLoadError(
+        `Invalid pack manifest path: ${absolutePath}. Expected manifest file named ${PACK_MANIFEST_FILE}.`,
+        PACK_ERROR_CODES.MANIFEST_NOT_FOUND,
+        { packPath: absolutePath, expectedFile: PACK_MANIFEST_FILE },
+      );
+    }
     return dirname(absolutePath);
   }
 
@@ -254,7 +261,7 @@ export function loadPackManifest(packPath) {
   }
 
   // Validate required fields
-  if (!manifest.agentIslesPackVersion) {
+  if (manifest.agentIslesPackVersion == null) {
     throw new PackLoadError(
       'Missing required field: agentIslesPackVersion',
       PACK_ERROR_CODES.MISSING_REQUIRED_FIELD,
@@ -262,7 +269,7 @@ export function loadPackManifest(packPath) {
     );
   }
 
-  if (!manifest.name) {
+  if (manifest.name == null) {
     throw new PackLoadError(
       'Missing required field: name',
       PACK_ERROR_CODES.MISSING_REQUIRED_FIELD,
