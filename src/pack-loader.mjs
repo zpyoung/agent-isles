@@ -132,6 +132,25 @@ function validateAttributeName(attrName, tagName, packName) {
 }
 
 /**
+ * Validates an optional manifest array field.
+ */
+function validateOptionalArrayField(value, fieldName, code, details = {}) {
+  if (value === undefined) {
+    return [];
+  }
+
+  if (!Array.isArray(value)) {
+    throw new PackLoadError(
+      `Manifest field "${fieldName}" must be an array when provided.`,
+      code,
+      { ...details, value },
+    );
+  }
+
+  return value;
+}
+
+/**
  * Validates that a path is relative and does not contain traversal patterns.
  */
 function validateRelativePath(path, packDir) {
@@ -264,7 +283,12 @@ export function loadPackManifest(packPath) {
   validatePackName(manifest.name);
 
   // Normalize tags (default to empty array)
-  const tags = Array.isArray(manifest.tags) ? manifest.tags : [];
+  const tags = validateOptionalArrayField(
+    manifest.tags,
+    'tags',
+    PACK_ERROR_CODES.INVALID_TAG_NAME,
+    { manifestPath, packName: manifest.name },
+  );
 
   // Validate and normalize tag declarations
   const normalizedTags = [];
@@ -285,7 +309,12 @@ export function loadPackManifest(packPath) {
 
       validateTagName(tag.name, manifest.name);
 
-      const attributes = Array.isArray(tag.attributes) ? tag.attributes : [];
+      const attributes = validateOptionalArrayField(
+        tag.attributes,
+        'attributes',
+        PACK_ERROR_CODES.INVALID_ATTRIBUTE_NAME,
+        { tagName: tag.name, packName: manifest.name },
+      );
       for (const attr of attributes) {
         validateAttributeName(attr, tag.name, manifest.name);
       }
@@ -304,10 +333,23 @@ export function loadPackManifest(packPath) {
   }
 
   // Validate and normalize assets
-  const assets = Array.isArray(manifest.assets) ? manifest.assets : [];
+  const assets = validateOptionalArrayField(
+    manifest.assets,
+    'assets',
+    PACK_ERROR_CODES.INVALID_ASSET_TYPE,
+    { manifestPath, packName: manifest.name },
+  );
   const normalizedAssets = [];
 
   for (const asset of assets) {
+    if (typeof asset !== 'object' || asset === null || Array.isArray(asset)) {
+      throw new PackLoadError(
+        'Asset declarations must be objects with "type" and "path" fields',
+        PACK_ERROR_CODES.INVALID_ASSET_TYPE,
+        { asset, packName: manifest.name },
+      );
+    }
+
     if (!asset.type) {
       throw new PackLoadError(
         'Asset declaration missing required "type" field',
@@ -337,11 +379,19 @@ export function loadPackManifest(packPath) {
     // Validate and resolve asset path
     const resolvedAssetPath = validateRelativePath(asset.path, packDir);
 
-    // Check asset exists
+    // Check asset exists and points to a file
     if (!existsSync(resolvedAssetPath)) {
       throw new PackLoadError(
         `Asset file not found: ${asset.path}`,
         PACK_ERROR_CODES.ASSET_NOT_FOUND,
+        { assetPath: asset.path, resolvedPath: resolvedAssetPath, packName: manifest.name },
+      );
+    }
+
+    if (!statSync(resolvedAssetPath).isFile()) {
+      throw new PackLoadError(
+        `Invalid asset path: "${asset.path}". Asset paths must point to a file.`,
+        PACK_ERROR_CODES.INVALID_ASSET_PATH,
         { assetPath: asset.path, resolvedPath: resolvedAssetPath, packName: manifest.name },
       );
     }

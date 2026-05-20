@@ -112,13 +112,48 @@ test('loadPackManifest normalizes tags with attributes', () => {
   });
 
   const pack = loadPackManifest(packDir);
-
   assert.equal(pack.tags.length, 2);
   assert.deepEqual(pack.tags[0], {
     name: 'custom-widget',
     attributes: ['label', 'value', 'tone'],
   });
   assert.deepEqual(pack.tags[1], { name: 'custom-panel', attributes: [] });
+});
+
+test('loadPackManifest rejects a non-array tags field', () => {
+  const packDir = createPackFixture({
+    agentIslesPackVersion: 1,
+    name: 'bad-tags-pack',
+    tags: 'custom-widget',
+  });
+
+  assert.throws(
+    () => loadPackManifest(packDir),
+    (error) => {
+      assert.equal(error.code, PACK_ERROR_CODES.INVALID_TAG_NAME);
+      assert.match(error.message, /tags/);
+      assert.match(error.message, /array/);
+      return true;
+    },
+  );
+});
+
+test('loadPackManifest rejects a non-array attributes field', () => {
+  const packDir = createPackFixture({
+    agentIslesPackVersion: 1,
+    name: 'bad-attrs-pack',
+    tags: [{ name: 'custom-widget', attributes: 'label' }],
+  });
+
+  assert.throws(
+    () => loadPackManifest(packDir),
+    (error) => {
+      assert.equal(error.code, PACK_ERROR_CODES.INVALID_ATTRIBUTE_NAME);
+      assert.match(error.message, /attributes/);
+      assert.match(error.message, /array/);
+      return true;
+    },
+  );
 });
 
 test('loadPackManifest validates and resolves asset paths', () => {
@@ -481,6 +516,59 @@ test('loadPackManifest rejects asset with missing path field', () => {
     (error) => {
       assert.equal(error.code, PACK_ERROR_CODES.INVALID_ASSET_PATH);
       assert.match(error.message, /missing required "path" field/);
+      return true;
+    },
+  );
+});
+
+test('loadPackManifest rejects a non-array assets field', () => {
+  const packDir = createPackFixture({
+    agentIslesPackVersion: 1,
+    name: 'bad-assets-pack',
+    assets: { type: 'module', path: 'components.js' },
+  });
+
+  assert.throws(
+    () => loadPackManifest(packDir),
+    (error) => {
+      assert.equal(error.code, PACK_ERROR_CODES.INVALID_ASSET_TYPE);
+      assert.match(error.message, /assets/);
+      assert.match(error.message, /array/);
+      return true;
+    },
+  );
+});
+
+test('loadPackManifest rejects non-object asset declarations', () => {
+  const packDir = createPackFixture({
+    agentIslesPackVersion: 1,
+    name: 'bad-asset-pack',
+    assets: ['components.js'],
+  });
+
+  assert.throws(
+    () => loadPackManifest(packDir),
+    (error) => {
+      assert.equal(error.code, PACK_ERROR_CODES.INVALID_ASSET_TYPE);
+      assert.match(error.message, /Asset declarations/);
+      return true;
+    },
+  );
+});
+
+test('loadPackManifest rejects asset paths that resolve to directories', () => {
+  const packDir = createPackFixture({
+    agentIslesPackVersion: 1,
+    name: 'directory-asset-pack',
+    assets: [{ type: 'module', path: 'components' }],
+  });
+  mkdirSync(join(packDir, 'components'));
+
+  assert.throws(
+    () => loadPackManifest(packDir),
+    (error) => {
+      assert.equal(error.code, PACK_ERROR_CODES.INVALID_ASSET_PATH);
+      assert.match(error.message, /must point to a file/);
       return true;
     },
   );
