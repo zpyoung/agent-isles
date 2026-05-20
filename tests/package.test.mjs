@@ -14,6 +14,7 @@ const expectedPublishedFiles = [
   'dist/agent-components.js.map',
   'examples/demo.md',
   'package.json',
+  'src/components/agent-action-list.js',
   'src/components/agent-copy-block.js',
   'src/components/agent-decision.js',
   'src/components/agent-delta.js',
