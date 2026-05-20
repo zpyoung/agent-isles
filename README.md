@@ -59,7 +59,8 @@ The public demo lives in `examples/demo.md`. It is intentionally readable as pla
 - Bootstrap cards for quick metrics,
 - Markdown tables and code fences for portable evidence,
 - `<agent-decision>` elements for recommendations,
-- `<agent-risk>` elements for caveats and mitigations.
+- `<agent-risk>` elements for caveats and mitigations,
+- `<agent-gantt>` schedules for phase lanes, milestone weeks, overlapping work, and task details.
 
 Render it locally:
 
@@ -212,6 +213,7 @@ Supported islands so far:
 
 - `<agent-decision verdict="..." title="...">...</agent-decision>`
 - `<agent-risk level="low|medium|high|critical" title="...">...</agent-risk>`
+- `<agent-gantt weeks="..." milestones="..." label="...">...</agent-gantt>` with `<agent-gantt-phase label="...">` lanes and `<agent-gantt-task label="..." start="..." end="..." tone="..." detail="..." parallel>` bars
 - `<agent-metric label="..." value="..." unit="..." tone="neutral|good|warning|danger">...</agent-metric>`
 - `<agent-delta label="..." value="..." unit="..." percent="..." direction="lower-better|higher-better|neutral">...</agent-delta>`
 - `<agent-kpi label="..." value="..." unit="..." delta="..." tone="primary|success|warning|danger|neutral">...</agent-kpi>`
@@ -221,7 +223,7 @@ Supported islands so far:
 
 Planned component directions include:
 
-- `<agent-gantt>` for compact, data-driven schedule and roadmap visuals.
+- `<agent-finding>` for structured findings with severity, source location, and remediation context.
 
 The reference documents supported attributes, child content expectations, accessibility notes, trusted/sanitized rendering behavior, and planned placeholders for the next component set.
 

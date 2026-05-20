@@ -132,6 +132,50 @@ npm run render -- --out dist/demo.html
   </agent-tab>
 </agent-tabs>
 
+## Revised migration schedule
+
+Use Markdown for the section title and explanatory prose; `<agent-gantt>` owns only the chart: phase lanes, week axis, milestone markers, task bars, overlap, legend, and task details.
+
+<agent-gantt weeks="28" milestones="12,15,28" label="Migration schedule">
+  <agent-gantt-phase label="Core build">
+    <agent-gantt-task
+      label="Components + Storybook"
+      start="3"
+      end="5"
+      tone="components"
+      detail="2 wks — was 8 wks; 1:1 parity removes design review loop">
+      Component parity keeps the source Markdown simple while the rendered chart shows schedule compression.
+    </agent-gantt-task>
+    <agent-gantt-task
+      label="Testing — parallel"
+      start="3"
+      end="12"
+      tone="testing"
+      detail="Runs continuously beside component work"
+      parallel>
+      Regression and browser smoke coverage run alongside build work instead of waiting for handoff.
+    </agent-gantt-task>
+  </agent-gantt-phase>
+  <agent-gantt-phase label="Launch readiness">
+    <agent-gantt-task
+      label="UAT"
+      start="13"
+      end="15"
+      tone="validation"
+      detail="Migration-critical paths only">
+      UAT stays scoped to flows that decide whether launch can proceed.
+    </agent-gantt-task>
+    <agent-gantt-task
+      label="Go-live checkpoint"
+      start="28"
+      end="28"
+      tone="launch"
+      detail="Milestone week 28">
+      Final readiness review and publish decision.
+    </agent-gantt-task>
+  </agent-gantt-phase>
+</agent-gantt>
+
 ## Decisions
 
 <agent-decision verdict="go" title="Keep the source boring">

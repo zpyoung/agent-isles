@@ -17,6 +17,7 @@ const expectedPublishedFiles = [
   'src/components/agent-copy-block.js',
   'src/components/agent-decision.js',
   'src/components/agent-delta.js',
+  'src/components/agent-gantt.js',
   'src/components/agent-kpi.js',
   'src/components/agent-metric.js',
   'src/components/agent-risk.js',

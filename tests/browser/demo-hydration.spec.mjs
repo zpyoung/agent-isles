@@ -12,7 +12,7 @@ const contentTypes = new Map([
   ['.js', 'text/javascript; charset=utf-8'],
   ['.css', 'text/css; charset=utf-8'],
 ]);
-const expectedCustomElements = ['agent-decision', 'agent-risk'];
+const expectedCustomElements = ['agent-decision', 'agent-risk', 'agent-gantt', 'agent-gantt-phase', 'agent-gantt-task'];
 
 test('rendered demo loads without console errors and hydrates agent components', async ({ page }) => {
   const server = await serveDist();
@@ -31,10 +31,12 @@ test('rendered demo loads without console errors and hydrates agent components',
 
     await expect(page.locator('h1')).toContainText('Agent Isles Demo');
 
-    const renderedAgentTags = await page.locator('agent-decision, agent-risk').evaluateAll((elements) => [
-      ...new Set(elements.map((element) => element.localName)),
-    ]);
-    expect(renderedAgentTags).toEqual(expectedCustomElements);
+    const renderedAgentTags = await page
+      .locator('agent-decision, agent-risk, agent-gantt, agent-gantt-phase, agent-gantt-task')
+      .evaluateAll((elements) => [
+        ...new Set(elements.map((element) => element.localName)),
+      ]);
+    expect(renderedAgentTags).toEqual(expect.arrayContaining(expectedCustomElements));
 
     for (const tag of expectedCustomElements) {
       await expect
@@ -53,6 +55,19 @@ test('rendered demo loads without console errors and hydrates agent components',
       .poll(() => risk.evaluate((element) => Boolean(element.shadowRoot?.querySelector('.risk'))))
       .toBe(true);
     await expect(risk).toContainText('Raw HTML is a trust boundary');
+
+    const gantt = page.locator('agent-gantt').first();
+    await expect
+      .poll(() => gantt.evaluate((element) => Boolean(element.shadowRoot?.querySelector('[role="grid"]'))))
+      .toBe(true);
+    await expect(gantt).toContainText('Components + Storybook');
+
+    const firstTask = page.locator('agent-gantt-task').first();
+    await expect
+      .poll(() => firstTask.evaluate((element) => Boolean(element.shadowRoot?.querySelector('details summary'))))
+      .toBe(true);
+    await firstTask.locator('summary').click();
+    await expect(firstTask.locator('details')).toContainText('2 wks — was 8 wks');
 
     await mkdir(artifactDir, { recursive: true });
     await page.screenshot({ path: resolve(artifactDir, 'demo-hydrated.png'), fullPage: true });
