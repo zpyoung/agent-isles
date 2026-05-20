@@ -25,6 +25,11 @@ test('delta normalization maps comparison direction to semantic tone', () => {
     tone: 'good',
     directionLabel: 'lower is better',
   });
+  assert.deepEqual(normalizeDelta('−10', 'lower-better'), {
+    numericValue: -10,
+    tone: 'good',
+    directionLabel: 'lower is better',
+  });
   assert.deepEqual(normalizeDelta('18', 'higher-better'), {
     numericValue: 18,
     tone: 'good',

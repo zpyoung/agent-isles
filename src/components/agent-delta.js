@@ -9,7 +9,8 @@ const DIRECTIONS = {
 const TONES = new Set(['neutral', 'good', 'warning', 'danger']);
 
 function parseNumericValue(value) {
-  const numericValue = Number(value);
+  const normalizedValue = String(value ?? '').trim().replaceAll('−', '-');
+  const numericValue = Number(normalizedValue);
   return Number.isFinite(numericValue) ? numericValue : 0;
 }
 

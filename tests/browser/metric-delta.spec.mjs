@@ -26,6 +26,7 @@ test('metric and delta primitives hydrate as a composed comparison card', async 
 
     await expect(originalMetric).toContainText('Original — no AI, new design');
     await expect(originalMetric).toContainText('38');
+    await expect.poll(() => originalMetric.evaluate((element) => element.shadowRoot.querySelector('section').className)).toBe('metric tone-neutral');
     await expect(revisedMetric).toContainText('Revised — AI + 1:1 parity + existing assets');
     await expect(revisedMetric).toContainText('28');
     await expect(delta).toContainText('26% faster');
