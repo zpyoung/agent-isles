@@ -37,6 +37,14 @@ test('component bundle registers the initial agent island vocabulary', () => {
   }
 });
 
+test('component bundle registers dependency DAG islands', () => {
+  const bundle = readFileSync(componentBundle, 'utf8');
+
+  for (const tagName of ['agent-dependency-map', 'agent-dependency']) {
+    assertCustomElementDefinition(bundle, tagName);
+  }
+});
+
 test('sanitized render mode removes active HTML while preserving safe islands', async () => {
   const { renderMarkdown } = await import('../src/render.mjs');
 
@@ -67,6 +75,36 @@ test('sanitized render mode removes active HTML while preserving safe islands', 
   assert.doesNotMatch(html, /onclick=/i);
   assert.doesNotMatch(html, /onerror=/i);
   assert.doesNotMatch(html, /javascript:/i);
+});
+
+test('sanitized render mode preserves safe dependency map markup', async () => {
+  const { renderMarkdown } = await import('../src/render.mjs');
+
+  const html = await renderMarkdown(`
+# Safe dependencies
+
+<agent-dependency-map label="Chain" direction="vertical" legend="show" onclick="steal()">
+  <agent-dependency id="edit-server" label="Edit server" status="ready" owner="Merlin" priority="P0" href="https://example.com" onclick="steal()">
+    Starts the localhost edit workflow.
+  </agent-dependency>
+  <agent-dependency id="source-metadata" label="Source metadata" status="blocked" blocked-by="edit-server" onclick="steal()">
+    Requires the edit server entrypoint first.
+    <script>alert('owned')</script>
+  </agent-dependency>
+</agent-dependency-map>
+`, { renderMode: 'sanitized' });
+
+  assert.match(html, /<agent-dependency-map label="Chain" direction="vertical" legend="show">/);
+  assert.match(
+    html,
+    /<agent-dependency id="(?:user-content-)?edit-server" label="Edit server" status="ready" owner="Merlin" priority="P0" href="https:\/\/example\.com">/,
+  );
+  assert.match(
+    html,
+    /<agent-dependency id="(?:user-content-)?source-metadata" label="Source metadata" status="blocked" blocked-by="edit-server">/,
+  );
+  assert.doesNotMatch(html, /onclick=/i);
+  assert.doesNotMatch(html, /<script>/i);
 });
 
 test('isles render --safe writes sanitized HTML', () => {
@@ -207,6 +245,16 @@ test('demo renders a multi-phase plan with tabs and timeline steps', async () =>
   assert.match(html, /<agent-step status="done" label="Renderer baseline">/);
   assert.match(html, /<agent-step status="active" label="Component expansion">/);
   assert.match(html, /<agent-step status="pending" label="Browser polish">/);
+});
+
+test('demo renders a dependency chain map with blocked nodes', async () => {
+  const { renderMarkdownFile } = await import('../src/render.mjs');
+
+  const { html } = await renderMarkdownFile(demo);
+
+  assert.match(html, /<agent-dependency-map label="Writeback dependency chain" direction="vertical" legend="show">/);
+  assert.match(html, /<agent-dependency id="source-metadata" label="Source metadata" status="blocked" blocked-by="edit-server"/);
+  assert.match(html, /<agent-dependency id="writeback-release" label="Writeback release" status="risk" blocked-by="browser-client, docs"/);
 });
 
 test('demo renders a focused Gantt chart embedded in Markdown prose', async () => {

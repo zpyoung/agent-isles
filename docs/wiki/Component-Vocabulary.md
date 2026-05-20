@@ -176,6 +176,62 @@ Use Markdown for surrounding context. The component owns only the chart.
 </agent-gantt>
 ```
 
+### `<agent-dependency-map>` and `<agent-dependency>`
+
+Use for project-management dependency chains where you need to show what blocks what without requiring Mermaid, hand-authored SVG, or bespoke CSS connectors.
+
+Status: supported.
+
+Authoring guidance:
+
+- Use Markdown headings and prose around the map. The component owns only the dependency visualization and accessible fallback text.
+- Each `<agent-dependency>` must have an `id` if it should be referenced by another node’s `blocked-by`.
+- Use `blocked-by="a,b,c"` as a comma-separated list of dependency IDs.
+- Cycles are not rendered silently; the map will surface an explicit warning state if a cycle is detected.
+
+Attributes:
+
+| Tag | Attribute | Required | Allowed values | Default | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `agent-dependency-map` | `label` | No | Plain text | empty | Visible map title and accessible region label. |
+| `agent-dependency-map` | `direction` | No | `vertical` (default), `horizontal` | `vertical` | Vertical flows top-to-bottom; horizontal may be used for wide layouts. |
+| `agent-dependency-map` | `legend` | No | `auto`, `show`, `hide` | `auto` | `auto` shows the legend when multiple statuses appear. |
+| `agent-dependency` | `id` | Yes (for reference) | Token | empty | Required when referenced by `blocked-by`. |
+| `agent-dependency` | `label` | No | Plain text | `Dependency` | Visible node title. |
+| `agent-dependency` | `status` | No | `ready`, `active`, `blocked`, `done`, `risk` | `ready` | Unknown values render as `ready`. Status is always shown as text. |
+| `agent-dependency` | `blocked-by` | No | Comma-separated dependency IDs | empty | One node can depend on multiple blockers. |
+| `agent-dependency` | `owner` | No | Plain text | empty | Lightweight PM metadata displayed under the label. |
+| `agent-dependency` | `priority` | No | Plain text | empty | Prefer short tokens such as `P0`, `P1`, `P2`. |
+| `agent-dependency` | `href` | No | Relative/HTTP(S)/mailto URL | empty | Rendered as a safe link; unsafe protocols are ignored. |
+
+Child content:
+
+- Short prose describing the work item, definition of done, or context.
+
+Accessibility notes:
+
+- Nodes render as a list with visible status text.
+- Blocked nodes include visible and accessible “Blocked by: …” text so the dependency meaning survives without relying on connector lines.
+- Cycles and missing blocker IDs are surfaced as explicit warnings.
+
+Trusted/sanitized behavior:
+
+- Trusted mode preserves the tags, attributes, and child HTML.
+- Sanitized mode preserves the documented tags and attributes while stripping event handlers and unsafe raw HTML.
+
+Example:
+
+```markdown
+<agent-dependency-map label="Writeback dependency chain" direction="vertical">
+  <agent-dependency id="edit-server" label="Edit server" status="ready" owner="Merlin">
+    Starts the localhost edit workflow.
+  </agent-dependency>
+  <agent-dependency id="source-metadata" label="Source metadata" status="blocked" blocked-by="edit-server">
+    Requires the edit server entrypoint first.
+  </agent-dependency>
+</agent-dependency-map>
+```
+
 ### `<agent-metric>`
 
 Use for compact report measurements such as counts, durations, pass rates, cost, token usage, coverage, latency, or scores.

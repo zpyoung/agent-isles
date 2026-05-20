@@ -101,6 +101,31 @@ npm run render -- --out dist/demo.html
 | Public narrative | Improved | This demo now explains why Markdown islands matter. |
 | Plain Markdown readability | Preserved | The report still reads coherently before rendering. |
 
+## Dependency map: writeback chain
+
+Project reports often need to show what blocks what. This map renders a vertical dependency DAG without requiring Mermaid.
+
+<agent-dependency-map label="Writeback dependency chain" direction="vertical" legend="show">
+  <agent-dependency id="edit-server" label="Edit server" status="ready" owner="Merlin" priority="P0">
+    Starts the localhost edit workflow.
+  </agent-dependency>
+  <agent-dependency id="source-metadata" label="Source metadata" status="blocked" blocked-by="edit-server" owner="Merlin" priority="P0">
+    Requires the edit server entrypoint first.
+  </agent-dependency>
+  <agent-dependency id="patch-api" label="Patch API" status="blocked" blocked-by="source-metadata" owner="Merlin" priority="P1">
+    Applies safe task-list source patches.
+  </agent-dependency>
+  <agent-dependency id="browser-client" label="Browser client" status="blocked" blocked-by="patch-api" owner="Merlin" priority="P1">
+    Enables checkbox writeback from rendered output.
+  </agent-dependency>
+  <agent-dependency id="docs" label="Docs and prompts" status="active" blocked-by="patch-api" owner="Nia" priority="P2">
+    Document the safe authoring + edit boundaries and ship example prompts.
+  </agent-dependency>
+  <agent-dependency id="writeback-release" label="Writeback release" status="risk" blocked-by="browser-client, docs" owner="Ariel" priority="P0">
+    Launch when the client and docs converge; treat cross-surface integration as a risk gate.
+  </agent-dependency>
+</agent-dependency-map>
+
 ## Multi-phase plan
 
 <agent-tabs>

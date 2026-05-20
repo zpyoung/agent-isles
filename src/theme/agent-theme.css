@@ -36,7 +36,9 @@ agent-copy-block,
 agent-tabs,
 agent-timeline,
 agent-gantt,
-agent-kpi {
+agent-kpi,
+agent-dependency-map,
+agent-dependency {
   display: block;
   margin: 1rem 0;
 }
@@ -69,4 +71,3 @@ agent-kpi {
 .agent-isles-rendered-output > :first-child {
   margin-top: 0;
 }
-

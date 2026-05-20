@@ -94,6 +94,8 @@ const sanitizedSchema = {
       'agent-gantt-phase',
       'agent-gantt-task',
       'agent-kpi',
+      'agent-dependency-map',
+      'agent-dependency',
     ]),
   ],
   attributes: {
@@ -162,6 +164,18 @@ const sanitizedSchema = {
     'agent-gantt-phase': ['className', 'label'],
     'agent-gantt-task': ['className', 'label', 'start', 'end', 'tone', 'detail', 'parallel'],
     'agent-kpi': ['className', 'label', 'value', 'unit', 'delta', 'tone'],
+    'agent-dependency-map': ['className', 'label', 'direction', 'legend'],
+    'agent-dependency': [
+      'className',
+      'id',
+      'label',
+      'status',
+      'blockedBy',
+      'blocked-by',
+      'owner',
+      'priority',
+      'href',
+    ],
   },
 };
 
