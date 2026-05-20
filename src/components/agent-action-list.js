@@ -53,7 +53,9 @@ function parseIsoDate(value) {
   const day = Number(match[3]);
   const date = new Date(Date.UTC(year, month - 1, day));
 
-  return Number.isNaN(date.getTime()) ? null : date;
+  if (Number.isNaN(date.getTime())) return null;
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() + 1 !== month || date.getUTCDate() !== day) return null;
+  return date;
 }
 
 function startOfUtcDay(date) {
@@ -199,7 +201,7 @@ export class AgentActionList extends LitElement {
     showDone: {
       type: Boolean,
       attribute: 'show-done',
-      converter: (value) => value !== 'false',
+      converter: (value) => value == null ? true : value.trim().toLowerCase() !== 'false',
     },
     actions: { state: true },
   };
@@ -613,8 +615,10 @@ export class AgentActionList extends LitElement {
   }
 
   get visibleActions() {
-    const statusFilter = normalizeList(this.filterStatus);
-    const priorityFilter = normalizeList(this.filterPriority);
+    const layout = (this.layout || 'table').trim().toLowerCase();
+    const isTableLayout = layout !== 'kanban' && layout !== 'priority';
+    const statusFilter = isTableLayout ? normalizeList(this.filterStatus) : new Set();
+    const priorityFilter = isTableLayout ? normalizeList(this.filterPriority) : new Set();
 
     return this.actions
       .filter((action) => action.label.length > 0)
