@@ -34,7 +34,8 @@ agent-metric,
 agent-copy-block,
 agent-tabs,
 agent-timeline,
-agent-gantt {
+agent-gantt,
+agent-kpi {
   display: block;
   margin: 1rem 0;
 }

@@ -48,6 +48,24 @@ Agent Isles is useful when the output must satisfy two audiences at once:
 Ship the report format as Markdown plus explicit HTML islands. Keep prose portable, use Bootstrap for one-off layout, and reserve Lit components for recurring decision and risk patterns.
 </agent-decision>
 
+<div class="row g-3 my-4" role="list" aria-label="Migration milestones">
+  <div class="col-md-4" role="listitem">
+    <agent-kpi label="Phase 1 dev complete" value="~12" unit="wks" delta="was ~26 wks" tone="success">
+      From kick-off
+    </agent-kpi>
+  </div>
+  <div class="col-md-4" role="listitem">
+    <agent-kpi label="Live Ireland" value="~15" unit="wks" delta="was ~28 wks" tone="warning">
+      Soft launch
+    </agent-kpi>
+  </div>
+  <div class="col-md-4" role="listitem">
+    <agent-kpi label="Phase 2 complete" value="~28" unit="wks" delta="was ~38 wks" tone="primary">
+      Full delivery
+    </agent-kpi>
+  </div>
+</div>
+
 <agent-metric label="Renderer confidence" value="92" unit="%" trend="up">
 </agent-metric>
 
