@@ -24,6 +24,7 @@ const expectedPublishedFiles = [
   'src/components/agent-tabs.js',
   'src/components/agent-timeline.js',
   'src/components/index.js',
+  'src/pack-loader.mjs',
   'src/render.mjs',
   'src/theme/agent-theme.css',
   'src/watch.mjs',
