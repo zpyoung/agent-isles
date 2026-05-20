@@ -201,7 +201,7 @@ export class AgentActionList extends LitElement {
     showDone: {
       type: Boolean,
       attribute: 'show-done',
-      converter: (value) => value == null ? true : value.trim().toLowerCase() !== 'false',
+      converter: (value) => value == null ? true : (typeof value === 'string' ? value.trim().toLowerCase() !== 'false' : Boolean(value)),
     },
     actions: { state: true },
   };
