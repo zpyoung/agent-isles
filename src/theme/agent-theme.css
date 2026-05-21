@@ -38,7 +38,9 @@ agent-timeline,
 agent-gantt,
 agent-kpi,
 agent-dependency-map,
-agent-dependency {
+agent-dependency,
+agent-action-list,
+agent-action {
   display: block;
   margin: 1rem 0;
 }

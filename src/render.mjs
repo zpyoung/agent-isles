@@ -96,6 +96,8 @@ const sanitizedSchema = {
       'agent-kpi',
       'agent-dependency-map',
       'agent-dependency',
+      'agent-action-list',
+      'agent-action',
     ]),
   ],
   attributes: {
@@ -176,6 +178,16 @@ const sanitizedSchema = {
       'priority',
       'href',
     ],
+    'agent-action-list': [
+      'className',
+      'label',
+      'layout',
+      'group-by',
+      'filter-status',
+      'filter-priority',
+      'show-done',
+    ],
+    'agent-action': ['className', 'owner', 'due', 'priority', 'status'],
   },
 };
 

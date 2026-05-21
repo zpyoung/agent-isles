@@ -9,3 +9,4 @@ export * from './agent-tabs.js';
 export * from './agent-timeline.js';
 export * from './agent-gantt.js';
 export * from './agent-kpi.js';
+export * from './agent-action-list.js';
