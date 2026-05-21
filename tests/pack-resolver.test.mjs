@@ -113,6 +113,94 @@ test('resolvePackInputs deduplicates identical pack paths', async () => {
   assert.equal(result.packs[0].name, 'shared-pack');
 });
 
+test('resolvePackInputs deduplicates the same canonical pack version from different sources', async () => {
+  const { resolvePackInputs } = await import('../src/pack-resolver.mjs');
+
+  const explicitPack = createPackFixture({
+    agentIslesPackVersion: 1,
+    name: 'shared-pack',
+    version: '1.2.3',
+    tags: ['shared-widget'],
+  });
+  const projectPack = createPackFixture({
+    agentIslesPackVersion: 1,
+    name: 'shared-pack',
+    version: '1.2.3',
+    tags: ['shared-widget'],
+  });
+  const projectDir = createProjectConfigFixture({
+    packs: [projectPack],
+  });
+
+  const result = await resolvePackInputs({
+    explicitPacks: [explicitPack],
+    projectDir,
+    includeUserPacks: false,
+  });
+
+  assert.equal(result.packs.length, 1);
+  assert.equal(result.packs[0].name, 'shared-pack');
+  assert.equal(result.packs[0].version, '1.2.3');
+  assert.equal(result.tagOwners.get('shared-widget').ownerId, 'shared-pack@1.2.3');
+});
+
+test('resolvePackInputs rejects different packs that claim the same tag with actionable owners', async () => {
+  const { resolvePackInputs } = await import('../src/pack-resolver.mjs');
+
+  const alphaPack = createPackFixture({
+    agentIslesPackVersion: 1,
+    name: 'alpha-pack',
+    version: '1.0.0',
+    tags: ['shared-widget'],
+  });
+  const betaPack = createPackFixture({
+    agentIslesPackVersion: 1,
+    name: 'beta-pack',
+    version: '2.0.0',
+    tags: ['shared-widget'],
+  });
+
+  await assert.rejects(
+    async () => await resolvePackInputs({
+      explicitPacks: [alphaPack, betaPack],
+      projectDir: null,
+      includeUserPacks: false,
+    }),
+    (error) => {
+      assert.match(error.message, /shared-widget/);
+      assert.match(error.message, /alpha-pack@1\.0\.0/);
+      assert.match(error.message, /beta-pack@2\.0\.0/);
+      assert.equal(error.details?.tagName, 'shared-widget');
+      return true;
+    },
+  );
+});
+
+test('resolvePackInputs rejects packs that claim reserved core agent tags with the pack owner named', async () => {
+  const { resolvePackInputs } = await import('../src/pack-resolver.mjs');
+
+  const reservedPack = createPackFixture({
+    agentIslesPackVersion: 1,
+    name: 'reserved-pack',
+    version: '1.0.0',
+    tags: ['agent-decision'],
+  });
+
+  await assert.rejects(
+    async () => await resolvePackInputs({
+      explicitPacks: [reservedPack],
+      projectDir: null,
+      includeUserPacks: false,
+    }),
+    (error) => {
+      assert.match(error.message, /agent-decision/);
+      assert.match(error.message, /reserved-pack/);
+      assert.match(error.message, /reserved/i);
+      return true;
+    },
+  );
+});
+
 test('resolvePackInputs respects --no-user-packs flag', async () => {
   const { resolvePackInputs } = await import('../src/pack-resolver.mjs');
 

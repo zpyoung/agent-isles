@@ -101,7 +101,7 @@ function validateTagName(tagName, packName) {
   // Check for reserved prefix
   if (tagName.startsWith(RESERVED_TAG_PREFIX)) {
     throw new PackLoadError(
-      `Tag name "${tagName}" uses the reserved "${RESERVED_TAG_PREFIX}" prefix. Core agent islands are reserved and cannot be declared in user packs.`,
+      `Pack "${packName}" declares tag "${tagName}", which uses the reserved "${RESERVED_TAG_PREFIX}" prefix. Core agent islands are reserved and cannot be declared in user packs.`,
       PACK_ERROR_CODES.RESERVED_TAG_PREFIX,
       { tagName, packName },
     );
