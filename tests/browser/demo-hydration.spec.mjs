@@ -12,7 +12,15 @@ const contentTypes = new Map([
   ['.js', 'text/javascript; charset=utf-8'],
   ['.css', 'text/css; charset=utf-8'],
 ]);
-const expectedCustomElements = ['agent-decision', 'agent-risk', 'agent-gantt', 'agent-gantt-phase', 'agent-gantt-task'];
+const expectedCustomElements = [
+  'agent-decision',
+  'agent-risk',
+  'agent-gantt',
+  'agent-gantt-phase',
+  'agent-gantt-task',
+  'agent-dependency-map',
+  'agent-dependency',
+];
 
 test('rendered demo loads without console errors and hydrates agent components', async ({ page }) => {
   const server = await serveDist();
@@ -32,7 +40,7 @@ test('rendered demo loads without console errors and hydrates agent components',
     await expect(page.locator('h1')).toContainText('Agent Isles Demo');
 
     const renderedAgentTags = await page
-      .locator('agent-decision, agent-risk, agent-gantt, agent-gantt-phase, agent-gantt-task')
+      .locator('agent-decision, agent-risk, agent-gantt, agent-gantt-phase, agent-gantt-task, agent-dependency-map, agent-dependency')
       .evaluateAll((elements) => [
         ...new Set(elements.map((element) => element.localName)),
       ]);
@@ -68,6 +76,27 @@ test('rendered demo loads without console errors and hydrates agent components',
       .toBe(true);
     await firstTask.locator('summary').click();
     await expect(firstTask.locator('details')).toContainText('2 wks — was 8 wks');
+
+    const dependencyMap = page.locator('agent-dependency-map').first();
+    await expect(dependencyMap).toBeVisible();
+    await expect
+      .poll(() => dependencyMap.evaluate((element) => Boolean(element.shadowRoot?.querySelector('svg.edges'))))
+      .toBe(true);
+    await expect
+      .poll(() => dependencyMap.evaluate((element) => element.shadowRoot?.querySelectorAll('svg.edges > path[marker-end]').length || 0))
+      .toBeGreaterThan(0);
+
+    const editServer = page.locator('agent-dependency#edit-server').first();
+    const sourceMetadata = page.locator('agent-dependency#source-metadata').first();
+    await expect(editServer).toBeVisible();
+    await expect(sourceMetadata).toBeVisible();
+    await expect(sourceMetadata).toHaveAttribute('aria-label', /Blocked by: Edit server/i);
+
+    const editBox = await editServer.boundingBox();
+    const blockedBox = await sourceMetadata.boundingBox();
+    expect(editBox).not.toBeNull();
+    expect(blockedBox).not.toBeNull();
+    expect(blockedBox.y).toBeGreaterThan(editBox.y);
 
     await mkdir(artifactDir, { recursive: true });
     await page.screenshot({ path: resolve(artifactDir, 'demo-hydrated.png'), fullPage: true });
