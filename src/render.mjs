@@ -77,7 +77,7 @@ export const RENDER_MODES = Object.freeze({
   SANITIZED: 'sanitized',
 });
 
-const sanitizedSchema = {
+const coreSanitizedSchema = {
   ...defaultSchema,
   tagNames: [
     ...new Set([
@@ -192,6 +192,53 @@ const sanitizedSchema = {
   },
 };
 
+function buildSanitizedSchema(resolvedPacks) {
+  const tagNames = new Set(coreSanitizedSchema.tagNames || []);
+  const attributes = copySchemaAttributes(coreSanitizedSchema.attributes);
+
+  for (const pack of resolvedPacks?.packs || []) {
+    for (const tag of pack.tags || []) {
+      if (!tag?.name) {
+        continue;
+      }
+
+      tagNames.add(tag.name);
+      const declaredAttributes = (tag.attributes || []).filter(isSafePackDeclaredAttribute);
+      if (declaredAttributes.length === 0) {
+        continue;
+      }
+
+      attributes[tag.name] = [
+        ...new Set([
+          ...(attributes[tag.name] || []),
+          ...declaredAttributes,
+        ]),
+      ];
+    }
+  }
+
+  return {
+    ...coreSanitizedSchema,
+    tagNames: [...tagNames],
+    attributes,
+  };
+}
+
+function copySchemaAttributes(attributes = {}) {
+  return Object.fromEntries(
+    Object.entries(attributes).map(([tagName, allowedAttributes]) => [
+      tagName,
+      [...allowedAttributes],
+    ]),
+  );
+}
+
+function isSafePackDeclaredAttribute(attributeName) {
+  const normalizedName = String(attributeName).toLowerCase();
+
+  return !normalizedName.startsWith('on') && normalizedName !== 'style' && normalizedName !== 'srcdoc';
+}
+
 export async function renderMarkdown(markdown, options = {}) {
   const renderMode = normalizeRenderMode(options.renderMode);
   const assetMode = normalizeAssetMode(options.assetMode);
@@ -203,7 +250,9 @@ export async function renderMarkdown(markdown, options = {}) {
     .use(rehypeRaw);
 
   if (renderMode === RENDER_MODES.SANITIZED) {
-    processor.use(dropUnsafeRawHtmlElements).use(rehypeSanitize, sanitizedSchema);
+    processor
+      .use(dropUnsafeRawHtmlElements)
+      .use(rehypeSanitize, buildSanitizedSchema(options.resolvedPacks));
   }
 
   const body = await processor
@@ -225,7 +274,12 @@ export async function renderMarkdownFile(inputPath, options = {}) {
     includeUserPacks: options.includeUserPacks === true,
     userConfigDir: options.userConfigDir || null,
   });
-  const html = await renderMarkdown(markdown, { ...options, assetMode, sourcePath: filePath });
+  const html = await renderMarkdown(markdown, {
+    ...options,
+    assetMode,
+    sourcePath: filePath,
+    resolvedPacks,
+  });
 
   if (outFile) {
     mkdirSync(dirname(outFile), { recursive: true });

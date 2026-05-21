@@ -152,6 +152,67 @@ test('isles render --safe writes sanitized HTML', () => {
   assert.doesNotMatch(html, /bad\(\)/i);
 });
 
+test('sanitized render mode preserves declared pack tags and attributes only', async () => {
+  const { renderMarkdownFile } = await import('../src/render.mjs');
+  const dir = mkdtempSync(join(tmpdir(), 'agent-isles-pack-sanitize-'));
+  const inputFile = join(dir, 'pack-safe.md');
+  const packDir = createPackFixture({
+    agentIslesPackVersion: 1,
+    name: 'safe-pack',
+    tags: [
+      { name: 'safe-card', attributes: ['tone', 'title'] },
+    ],
+  });
+
+  writeFileSync(inputFile, `# Pack safe
+
+<safe-card tone="info" title="Notice" secret="drop">Declared</safe-card>
+<rogue-card tone="danger">Rogue</rogue-card>
+`);
+
+  const { html } = await renderMarkdownFile(inputFile, {
+    explicitPacks: [packDir],
+    includeUserPacks: false,
+    renderMode: 'sanitized',
+  });
+
+  assert.match(html, /<safe-card tone="info" title="Notice">Declared<\/safe-card>/);
+  assert.doesNotMatch(html, /secret=/i);
+  assert.doesNotMatch(html, /<rogue-card/i);
+  assert.match(html, /Rogue/);
+});
+
+test('sanitized render mode blocks unsafe pack-declared attributes and protocols', async () => {
+  const { renderMarkdownFile } = await import('../src/render.mjs');
+  const dir = mkdtempSync(join(tmpdir(), 'agent-isles-pack-unsafe-'));
+  const inputFile = join(dir, 'pack-unsafe.md');
+  const packDir = createPackFixture({
+    agentIslesPackVersion: 1,
+    name: 'unsafe-pack',
+    tags: [
+      { name: 'unsafe-card', attributes: ['href', 'src', 'onclick', 'style', 'title'] },
+    ],
+  });
+
+  writeFileSync(inputFile, `# Pack unsafe
+
+<unsafe-card title="Still safe" href="javascript:alert(1)" src="javascript:alert(2)" onclick="steal()" style="display:none">Body</unsafe-card>
+`);
+
+  const { html } = await renderMarkdownFile(inputFile, {
+    explicitPacks: [packDir],
+    includeUserPacks: false,
+    renderMode: 'sanitized',
+  });
+
+  assert.match(html, /<unsafe-card title="Still safe">Body<\/unsafe-card>/);
+  assert.doesNotMatch(html, /<unsafe-card[^>]*href=/i);
+  assert.doesNotMatch(html, /<unsafe-card[^>]*src=/i);
+  assert.doesNotMatch(html, /javascript:/i);
+  assert.doesNotMatch(html, /onclick=/i);
+  assert.doesNotMatch(html, /style=/i);
+});
+
 test('isles render writes a complete HTML file and component bundle to --out', () => {
   const dir = mkdtempSync(join(tmpdir(), 'agent-isles-'));
   const outFile = join(dir, 'nested', 'simple.html');
