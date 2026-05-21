@@ -130,6 +130,45 @@ function normalizePackReference(packRef, baseDir = null) {
   return resolve(packRef);
 }
 
+function packOwnerId(packManifest) {
+  return packManifest.version ? `${packManifest.name}@${packManifest.version}` : packManifest.name;
+}
+
+function packOwnerRecord(packManifest) {
+  return {
+    ownerId: packOwnerId(packManifest),
+    name: packManifest.name,
+    version: packManifest.version,
+    packDir: packManifest.packDir,
+  };
+}
+
+function registerPackTags(packManifest, tagOwners) {
+  const owner = packOwnerRecord(packManifest);
+
+  for (const tag of packManifest.tags || []) {
+    const tagName = tag.name;
+    const existingOwner = tagOwners.get(tagName);
+
+    if (!existingOwner) {
+      tagOwners.set(tagName, owner);
+      continue;
+    }
+
+    if (existingOwner.ownerId === owner.ownerId) {
+      continue;
+    }
+
+    throw new PackResolutionError(
+      `Component pack tag conflict: tag "${tagName}" is declared by both ${existingOwner.ownerId} and ${owner.ownerId}. Each custom-element tag must have exactly one pack owner.`,
+      {
+        tagName,
+        owners: [existingOwner, owner],
+      },
+    );
+  }
+}
+
 /**
  * Resolves pack inputs from multiple sources with deterministic ordering and deduplication.
  *
@@ -193,12 +232,23 @@ export async function resolvePackInputs(options) {
     }
   }
 
-  // Load all pack manifests
+  // Load all pack manifests, dedupe by canonical pack owner, and claim tag ownership.
   const packs = [];
+  const seenOwners = new Set();
+  const tagOwners = new Map();
+
   for (const packPath of packPaths) {
     const packManifest = loadPackManifest(packPath);
+    const ownerId = packOwnerId(packManifest);
+
+    if (seenOwners.has(ownerId)) {
+      continue;
+    }
+
+    registerPackTags(packManifest, tagOwners);
+    seenOwners.add(ownerId);
     packs.push(packManifest);
   }
 
-  return { packs };
+  return { packs, tagOwners };
 }

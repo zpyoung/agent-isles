@@ -9,6 +9,12 @@ const fixture = resolve('tests/fixtures/simple.md');
 const demo = resolve('examples/demo.md');
 const componentBundle = resolve('dist/agent-components.js');
 
+function createPackFixture(manifest) {
+  const packDir = mkdtempSync(join(tmpdir(), 'agent-isles-render-pack-'));
+  writeFileSync(join(packDir, 'agent-isles.pack.json'), JSON.stringify(manifest, null, 2));
+  return packDir;
+}
+
 function assertCustomElementDefinition(bundle, tagName) {
   assert.match(bundle, new RegExp(`customElements\\.define\\(["']${tagName}["']`));
 }
@@ -206,6 +212,50 @@ test('isles render rejects non-Markdown inputs before rendering', () => {
   assert.match(result.stderr, /Unsupported input file extension:/);
   assert.match(result.stderr, /Expected a Markdown file ending in \.md or \.markdown\./);
   assert.equal(result.stdout, '');
+});
+
+test('isles render rejects pack tag conflicts before writing output', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'agent-isles-pack-conflict-'));
+  const inputFile = join(dir, 'conflict.md');
+  const outFile = join(dir, 'conflict.html');
+  const alphaPack = createPackFixture({
+    agentIslesPackVersion: 1,
+    name: 'alpha-pack',
+    version: '1.0.0',
+    tags: ['shared-widget'],
+  });
+  const betaPack = createPackFixture({
+    agentIslesPackVersion: 1,
+    name: 'beta-pack',
+    version: '2.0.0',
+    tags: ['shared-widget'],
+  });
+
+  writeFileSync(inputFile, '# Conflict\n\n<shared-widget></shared-widget>');
+
+  const result = spawnSync(
+    process.execPath,
+    [
+      resolve('bin/isles.mjs'),
+      'render',
+      inputFile,
+      '--out',
+      outFile,
+      '--pack',
+      alphaPack,
+      '--pack',
+      betaPack,
+      '--no-user-packs',
+    ],
+    { encoding: 'utf8' },
+  );
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /shared-widget/);
+  assert.match(result.stderr, /alpha-pack@1\.0\.0/);
+  assert.match(result.stderr, /beta-pack@2\.0\.0/);
+  assert.equal(result.stdout, '');
+  assert.equal(existsSync(outFile), false);
 });
 
 test('component bundle registers tabs and timeline islands', () => {
