@@ -43,6 +43,8 @@ test('CLI accepts --pack option', () => {
 
   // Should not fail with pack option
   assert.equal(result.status, 0, `CLI failed: ${result.stderr}`);
+  assert.match(result.stdout, /Packs: 1/);
+  assert.match(result.stdout, /cli-test-pack/);
 });
 
 test('CLI accepts multiple --pack options', () => {
@@ -78,6 +80,72 @@ test('CLI accepts --no-user-packs option', () => {
 
   // Should not fail with --no-user-packs option
   assert.equal(result.status, 0, `CLI failed: ${result.stderr}`);
+  assert.match(result.stdout, /Packs: 0/);
+});
+
+test('CLI resolves project config packs beside the Markdown input', () => {
+  const packDir = createPackFixture({
+    agentIslesPackVersion: 1,
+    name: 'project-config-pack',
+  });
+  const projectDir = mkdtempSync(join(tmpdir(), 'agent-isles-cli-project-config-'));
+  const mdFile = join(projectDir, 'test.md');
+  writeFileSync(mdFile, '# Test\n');
+  writeFileSync(join(projectDir, 'isles.config.json'), JSON.stringify({ packs: [packDir] }, null, 2));
+
+  const result = spawnSync(process.execPath, [islePath, 'render', mdFile], {
+    encoding: 'utf8',
+  });
+
+  assert.equal(result.status, 0, `CLI failed: ${result.stderr}`);
+  assert.match(result.stdout, /Packs: 1/);
+  assert.match(result.stdout, /project-config-pack/);
+});
+
+test('CLI loads user config packs by default', () => {
+  const packDir = createPackFixture({
+    agentIslesPackVersion: 1,
+    name: 'user-config-pack',
+  });
+  const xdgConfigHome = mkdtempSync(join(tmpdir(), 'agent-isles-cli-user-config-home-'));
+  const userConfigDir = join(xdgConfigHome, 'agent-isles');
+  mkdirSync(userConfigDir, { recursive: true });
+  writeFileSync(join(userConfigDir, 'isles.config.json'), JSON.stringify({ packs: [packDir] }, null, 2));
+
+  const mdFile = join(tmpdir(), 'test-cli-user-pack.md');
+  writeFileSync(mdFile, '# Test\n');
+
+  const result = spawnSync(process.execPath, [islePath, 'render', mdFile], {
+    encoding: 'utf8',
+    env: { ...process.env, XDG_CONFIG_HOME: xdgConfigHome },
+  });
+
+  assert.equal(result.status, 0, `CLI failed: ${result.stderr}`);
+  assert.match(result.stdout, /Packs: 1/);
+  assert.match(result.stdout, /user-config-pack/);
+});
+
+test('CLI skips user config packs with --no-user-packs', () => {
+  const packDir = createPackFixture({
+    agentIslesPackVersion: 1,
+    name: 'skipped-user-config-pack',
+  });
+  const xdgConfigHome = mkdtempSync(join(tmpdir(), 'agent-isles-cli-skip-user-config-home-'));
+  const userConfigDir = join(xdgConfigHome, 'agent-isles');
+  mkdirSync(userConfigDir, { recursive: true });
+  writeFileSync(join(userConfigDir, 'isles.config.json'), JSON.stringify({ packs: [packDir] }, null, 2));
+
+  const mdFile = join(tmpdir(), 'test-cli-skip-user-pack.md');
+  writeFileSync(mdFile, '# Test\n');
+
+  const result = spawnSync(process.execPath, [islePath, 'render', mdFile, '--no-user-packs'], {
+    encoding: 'utf8',
+    env: { ...process.env, XDG_CONFIG_HOME: xdgConfigHome },
+  });
+
+  assert.equal(result.status, 0, `CLI failed: ${result.stderr}`);
+  assert.match(result.stdout, /Packs: 0/);
+  assert.doesNotMatch(result.stdout, /skipped-user-config-pack/);
 });
 
 test('CLI rejects --pack without value', () => {
@@ -91,6 +159,21 @@ test('CLI rejects --pack without value', () => {
   // Should fail with missing value error
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Missing value for --pack/);
+});
+
+test('CLI rejects unsupported V1+ pack source types with roadmap guidance', () => {
+  const mdFile = join(tmpdir(), 'test-cli-pack-unsupported-source.md');
+  writeFileSync(mdFile, '# Test\n');
+
+  const result = spawnSync(process.execPath, [islePath, 'render', mdFile, '--pack', 'npm:future-pack'], {
+    encoding: 'utf8',
+  });
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /npm:/);
+  assert.match(result.stderr, /not supported/i);
+  assert.match(result.stderr, /V1\+/i);
+  assert.match(result.stderr, /discussions\/64/);
 });
 
 test('CLI renders successfully with explicit pack containing assets', () => {

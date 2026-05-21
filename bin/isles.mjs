@@ -10,6 +10,7 @@ import {
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { PackResolutionError } from '../src/pack-resolver.mjs';
 import { watchMarkdownFile } from '../src/watch.mjs';
 
 const USAGE = `Agent Isles — Markdown seas, component islands.
@@ -69,12 +70,22 @@ async function runRender(args) {
       renderMode: parsed.renderMode,
       assetMode: parsed.assetMode,
       showSource: parsed.showSource,
+      explicitPacks: parsed.explicitPacks,
+      includeUserPacks: parsed.includeUserPacks,
+      projectDir: dirname(resolve(input)),
     });
+    const packNames = result.resolvedPacks.packs.map((pack) => pack.name);
     console.log(`Rendered: ${result.outFile} (${parsed.renderMode} mode)`);
     console.log(`Assets: ${parsed.assetMode}`);
     console.log(`Source view: ${parsed.showSource ? 'enabled' : 'disabled'}`);
+    console.log(`Packs: ${packNames.length}${packNames.length > 0 ? ` (${packNames.join(', ')})` : ''}`);
   } catch (error) {
     if (error instanceof AgentIslesInputError) {
+      console.error(error.message);
+      process.exit(1);
+    }
+
+    if (error instanceof PackResolutionError || error.name === 'PackLoadError') {
       console.error(error.message);
       process.exit(1);
     }

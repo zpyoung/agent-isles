@@ -29,6 +29,24 @@ test('renderMarkdownFile renders Markdown with preserved agent islands and injec
   assert.match(html, /Agent Isles theme/);
 });
 
+test('renderMarkdownFile returns structured resolved pack data', async () => {
+  const { renderMarkdownFile } = await import('../src/render.mjs');
+  const packDir = mkdtempSync(join(tmpdir(), 'agent-isles-render-pack-'));
+  writeFileSync(join(packDir, 'agent-isles.pack.json'), JSON.stringify({
+    agentIslesPackVersion: 1,
+    name: 'render-pack',
+  }, null, 2));
+
+  const { resolvedPacks } = await renderMarkdownFile(fixture, {
+    explicitPacks: [packDir],
+    includeUserPacks: false,
+  });
+
+  assert.equal(resolvedPacks.packs.length, 1);
+  assert.equal(resolvedPacks.packs[0].name, 'render-pack');
+  assert.equal(resolvedPacks.packs[0].packDir, packDir);
+});
+
 test('component bundle registers the initial agent island vocabulary', () => {
   const bundle = readFileSync(componentBundle, 'utf8');
 
