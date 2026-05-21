@@ -1,17 +1,24 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 
 const fixture = resolve('tests/fixtures/simple.md');
 const demo = resolve('examples/demo.md');
 const componentBundle = resolve('dist/agent-components.js');
 
-function createPackFixture(manifest) {
+function createPackFixture(manifest, files = {}) {
   const packDir = mkdtempSync(join(tmpdir(), 'agent-isles-render-pack-'));
   writeFileSync(join(packDir, 'agent-isles.pack.json'), JSON.stringify(manifest, null, 2));
+
+  for (const [filePath, content] of Object.entries(files)) {
+    const fullPath = join(packDir, filePath);
+    mkdirSync(dirname(fullPath), { recursive: true });
+    writeFileSync(fullPath, content);
+  }
+
   return packDir;
 }
 
@@ -525,6 +532,85 @@ test('local asset mode writes network-free HTML and copies third-party assets', 
   assert.ok(existsSync(join(dir, 'assets', 'github-dark.min.css')));
   assert.ok(existsSync(join(dir, 'assets', 'bootstrap.bundle.min.js')));
   assert.ok(existsSync(join(dir, 'agent-components.js')));
+});
+
+test('isles render copies pack assets, writes metadata, and injects assets deterministically', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'agent-isles-pack-assets-'));
+  const outFile = join(dir, 'nested', 'pack.html');
+  const inputFile = join(dir, 'pack.md');
+  const packDir = createPackFixture(
+    {
+      agentIslesPackVersion: 1,
+      name: 'alpha-pack',
+      version: '1.2.3',
+      description: 'Alpha components',
+      tags: [{ name: 'alpha-card', attributes: ['tone'] }],
+      assets: [
+        { type: 'module', path: 'components/alpha-card.js' },
+        { type: 'style', path: 'styles/alpha-card.css' },
+      ],
+    },
+    {
+      'components/alpha-card.js': 'customElements.define("alpha-card", class extends HTMLElement {});',
+      'styles/alpha-card.css': 'alpha-card { display: block; }',
+    },
+  );
+
+  writeFileSync(inputFile, '# Pack assets\n\n<alpha-card tone="good">Copied</alpha-card>');
+
+  execFileSync(
+    process.execPath,
+    [resolve('bin/isles.mjs'), 'render', inputFile, '--out', outFile, '--pack', packDir, '--no-user-packs'],
+    { encoding: 'utf8' },
+  );
+  const html = readFileSync(outFile, 'utf8');
+  const packsJson = JSON.parse(readFileSync(join(dir, 'nested', 'assets', 'agent-isles', 'packs.json'), 'utf8'));
+
+  const packStyle = './assets/agent-isles/packs/alpha-pack-1.2.3/styles/alpha-card.css';
+  const packModule = './assets/agent-isles/packs/alpha-pack-1.2.3/components/alpha-card.js';
+
+  assert.ok(existsSync(join(dir, 'nested', 'assets', 'agent-isles', 'packs', 'alpha-pack-1.2.3', 'styles', 'alpha-card.css')));
+  assert.ok(existsSync(join(dir, 'nested', 'assets', 'agent-isles', 'packs', 'alpha-pack-1.2.3', 'components', 'alpha-card.js')));
+  assert.match(html, /<meta name="agent-isles-packs" content="alpha-pack@1\.2\.3" \/>/);
+  assert.match(html, /<link rel="agent-isles-packs" href="\.\/assets\/agent-isles\/packs\.json" type="application\/json" \/>/);
+  assert.match(html, new RegExp(`<link href="${packStyle.replaceAll('.', '\\.')}" rel="stylesheet" data-agent-isles-pack="alpha-pack@1\\.2\\.3" \\/>`));
+  assert.match(html, new RegExp(`<script type="module" src="${packModule.replaceAll('.', '\\.')}" data-agent-isles-pack="alpha-pack@1\\.2\\.3"><\\/script>`));
+  assert.deepEqual(packsJson.packs, [
+    {
+      id: 'alpha-pack@1.2.3',
+      safeId: 'alpha-pack-1.2.3',
+      name: 'alpha-pack',
+      version: '1.2.3',
+      description: 'Alpha components',
+      tags: [{ name: 'alpha-card', attributes: ['tone'] }],
+      assets: [
+        {
+          type: 'module',
+          path: 'components/alpha-card.js',
+          outputPath: 'assets/agent-isles/packs/alpha-pack-1.2.3/components/alpha-card.js',
+        },
+        {
+          type: 'style',
+          path: 'styles/alpha-card.css',
+          outputPath: 'assets/agent-isles/packs/alpha-pack-1.2.3/styles/alpha-card.css',
+        },
+      ],
+    },
+  ]);
+
+  const coreStyleIndex = html.indexOf('bootstrap@5.3.3/dist/css/bootstrap.min.css');
+  const themeIndex = html.indexOf('Agent Isles theme');
+  const packStyleIndex = html.indexOf(packStyle);
+  const bootstrapScriptIndex = html.indexOf('bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js');
+  const coreModuleIndex = html.indexOf('./agent-components.js');
+  const packModuleIndex = html.indexOf(packModule);
+
+  assert.ok(coreStyleIndex >= 0, 'expected core Bootstrap stylesheet');
+  assert.ok(themeIndex > coreStyleIndex, 'expected theme after core stylesheet');
+  assert.ok(packStyleIndex > themeIndex, 'expected pack style after core styles');
+  assert.ok(bootstrapScriptIndex > packStyleIndex, 'expected runtime after pack styles');
+  assert.ok(coreModuleIndex > bootstrapScriptIndex, 'expected core module after runtime');
+  assert.ok(packModuleIndex > coreModuleIndex, 'expected pack module after core module');
 });
 
 test('CLI --assets local selects local asset mode', () => {
