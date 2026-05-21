@@ -62,8 +62,9 @@ function normalizeStatus(status) {
 function parseHistory(history) {
   return String(history || '')
     .split(',')
-    .map((part) => normalizeStatus(part))
-    .filter(Boolean);
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => normalizeStatus(part));
 }
 
 function statusDetail(status) {
@@ -504,6 +505,12 @@ export class AgentStatusBoard extends LitElement {
     super.disconnectedCallback();
   }
 
+  updated(changedProperties) {
+    if (changedProperties.has('groupBy')) {
+      this.refreshItems();
+    }
+  }
+
   firstUpdated() {
     this.refreshItems();
   }
@@ -522,7 +529,6 @@ export class AgentStatusBoard extends LitElement {
       if (rawStatus !== status) {
         item.setAttribute('status', status);
       }
-      item.style.setProperty('--agent-status-order', String(STATUS_ORDER.indexOf(status)));
       item.slot = grouped ? `status-${status}` : '';
       item.setAttribute('data-status', status);
       item.setAttribute('data-index', String(index));

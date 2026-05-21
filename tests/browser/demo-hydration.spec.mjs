@@ -91,6 +91,19 @@ test('rendered demo loads without console errors and hydrates agent components',
       .poll(() => writebackItem.evaluate((element) => Boolean(element.shadowRoot?.querySelector('.status-item'))))
       .toBe(true);
     await expect(writebackItem).toContainText('Blocked on API boundary decision');
+    await writebackItem.evaluate((element) => element.setAttribute('history', 'g,g,a,'));
+    await expect
+      .poll(() => writebackItem.evaluate((element) => element.shadowRoot?.querySelectorAll('.trend-chip').length || 0))
+      .toBe(3);
+
+    await statusBoard.evaluate((element) => element.setAttribute('group-by', 'none'));
+    await expect
+      .poll(() => statusBoard.evaluate((element) => [...element.querySelectorAll('agent-status-item')].every((item) => item.slot === '')))
+      .toBe(true);
+    await statusBoard.evaluate((element) => element.setAttribute('group-by', 'status'));
+    await expect
+      .poll(() => statusBoard.evaluate((element) => [...element.querySelectorAll('agent-status-item')].every((item) => item.slot === `status-${item.getAttribute('status')}`)))
+      .toBe(true);
 
     const dependencyMap = page.locator('agent-dependency-map').first();
     await expect(dependencyMap).toBeVisible();
