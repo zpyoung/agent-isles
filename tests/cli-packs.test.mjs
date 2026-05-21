@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 const PACK_MANIFEST_FILE = 'agent-isles.pack.json';
 const islePath = fileURLToPath(new URL('../bin/isles.mjs', import.meta.url));
+const repoRoot = resolve(dirname(islePath), '..');
 
 /**
  * Creates a temporary pack directory with a manifest file.
@@ -202,4 +203,106 @@ test('CLI renders successfully with explicit pack containing assets', () => {
   // Should render successfully
   assert.equal(result.status, 0, `CLI failed: ${result.stderr}`);
   assert.match(result.stdout, /Rendered:/);
+});
+
+test('CLI diagnoses explicit, project, and user pack resolution sources', () => {
+  const explicitPack = createPackFixture(
+    {
+      agentIslesPackVersion: 1,
+      name: 'explicit-diagnostics-pack',
+      version: '1.0.0',
+      tags: [{ name: 'explicit-widget', attributes: ['label', 'style', 'onclick'] }],
+      assets: [{ type: 'module', path: 'explicit-widget.js' }],
+    },
+    {
+      'explicit-widget.js': 'customElements.define("explicit-widget", class extends HTMLElement {});',
+    },
+  );
+  const projectPack = createPackFixture({
+    agentIslesPackVersion: 1,
+    name: 'project-diagnostics-pack',
+    tags: ['project-widget'],
+  });
+  const userPack = createPackFixture({
+    agentIslesPackVersion: 1,
+    name: 'user-diagnostics-pack',
+    tags: [{ name: 'user-widget', attributes: ['tone'] }],
+  });
+
+  const projectDir = mkdtempSync(join(tmpdir(), 'agent-isles-cli-packs-resolve-'));
+  const mdFile = join(projectDir, 'diagnostics.md');
+  writeFileSync(mdFile, '# Diagnostics\n');
+  writeFileSync(join(projectDir, 'isles.config.json'), JSON.stringify({ packs: [projectPack] }, null, 2));
+
+  const xdgConfigHome = mkdtempSync(join(tmpdir(), 'agent-isles-cli-packs-resolve-home-'));
+  const userConfigDir = join(xdgConfigHome, 'agent-isles');
+  mkdirSync(userConfigDir, { recursive: true });
+  writeFileSync(join(userConfigDir, 'isles.config.json'), JSON.stringify({ packs: [userPack] }, null, 2));
+
+  const result = spawnSync(
+    process.execPath,
+    [islePath, 'packs', 'resolve', mdFile, '--pack', explicitPack],
+    {
+      encoding: 'utf8',
+      env: { ...process.env, XDG_CONFIG_HOME: xdgConfigHome },
+    },
+  );
+
+  assert.equal(result.status, 0, `CLI failed: ${result.stderr}`);
+  assert.match(result.stdout, /Resolved packs: 3/);
+  assert.match(result.stdout, /explicit-diagnostics-pack@1\.0\.0/);
+  assert.match(result.stdout, /Source: explicit --pack/);
+  assert.match(result.stdout, /project-diagnostics-pack/);
+  assert.match(result.stdout, /Source: project config/);
+  assert.match(result.stdout, /user-diagnostics-pack/);
+  assert.match(result.stdout, /Source: user config/);
+  assert.match(result.stdout, /explicit-widget/);
+  assert.match(result.stdout, /sanitized attributes: label/);
+  assert.doesNotMatch(result.stdout, /sanitized attributes: .*style/);
+  assert.match(result.stdout, /Warnings:/);
+  assert.match(result.stdout, /style.*ignored in sanitized mode/);
+  assert.match(result.stdout, /onclick.*ignored in sanitized mode/);
+  assert.match(result.stdout, /explicit-widget\.js -> assets\/agent-isles\/packs\/explicit-diagnostics-pack-1\.0\.0\/explicit-widget\.js/);
+});
+
+test('CLI pack diagnostics honor --no-user-packs', () => {
+  const userPack = createPackFixture({
+    agentIslesPackVersion: 1,
+    name: 'diagnostics-skipped-user-pack',
+  });
+  const xdgConfigHome = mkdtempSync(join(tmpdir(), 'agent-isles-cli-packs-resolve-skip-home-'));
+  const userConfigDir = join(xdgConfigHome, 'agent-isles');
+  mkdirSync(userConfigDir, { recursive: true });
+  writeFileSync(join(userConfigDir, 'isles.config.json'), JSON.stringify({ packs: [userPack] }, null, 2));
+
+  const mdFile = join(tmpdir(), 'test-cli-packs-resolve-no-user.md');
+  writeFileSync(mdFile, '# Diagnostics\n');
+
+  const result = spawnSync(process.execPath, [islePath, 'packs', 'resolve', mdFile, '--no-user-packs'], {
+    encoding: 'utf8',
+    env: { ...process.env, XDG_CONFIG_HOME: xdgConfigHome },
+  });
+
+  assert.equal(result.status, 0, `CLI failed: ${result.stderr}`);
+  assert.match(result.stdout, /User packs: disabled/);
+  assert.match(result.stdout, /Resolved packs: 0/);
+  assert.doesNotMatch(result.stdout, /diagnostics-skipped-user-pack/);
+});
+
+test('example fixture renders a third-party local pack custom element', () => {
+  const mdFile = join(repoRoot, 'examples', 'pack-demo.md');
+  const packDir = join(repoRoot, 'examples', 'packs', 'demo-widget-pack');
+  const outFile = join(mkdtempSync(join(tmpdir(), 'agent-isles-example-pack-render-')), 'pack-demo.html');
+
+  const result = spawnSync(process.execPath, [islePath, 'render', mdFile, '--out', outFile, '--pack', packDir, '--mode', 'sanitized'], {
+    encoding: 'utf8',
+  });
+
+  assert.equal(result.status, 0, `CLI failed: ${result.stderr}`);
+  assert.match(result.stdout, /demo-widget-pack/);
+  const html = readFileSync(outFile, 'utf8');
+  assert.match(html, /<demo-widget title="Third-party island" tone="success">/);
+  assert.match(html, /demo-widget\.js/);
+  assert.match(html, /demo-widget\.css/);
+  assert.equal(existsSync(join(dirname(outFile), 'assets', 'agent-isles', 'packs', 'demo-widget-pack-1.0.0', 'demo-widget.js')), true);
 });

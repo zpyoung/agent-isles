@@ -1,0 +1,22 @@
+{
+  "agentIslesPackVersion": 1,
+  "name": "demo-widget-pack",
+  "version": "1.0.0",
+  "description": "Tiny third-party pack fixture for Agent Isles V1 docs and tests.",
+  "tags": [
+    {
+      "name": "demo-widget",
+      "attributes": ["title", "tone"]
+    }
+  ],
+  "assets": [
+    {
+      "type": "module",
+      "path": "demo-widget.js"
+    },
+    {
+      "type": "style",
+      "path": "demo-widget.css"
+    }
+  ]
+}

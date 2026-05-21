@@ -182,7 +182,7 @@ function registerPackTags(packManifest, tagOwners) {
  * @param {string} [options.projectDir] - Project directory to search for config
  * @param {boolean} options.includeUserPacks - Whether to include user config packs
  * @param {string} [options.userConfigDir] - Optional override for user config directory (for testing)
- * @returns {Promise<Object>} Resolved pack data with { packs: Array<PackManifest> }
+ * @returns {Promise<Object>} Resolved pack data with { packs, tagOwners, packRecords, packPathRecords }
  */
 export async function resolvePackInputs(options) {
   const {
@@ -192,63 +192,87 @@ export async function resolvePackInputs(options) {
     userConfigDir = null,
   } = options;
 
-  const packPaths = [];
-  const seenPaths = new Set();
+  const packPathRecords = [];
+  const recordsByPath = new Map();
 
-  // Helper to add pack path with deduplication
-  function addPackPath(packRef, baseDir = null) {
+  // Helper to add pack path with deduplication while preserving all source claims.
+  function addPackPath(packRef, baseDir = null, source) {
     const absolutePath = normalizePackReference(packRef, baseDir);
+    let record = recordsByPath.get(absolutePath);
 
-    // Deduplicate by canonical path
-    if (!seenPaths.has(absolutePath)) {
-      seenPaths.add(absolutePath);
-      packPaths.push(absolutePath);
+    if (!record) {
+      record = { path: absolutePath, sources: [] };
+      recordsByPath.set(absolutePath, record);
+      packPathRecords.push(record);
     }
+
+    record.sources.push({ ...source, packRef, baseDir, resolvedPath: absolutePath });
   }
 
   // 1. Explicit CLI packs (highest priority)
   for (const packRef of explicitPacks) {
-    addPackPath(packRef);
+    addPackPath(packRef, null, { type: 'explicit', label: 'explicit --pack' });
   }
 
   // 2. Project config packs
   if (projectDir) {
+    const projectConfigPath = join(projectDir, CONFIG_FILE);
     const projectConfig = loadProjectConfig(projectDir);
     if (projectConfig?.packs) {
       for (const packRef of projectConfig.packs) {
-        addPackPath(packRef, projectDir);
+        addPackPath(packRef, projectDir, {
+          type: 'project',
+          label: 'project config',
+          configPath: projectConfigPath,
+        });
       }
     }
   }
 
   // 3. User config packs (if enabled)
   if (includeUserPacks) {
+    const configDir = userConfigDir || getUserConfigDir();
+    const userConfigPath = join(configDir, CONFIG_FILE);
     const userConfig = loadUserConfig(userConfigDir);
     if (userConfig?.packs) {
-      const configDir = userConfigDir || getUserConfigDir();
       for (const packRef of userConfig.packs) {
-        addPackPath(packRef, configDir);
+        addPackPath(packRef, configDir, {
+          type: 'user',
+          label: 'user config',
+          configPath: userConfigPath,
+        });
       }
     }
   }
 
   // Load all pack manifests, dedupe by canonical pack owner, and claim tag ownership.
   const packs = [];
+  const packRecords = [];
+  const recordsByOwner = new Map();
   const seenOwners = new Set();
   const tagOwners = new Map();
 
-  for (const packPath of packPaths) {
-    const packManifest = loadPackManifest(packPath);
+  for (const packPathRecord of packPathRecords) {
+    const packManifest = loadPackManifest(packPathRecord.path);
     const ownerId = packOwnerId(packManifest);
 
     if (seenOwners.has(ownerId)) {
+      const existingRecord = recordsByOwner.get(ownerId);
+      existingRecord.sources.push(...packPathRecord.sources);
       continue;
     }
 
     registerPackTags(packManifest, tagOwners);
     seenOwners.add(ownerId);
     packs.push(packManifest);
+    const packRecord = {
+      pack: packManifest,
+      ownerId,
+      sources: [...packPathRecord.sources],
+    };
+    recordsByOwner.set(ownerId, packRecord);
+    packRecords.push(packRecord);
   }
 
-  return { packs, tagOwners };
+  return { packs, tagOwners, packRecords, packPathRecords };
 }

@@ -478,7 +478,7 @@ function buildPackModuleScripts(packAssetRecords) {
   return `\n${moduleScripts.join('\n')}`;
 }
 
-function buildPackAssetRecords(packs = []) {
+export function buildPackAssetRecords(packs = []) {
   const seenSafeIds = new Map();
 
   return packs.map((pack) => {

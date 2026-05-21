@@ -1,0 +1,16 @@
+demo-widget {
+  display: block;
+  margin: 1rem 0;
+}
+
+.demo-widget {
+  border: 1px solid #6ea8fe;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  background: #f8fbff;
+}
+
+.demo-widget--success {
+  border-color: #75b798;
+  background: #f6fffa;
+}
