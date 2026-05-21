@@ -37,7 +37,12 @@ agent-tabs,
 agent-timeline,
 agent-gantt,
 agent-kpi,
-agent-status-board {
+agent-status-board,
+agent-status-item,
+agent-dependency-map,
+agent-dependency,
+agent-action-list,
+agent-action {
   display: block;
   margin: 1rem 0;
 }
@@ -70,4 +75,3 @@ agent-status-board {
 .agent-isles-rendered-output > :first-child {
   margin-top: 0;
 }
-

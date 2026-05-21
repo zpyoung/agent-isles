@@ -29,10 +29,36 @@ test('renderMarkdownFile renders Markdown with preserved agent islands and injec
   assert.match(html, /Agent Isles theme/);
 });
 
+test('renderMarkdownFile returns structured resolved pack data', async () => {
+  const { renderMarkdownFile } = await import('../src/render.mjs');
+  const packDir = mkdtempSync(join(tmpdir(), 'agent-isles-render-pack-'));
+  writeFileSync(join(packDir, 'agent-isles.pack.json'), JSON.stringify({
+    agentIslesPackVersion: 1,
+    name: 'render-pack',
+  }, null, 2));
+
+  const { resolvedPacks } = await renderMarkdownFile(fixture, {
+    explicitPacks: [packDir],
+    includeUserPacks: false,
+  });
+
+  assert.equal(resolvedPacks.packs.length, 1);
+  assert.equal(resolvedPacks.packs[0].name, 'render-pack');
+  assert.equal(resolvedPacks.packs[0].packDir, packDir);
+});
+
 test('component bundle registers the initial agent island vocabulary', () => {
   const bundle = readFileSync(componentBundle, 'utf8');
 
   for (const tagName of ['agent-decision', 'agent-risk', 'agent-metric', 'agent-copy-block']) {
+    assertCustomElementDefinition(bundle, tagName);
+  }
+});
+
+test('component bundle registers dependency DAG islands', () => {
+  const bundle = readFileSync(componentBundle, 'utf8');
+
+  for (const tagName of ['agent-dependency-map', 'agent-dependency']) {
     assertCustomElementDefinition(bundle, tagName);
   }
 });
@@ -67,6 +93,39 @@ test('sanitized render mode removes active HTML while preserving safe islands', 
   assert.doesNotMatch(html, /onclick=/i);
   assert.doesNotMatch(html, /onerror=/i);
   assert.doesNotMatch(html, /javascript:/i);
+});
+
+test('sanitized render mode preserves safe dependency map markup', async () => {
+  const { renderMarkdown } = await import('../src/render.mjs');
+
+  const html = await renderMarkdown(`
+# Safe dependencies
+
+<agent-dependency-map label="Chain" direction="vertical" legend="show" onclick="steal()">
+  <agent-dependency id="edit-server" label="Edit server" status="ready" owner="Merlin" priority="P0" href="https://example.com" onclick="steal()">
+    Starts the localhost edit workflow.
+  </agent-dependency>
+  <agent-dependency id="source-metadata" label="Source metadata" status="blocked" blocked-by="edit-server" onclick="steal()">
+    Requires the edit server entrypoint first.
+    <script>alert('owned')</script>
+  </agent-dependency>
+</agent-dependency-map>
+`, { renderMode: 'sanitized' });
+
+  assert.match(
+    html,
+    /<agent-dependency-map(?=[^>]*\blabel="Chain")(?=[^>]*\bdirection="vertical")(?=[^>]*\blegend="show")[^>]*>/,
+  );
+  assert.match(
+    html,
+    /<agent-dependency id="(?:user-content-)?edit-server" label="Edit server" status="ready" owner="Merlin" priority="P0" href="https:\/\/example\.com">/,
+  );
+  assert.match(
+    html,
+    /<agent-dependency id="(?:user-content-)?source-metadata" label="Source metadata" status="blocked" blocked-by="edit-server">/,
+  );
+  assert.doesNotMatch(html, /onclick=/i);
+  assert.doesNotMatch(html, /<script>/i);
 });
 
 test('isles render --safe writes sanitized HTML', () => {
@@ -169,6 +228,17 @@ test('component bundle registers the Gantt chart island vocabulary', () => {
   assert.match(bundle, /agent-gantt-legend/);
 });
 
+test('component bundle registers the action list island vocabulary', () => {
+  const bundle = readFileSync(componentBundle, 'utf8');
+
+  for (const tagName of ['agent-action-list', 'agent-action']) {
+    assertCustomElementDefinition(bundle, tagName);
+  }
+  assert.match(bundle, /group-by/);
+  assert.match(bundle, /filter-status/);
+  assert.match(bundle, /layout/);
+});
+
 test('sanitized render mode preserves safe Gantt tags and attributes', async () => {
   const { renderMarkdown } = await import('../src/render.mjs');
 
@@ -228,6 +298,34 @@ test('sanitized render mode preserves safe status board tags and attributes', as
   assert.doesNotMatch(html, /onclick=/i);
 });
 
+test('sanitized render mode preserves safe action list tags and attributes', async () => {
+  const { renderMarkdown } = await import('../src/render.mjs');
+
+  const html = await renderMarkdown(`
+# Safe actions
+
+<agent-action-list label="Launch follow-ups" layout="table" group-by="status" filter-status="open,done" filter-priority="high,normal" show-done="false" onclick="steal()">
+  <agent-action owner="Merlin" due="2026-05-24" priority="high" status="in-progress" onclick="steal()">
+    Re-run render smoke after component bundle changes.
+    <script>alert('owned')</script>
+  </agent-action>
+  <agent-action owner="Pix" status="done">Mirror docs to wiki.</agent-action>
+</agent-action-list>
+`, { renderMode: 'sanitized' });
+
+  assert.match(
+    html,
+    /<agent-action-list label="Launch follow-ups" layout="table" group-by="status" filter-status="open,done" filter-priority="high,normal" show-done="false">/,
+  );
+  assert.match(
+    html,
+    /<agent-action owner="Merlin" due="2026-05-24" priority="high" status="in-progress">\s*Re-run render smoke after component bundle changes\.\s*<\/agent-action>/,
+  );
+  assert.match(html, /<agent-action owner="Pix" status="done">Mirror docs to wiki\.<\/agent-action>/);
+  assert.doesNotMatch(html, /<script>/i);
+  assert.doesNotMatch(html, /onclick=/i);
+});
+
 test('demo renders full and minimal status board examples', async () => {
   const { renderMarkdownFile } = await import('../src/render.mjs');
 
@@ -254,6 +352,19 @@ test('demo renders a multi-phase plan with tabs and timeline steps', async () =>
   assert.match(html, /<agent-step status="pending" label="Browser polish">/);
 });
 
+test('demo renders a dependency chain map with blocked nodes', async () => {
+  const { renderMarkdownFile } = await import('../src/render.mjs');
+
+  const { html } = await renderMarkdownFile(demo);
+
+  assert.match(
+    html,
+    /<agent-dependency-map(?=[^>]*\blabel="Writeback dependency chain")(?=[^>]*\bdirection="vertical")(?=[^>]*\blegend="show")[^>]*>/,
+  );
+  assert.match(html, /<agent-dependency id="source-metadata" label="Source metadata" status="blocked" blocked-by="edit-server"/);
+  assert.match(html, /<agent-dependency id="writeback-release" label="Writeback release" status="risk" blocked-by="browser-client, docs"/);
+});
+
 test('demo renders a focused Gantt chart embedded in Markdown prose', async () => {
   const { renderMarkdownFile } = await import('../src/render.mjs');
 
@@ -264,6 +375,22 @@ test('demo renders a focused Gantt chart embedded in Markdown prose', async () =
   assert.match(html, /<agent-gantt-phase label="Core build">/);
   assert.match(html, /<agent-gantt-task label="Components \+ Storybook" start="3" end="5" tone="components" detail="2 wks/);
   assert.match(html, /<agent-gantt-task label="Testing — parallel" start="3" end="12" tone="testing" detail="Runs continuously beside component work" parallel(?:="")?>/);
+});
+
+test('demo renders action list islands with nested actions', async () => {
+  const { renderMarkdownFile } = await import('../src/render.mjs');
+
+  const { html } = await renderMarkdownFile(demo);
+
+  assert.match(
+    html,
+    /<agent-action-list\s+label="From this demo"\s+layout="table"\s+group-by="status"\s+filter-status="open,in-progress"\s+filter-priority="high,normal"\s+show-done="false">/,
+  );
+  assert.match(html, /<agent-action owner="You" status="open">/);
+  assert.match(html, /<agent-action owner="You" status="in-progress" priority="high" due="2026-05-24">/);
+  assert.match(html, /<agent-action-list label="From standup \(minimal\)">/);
+  assert.match(html, /<agent-action-list label="Launch follow-ups \(kanban\)" layout="kanban" show-done="false">/);
+  assert.match(html, /<agent-action-list label="Launch follow-ups \(priority lanes\)" layout="priority" show-done="true">/);
 });
 
 test('demo can render source Markdown beside rendered output', async () => {

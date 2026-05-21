@@ -129,6 +129,31 @@ Use `<agent-status-board>` when an agent report needs a compact “where are we 
 | Public narrative | Improved | This demo now explains why Markdown islands matter. |
 | Plain Markdown readability | Preserved | The report still reads coherently before rendering. |
 
+## Dependency map: writeback chain
+
+Project reports often need to show what blocks what. This map renders a vertical dependency DAG without requiring Mermaid.
+
+<agent-dependency-map label="Writeback dependency chain" direction="vertical" legend="show">
+  <agent-dependency id="edit-server" label="Edit server" status="ready" owner="Merlin" priority="P0">
+    Starts the localhost edit workflow.
+  </agent-dependency>
+  <agent-dependency id="source-metadata" label="Source metadata" status="blocked" blocked-by="edit-server" owner="Merlin" priority="P0">
+    Requires the edit server entrypoint first.
+  </agent-dependency>
+  <agent-dependency id="patch-api" label="Patch API" status="blocked" blocked-by="source-metadata" owner="Merlin" priority="P1">
+    Applies safe task-list source patches.
+  </agent-dependency>
+  <agent-dependency id="browser-client" label="Browser client" status="blocked" blocked-by="patch-api" owner="Merlin" priority="P1">
+    Enables checkbox writeback from rendered output.
+  </agent-dependency>
+  <agent-dependency id="docs" label="Docs and prompts" status="active" blocked-by="patch-api" owner="Nia" priority="P2">
+    Document the safe authoring + edit boundaries and ship example prompts.
+  </agent-dependency>
+  <agent-dependency id="writeback-release" label="Writeback release" status="risk" blocked-by="browser-client, docs" owner="Ariel" priority="P0">
+    Launch when the client and docs converge; treat cross-surface integration as a risk gate.
+  </agent-dependency>
+</agent-dependency-map>
+
 ## Multi-phase plan
 
 <agent-tabs>
@@ -226,9 +251,56 @@ If every report invents new tags, the vocabulary stops being useful. Prefer a sm
 
 ## Suggested next actions
 
-1. Render this file and open the generated HTML.
-2. Use the source Markdown in pull requests so reviewers can inspect the exact report text.
-3. Promote repeated Bootstrap patterns into semantic `<agent-*>` components only after they recur.
+<agent-action-list
+  label="From this demo"
+  layout="table"
+  group-by="status"
+  filter-status="open,in-progress"
+  filter-priority="high,normal"
+  show-done="false">
+  <agent-action owner="You" status="open">
+    Render this file and open the generated HTML.
+  </agent-action>
+  <agent-action owner="You" status="in-progress" priority="high" due="2026-05-24">
+    Add an action list island for follow-ups that keeps ownership and status visible.
+  </agent-action>
+  <agent-action owner="Reviewers" status="open" priority="normal">
+    Use the source Markdown in pull requests so reviewers can inspect the exact report text.
+  </agent-action>
+  <agent-action owner="Maintainers" status="done">
+    Promote repeated Bootstrap patterns into semantic agent-* components only after they recur.
+  </agent-action>
+</agent-action-list>
+
+<agent-action-list label="From standup (minimal)">
+  <agent-action owner="Pix">Mirror docs to wiki.</agent-action>
+  <agent-action owner="Merlin">Re-run smoke after component bundle changes.</agent-action>
+  <agent-action owner="Zach" status="done">Open the three PRs.</agent-action>
+</agent-action-list>
+
+<agent-action-list label="Launch follow-ups (kanban)" layout="kanban" show-done="false">
+  <agent-action owner="Merlin" due="2026-05-24" priority="high" status="in-progress">
+    Re-run render smoke after component bundle changes.
+  </agent-action>
+  <agent-action owner="Zach" due="next wk" priority="normal" status="blocked">
+    Decide whether writeback should support action status edits in the first pass.
+  </agent-action>
+  <agent-action owner="Pix" status="done">
+    Mirror component docs to the wiki.
+  </agent-action>
+</agent-action-list>
+
+<agent-action-list label="Launch follow-ups (priority lanes)" layout="priority" show-done="true">
+  <agent-action owner="Merlin" due="2026-05-24" priority="high" status="in-progress">
+    Re-run render smoke after component bundle changes.
+  </agent-action>
+  <agent-action owner="Zach" due="next wk" priority="normal" status="blocked">
+    Decide whether writeback should support action status edits in the first pass.
+  </agent-action>
+  <agent-action owner="Pix" status="done" priority="low">
+    Mirror component docs to the wiki.
+  </agent-action>
+</agent-action-list>
 
 ```bash
 npm install

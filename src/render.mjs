@@ -10,6 +10,7 @@ import rehypeRaw from 'rehype-raw';
 import rehypeHighlight from 'rehype-highlight';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import rehypeStringify from 'rehype-stringify';
+import { resolvePackInputs } from './pack-resolver.mjs';
 
 const require = createRequire(import.meta.url);
 const moduleDir = dirname(fileURLToPath(import.meta.url));
@@ -96,6 +97,10 @@ const sanitizedSchema = {
       'agent-kpi',
       'agent-status-board',
       'agent-status-item',
+      'agent-dependency-map',
+      'agent-dependency',
+      'agent-action-list',
+      'agent-action',
     ]),
   ],
   attributes: {
@@ -166,6 +171,28 @@ const sanitizedSchema = {
     'agent-kpi': ['className', 'label', 'value', 'unit', 'delta', 'tone'],
     'agent-status-board': ['className', 'label', 'meta', 'summary', 'group-by'],
     'agent-status-item': ['className', 'label', 'status', 'owner', 'updated', 'history'],
+    'agent-dependency-map': ['className', 'label', 'direction', 'legend'],
+    'agent-dependency': [
+      'className',
+      'id',
+      'label',
+      'status',
+      'blockedBy',
+      'blocked-by',
+      'owner',
+      'priority',
+      'href',
+    ],
+    'agent-action-list': [
+      'className',
+      'label',
+      'layout',
+      'group-by',
+      'filter-status',
+      'filter-priority',
+      'show-done',
+    ],
+    'agent-action': ['className', 'owner', 'due', 'priority', 'status'],
   },
 };
 
@@ -196,6 +223,12 @@ export async function renderMarkdownFile(inputPath, options = {}) {
   const markdown = readFileSync(filePath, 'utf8');
   const outFile = options.outFile ? resolve(options.outFile) : undefined;
   const assetMode = normalizeAssetMode(options.assetMode);
+  const resolvedPacks = await resolvePackInputs({
+    explicitPacks: options.explicitPacks || [],
+    projectDir: options.projectDir ?? dirname(filePath),
+    includeUserPacks: options.includeUserPacks === true,
+    userConfigDir: options.userConfigDir || null,
+  });
   const html = await renderMarkdown(markdown, { ...options, assetMode, sourcePath: filePath });
 
   if (outFile) {
@@ -207,7 +240,7 @@ export async function renderMarkdownFile(inputPath, options = {}) {
     }
   }
 
-  return { html, outFile };
+  return { html, outFile, resolvedPacks };
 }
 
 export function defaultOutFile(inputPath) {

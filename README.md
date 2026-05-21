@@ -214,6 +214,7 @@ Supported islands so far:
 
 - `<agent-decision verdict="..." title="...">...</agent-decision>`
 - `<agent-risk level="low|medium|high|critical" title="...">...</agent-risk>`
+- `<agent-dependency-map label="..." direction="vertical">` with `<agent-dependency id="..." label="..." status="..." blocked-by="...">...</agent-dependency>`
 - `<agent-gantt weeks="..." milestones="..." label="...">...</agent-gantt>` with `<agent-gantt-phase label="...">` lanes and `<agent-gantt-task label="..." start="..." end="..." tone="..." detail="..." parallel>` bars
 - `<agent-status-board label="..." summary="bar" group-by="status">...</agent-status-board>` with `<agent-status-item label="..." status="green|amber|red|grey" owner="..." updated="..." history="g,g,a,a">` rows
 - `<agent-metric label="..." value="..." unit="..." tone="neutral|good|warning|danger">...</agent-metric>`
