@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "agent-isles",
+  "version": "0.1.0-alpha.0",
+  "description": "Claude Code marketplace for Agent Isles: install/update help, render smoke checks, and component-authoring guidance.",
+  "owner": {
+    "name": "Agent Isles maintainers"
+  },
+  "plugins": [
+    {
+      "name": "agent-isles",
+      "version": "0.1.0-alpha.0",
+      "description": "Install, update, render, and author Agent Isles Markdown reports from Claude Code.",
+      "author": {
+        "name": "Zach Young"
+      },
+      "source": "./plugins/agent-isles",
+      "category": "development",
+      "homepage": "https://github.com/zpyoung/agent-isles"
+    }
+  ]
+}
