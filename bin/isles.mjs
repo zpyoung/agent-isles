@@ -15,8 +15,8 @@ import { watchMarkdownFile } from '../src/watch.mjs';
 const USAGE = `Agent Isles — Markdown seas, component islands.
 
 Usage:
-  isles render <file.md> [--out <file.html>] [--mode trusted|sanitized] [--assets cdn|local] [--show-source]
-  isles render <file.md> [--out <file.html>] [--safe|--sanitize] [--assets cdn|local] [--show-source]
+  isles render <file.md> [--out <file.html>] [--mode trusted|sanitized] [--assets cdn|local] [--show-source] [--pack <path>]... [--no-user-packs]
+  isles render <file.md> [--out <file.html>] [--safe|--sanitize] [--assets cdn|local] [--show-source] [--pack <path>]... [--no-user-packs]
   isles watch <file.md> [--out <file.html>]
 
 Commands:
@@ -26,6 +26,8 @@ Commands:
 Options:
   --assets cdn|local   Use CDN assets by default, or copy local offline assets
   --show-source        Display escaped source Markdown beside rendered output
+  --pack <path>        Load component pack from path (repeatable)
+  --no-user-packs      Skip automatic user config packs for reproducible renders
 `;
 
 const packageJson = JSON.parse(readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '..', 'package.json'), 'utf8'));
@@ -88,6 +90,8 @@ function parseRenderArgs(args) {
     renderMode: RENDER_MODES.TRUSTED,
     assetMode: 'cdn',
     showSource: false,
+    explicitPacks: [],
+    includeUserPacks: true,
   };
 
   for (let index = 0; index < args.length; index += 1) {
@@ -134,6 +138,22 @@ function parseRenderArgs(args) {
       }
       parsed.assetMode = value;
       index += 1;
+      continue;
+    }
+
+    if (arg === '--pack') {
+      const value = args[index + 1];
+      if (!value || value.startsWith('-')) {
+        console.error('Missing value for --pack. Provide a pack directory path.');
+        process.exit(2);
+      }
+      parsed.explicitPacks.push(value);
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--no-user-packs') {
+      parsed.includeUserPacks = false;
       continue;
     }
 
