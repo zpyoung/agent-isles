@@ -92,6 +92,34 @@ Ship the report format as Markdown plus explicit HTML islands. Keep prose portab
 npm run render -- --out dist/demo.html
 </agent-copy-block>
 
+## Status board
+
+Use `<agent-status-board>` when an agent report needs a compact “where are we across N workstreams?” rollup. The board derives its summary from child rows rather than requiring duplicated counts in Markdown.
+
+<agent-status-board label="Project health" meta="wk 24" summary="bar" group-by="status">
+  <agent-status-item label="Renderer" status="green" owner="Merlin" updated="mon" history="g,g,g,g">
+    CI green; render smoke passing for 9 days.
+  </agent-status-item>
+  <agent-status-item label="Writeback" status="amber" owner="Zach" updated="tue" history="g,g,a,a">
+    Blocked on API boundary decision. Localhost auth design due Thu.
+  </agent-status-item>
+  <agent-status-item label="Pages" status="amber" owner="Merlin" updated="wed" history="a,a,a,a">
+    Publishing is pending until GitHub Pages is enabled by a repo owner.
+  </agent-status-item>
+  <agent-status-item label="Docs" status="green" owner="Merlin" updated="wed" history="g,g,g,g">
+    Component vocabulary mirror is current with the public wiki.
+  </agent-status-item>
+</agent-status-board>
+
+<agent-status-board label="Component readiness">
+  <agent-status-item label="KPI" status="green" owner="Merlin">
+    Stable and covered by browser smoke.
+  </agent-status-item>
+  <agent-status-item label="Status board" status="amber" owner="Merlin">
+    New island under review; verify grouped lanes and summary behavior.
+  </agent-status-item>
+</agent-status-board>
+
 ## What changed in this pass
 
 | Area | Status | Evidence |

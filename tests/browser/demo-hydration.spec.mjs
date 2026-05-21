@@ -18,6 +18,8 @@ const expectedCustomElements = [
   'agent-gantt',
   'agent-gantt-phase',
   'agent-gantt-task',
+  'agent-status-board',
+  'agent-status-item',
   'agent-dependency-map',
   'agent-dependency',
 ];
@@ -40,7 +42,7 @@ test('rendered demo loads without console errors and hydrates agent components',
     await expect(page.locator('h1')).toContainText('Agent Isles Demo');
 
     const renderedAgentTags = await page
-      .locator('agent-decision, agent-risk, agent-gantt, agent-gantt-phase, agent-gantt-task, agent-dependency-map, agent-dependency')
+      .locator('agent-decision, agent-risk, agent-gantt, agent-gantt-phase, agent-gantt-task, agent-status-board, agent-status-item, agent-dependency-map, agent-dependency')
       .evaluateAll((elements) => [
         ...new Set(elements.map((element) => element.localName)),
       ]);
@@ -76,6 +78,32 @@ test('rendered demo loads without console errors and hydrates agent components',
       .toBe(true);
     await firstTask.locator('summary').click();
     await expect(firstTask.locator('details')).toContainText('2 wks — was 8 wks');
+
+    const statusBoard = page.locator('agent-status-board').first();
+    await expect
+      .poll(() => statusBoard.evaluate((element) => Boolean(element.shadowRoot?.querySelector('.agent-status-summary'))))
+      .toBe(true);
+    await expect(statusBoard).toContainText('Project health');
+    await expect(statusBoard).toContainText('Overall Amber');
+
+    const writebackItem = page.locator('agent-status-item[label="Writeback"]');
+    await expect
+      .poll(() => writebackItem.evaluate((element) => Boolean(element.shadowRoot?.querySelector('.status-item'))))
+      .toBe(true);
+    await expect(writebackItem).toContainText('Blocked on API boundary decision');
+    await writebackItem.evaluate((element) => element.setAttribute('history', 'g,g,a,'));
+    await expect
+      .poll(() => writebackItem.evaluate((element) => element.shadowRoot?.querySelectorAll('.trend-chip').length || 0))
+      .toBe(3);
+
+    await statusBoard.evaluate((element) => element.setAttribute('group-by', 'none'));
+    await expect
+      .poll(() => statusBoard.evaluate((element) => [...element.querySelectorAll('agent-status-item')].every((item) => item.slot === '')))
+      .toBe(true);
+    await statusBoard.evaluate((element) => element.setAttribute('group-by', 'status'));
+    await expect
+      .poll(() => statusBoard.evaluate((element) => [...element.querySelectorAll('agent-status-item')].every((item) => item.slot === `status-${item.getAttribute('status')}`)))
+      .toBe(true);
 
     const dependencyMap = page.locator('agent-dependency-map').first();
     await expect(dependencyMap).toBeVisible();

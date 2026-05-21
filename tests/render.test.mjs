@@ -383,6 +383,39 @@ test('sanitized render mode preserves safe Gantt tags and attributes', async () 
   assert.doesNotMatch(html, /onclick=/i);
 });
 
+test('component bundle registers the status board island vocabulary', () => {
+  const bundle = readFileSync(componentBundle, 'utf8');
+
+  for (const tagName of ['agent-status-board', 'agent-status-item']) {
+    assertCustomElementDefinition(bundle, tagName);
+  }
+  assert.match(bundle, /agent-status-summary/);
+  assert.match(bundle, /Overall/);
+});
+
+test('sanitized render mode preserves safe status board tags and attributes', async () => {
+  const { renderMarkdown } = await import('../src/render.mjs');
+
+  const html = await renderMarkdown(`
+# Safe Status Board
+
+<agent-status-board label="Project health" meta="wk 24" summary="bar" group-by="status" onclick="steal()">
+  <agent-status-item label="Renderer" status="green" owner="Merlin" updated="mon" history="g,g,g,g" onclick="steal()">
+    <script>alert('owned')</script>
+    CI green; render smoke passing.
+  </agent-status-item>
+</agent-status-board>
+`, { renderMode: 'sanitized' });
+
+  assert.match(html, /<agent-status-board label="Project health" meta="wk 24" summary="bar" group-by="status">/);
+  assert.match(
+    html,
+    /<agent-status-item label="Renderer" status="green" owner="Merlin" updated="mon" history="g,g,g,g">\s*CI green; render smoke passing\.\s*<\/agent-status-item>/,
+  );
+  assert.doesNotMatch(html, /<script>/i);
+  assert.doesNotMatch(html, /onclick=/i);
+});
+
 test('sanitized render mode preserves safe action list tags and attributes', async () => {
   const { renderMarkdown } = await import('../src/render.mjs');
 
@@ -409,6 +442,18 @@ test('sanitized render mode preserves safe action list tags and attributes', asy
   assert.match(html, /<agent-action owner="Pix" status="done">Mirror docs to wiki\.<\/agent-action>/);
   assert.doesNotMatch(html, /<script>/i);
   assert.doesNotMatch(html, /onclick=/i);
+});
+
+test('demo renders full and minimal status board examples', async () => {
+  const { renderMarkdownFile } = await import('../src/render.mjs');
+
+  const { html } = await renderMarkdownFile(demo);
+
+  assert.match(html, /<h2>Status board<\/h2>/i);
+  assert.match(html, /<agent-status-board label="Project health" meta="wk 24" summary="bar" group-by="status">/);
+  assert.match(html, /<agent-status-item label="Writeback" status="amber" owner="Zach" updated="tue" history="g,g,a,a">/);
+  assert.match(html, /<agent-status-board label="Component readiness">/);
+  assert.match(html, /<agent-status-item label="KPI" status="green" owner="Merlin">/);
 });
 
 test('demo renders a multi-phase plan with tabs and timeline steps', async () => {

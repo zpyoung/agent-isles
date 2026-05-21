@@ -60,7 +60,8 @@ The public demo lives in `examples/demo.md`. It is intentionally readable as pla
 - Markdown tables and code fences for portable evidence,
 - `<agent-decision>` elements for recommendations,
 - `<agent-risk>` elements for caveats and mitigations,
-- `<agent-gantt>` schedules for phase lanes, milestone weeks, overlapping work, and task details.
+- `<agent-gantt>` schedules for phase lanes, milestone weeks, overlapping work, and task details,
+- `<agent-status-board>` boards for derived RAG/health rollups across workstreams.
 
 Render it locally:
 
@@ -266,6 +267,7 @@ Supported islands so far:
 - `<agent-risk level="low|medium|high|critical" title="...">...</agent-risk>`
 - `<agent-dependency-map label="..." direction="vertical">` with `<agent-dependency id="..." label="..." status="..." blocked-by="...">...</agent-dependency>`
 - `<agent-gantt weeks="..." milestones="..." label="...">...</agent-gantt>` with `<agent-gantt-phase label="...">` lanes and `<agent-gantt-task label="..." start="..." end="..." tone="..." detail="..." parallel>` bars
+- `<agent-status-board label="..." summary="bar" group-by="status">...</agent-status-board>` with `<agent-status-item label="..." status="green|amber|red|grey" owner="..." updated="..." history="g,g,a,a">` rows
 - `<agent-metric label="..." value="..." unit="..." tone="neutral|good|warning|danger">...</agent-metric>`
 - `<agent-delta label="..." value="..." unit="..." percent="..." direction="lower-better|higher-better|neutral">...</agent-delta>`
 - `<agent-kpi label="..." value="..." unit="..." delta="..." tone="primary|success|warning|danger|neutral">...</agent-kpi>`
