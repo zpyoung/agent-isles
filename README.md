@@ -133,6 +133,27 @@ npm run pack:dry-run -- --json
 
 The dry-run package should include only the CLI, renderer source, component source, built component bundle, demo Markdown, README, LICENSE, and package metadata.
 
+## Claude Code plugin marketplace
+
+Agent Isles also ships a Claude Code plugin from this repository. The plugin version intentionally tracks the npm package version so one marketplace install gives Claude the matching install/update, render, and component-authoring guidance.
+
+Install from the in-repo marketplace:
+
+```text
+/plugin marketplace add zpyoung/agent-isles
+/plugin install agent-isles@agent-isles
+/reload-plugins
+```
+
+The plugin includes:
+
+- `agent-isles-install-update` — detects npm, pnpm, or yarn and installs/updates `agent-isles@next` as a project dev dependency.
+- `agent-isles-render` — renders or watches Markdown and verifies the generated HTML artifact.
+- `agent-isles-component-authoring` — guides supported `<agent-*>` island usage and trusted/sanitized rendering boundaries.
+- `plugins/agent-isles/bin/isles-doctor.mjs` — deterministic package-manager detection and smoke-check command generation.
+
+The plugin does not auto-install on session start, publish releases, or mutate projects without an explicit install/update request.
+
 ## CLI
 
 ```bash
