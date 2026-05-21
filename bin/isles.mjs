@@ -1,16 +1,18 @@
 #!/usr/bin/env node
 
 import {
+  buildPackAssetRecords,
   AgentIslesInputError,
   defaultOutFile,
   normalizeRenderMode,
   renderMarkdownFile,
   RENDER_MODES,
+  validateMarkdownInput,
 } from '../src/render.mjs';
 import { existsSync, readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { PackResolutionError } from '../src/pack-resolver.mjs';
+import { CONFIG_FILE, getUserConfigDir, PackResolutionError, resolvePackInputs } from '../src/pack-resolver.mjs';
 import { watchMarkdownFile } from '../src/watch.mjs';
 
 const USAGE = `Agent Isles — Markdown seas, component islands.
@@ -18,11 +20,13 @@ const USAGE = `Agent Isles — Markdown seas, component islands.
 Usage:
   isles render <file.md> [--out <file.html>] [--mode trusted|sanitized] [--assets cdn|local] [--show-source] [--pack <path>]... [--no-user-packs]
   isles render <file.md> [--out <file.html>] [--safe|--sanitize] [--assets cdn|local] [--show-source] [--pack <path>]... [--no-user-packs]
+  isles packs resolve <file.md> [--pack <path>]... [--no-user-packs]
   isles watch <file.md> [--out <file.html>]
 
 Commands:
-  render   Render Markdown to browser-ready HTML
-  watch    Render immediately and rebuild when the Markdown file changes
+  render         Render Markdown to browser-ready HTML
+  packs resolve  Print resolved component packs, sources, asset outputs, and sanitizer permissions
+  watch          Render immediately and rebuild when the Markdown file changes
 
 Options:
   --assets cdn|local   Use CDN assets by default, or copy local offline assets
@@ -46,6 +50,8 @@ if (command === '--version' || command === '-v') {
 
 if (command === 'render') {
   await runRender(args);
+} else if (command === 'packs') {
+  await runPacks(args);
 } else if (command === 'watch') {
   await runWatch(args);
 } else {
@@ -92,6 +98,170 @@ async function runRender(args) {
 
     throw error;
   }
+}
+
+async function runPacks(args) {
+  const [subcommand, ...rest] = args;
+
+  if (subcommand !== 'resolve') {
+    console.error(`Unknown packs command: ${subcommand || ''}\n`);
+    console.error(USAGE);
+    process.exit(2);
+  }
+
+  const parsed = parsePacksResolveArgs(rest);
+  if (!parsed.input) {
+    console.error('Missing Markdown file for packs resolve.\n');
+    console.error(USAGE);
+    process.exit(2);
+  }
+
+  try {
+    const inputPath = validateMarkdownInput(parsed.input);
+    const projectDir = dirname(resolve(inputPath));
+    const resolvedPacks = await resolvePackInputs({
+      explicitPacks: parsed.explicitPacks,
+      projectDir,
+      includeUserPacks: parsed.includeUserPacks,
+    });
+    console.log(formatPackResolutionDiagnostics({
+      inputPath,
+      projectDir,
+      includeUserPacks: parsed.includeUserPacks,
+      explicitPacks: parsed.explicitPacks,
+      resolvedPacks,
+    }));
+  } catch (error) {
+    if (error instanceof AgentIslesInputError) {
+      console.error(error.message);
+      process.exit(1);
+    }
+
+    if (error instanceof PackResolutionError || error.name === 'PackLoadError') {
+      console.error(error.message);
+      process.exit(1);
+    }
+
+    throw error;
+  }
+}
+
+function parsePacksResolveArgs(args) {
+  const parsed = {
+    input: undefined,
+    explicitPacks: [],
+    includeUserPacks: true,
+  };
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+
+    if (arg === '--pack') {
+      const value = args[index + 1];
+      if (!value || value.startsWith('-')) {
+        console.error('Missing value for --pack. Provide a pack directory path.');
+        process.exit(2);
+      }
+      parsed.explicitPacks.push(value);
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--no-user-packs') {
+      parsed.includeUserPacks = false;
+      continue;
+    }
+
+    if (arg.startsWith('-')) {
+      console.error(`Unknown packs resolve option: ${arg}`);
+      process.exit(2);
+    }
+
+    if (parsed.input) {
+      console.error(`Unexpected extra argument: ${arg}`);
+      process.exit(2);
+    }
+
+    parsed.input = arg;
+  }
+
+  return parsed;
+}
+
+function formatPackResolutionDiagnostics({ inputPath, projectDir, includeUserPacks, explicitPacks, resolvedPacks }) {
+  const lines = [];
+  const projectConfigPath = join(projectDir, CONFIG_FILE);
+  const userConfigPath = join(getUserConfigDir(), CONFIG_FILE);
+  const packAssetRecords = buildPackAssetRecords(resolvedPacks.packs);
+  const assetRecordsById = new Map(packAssetRecords.map((record) => [record.id, record]));
+  const warnings = [];
+
+  lines.push('Agent Isles pack resolution');
+  lines.push(`Input: ${inputPath}`);
+  lines.push(`Explicit packs: ${explicitPacks.length}`);
+  lines.push(`Project config: ${projectConfigPath}${existsSync(projectConfigPath) ? '' : ' (not found)'}`);
+  lines.push(`User packs: ${includeUserPacks ? 'enabled' : 'disabled'}`);
+  if (includeUserPacks) {
+    lines.push(`User config: ${userConfigPath}${existsSync(userConfigPath) ? '' : ' (not found)'}`);
+  }
+  lines.push(`Resolved packs: ${resolvedPacks.packs.length}`);
+
+  for (const packRecord of resolvedPacks.packRecords || []) {
+    const pack = packRecord.pack;
+    const assetRecord = assetRecordsById.get(packRecord.ownerId);
+    lines.push(`- ${packRecord.ownerId}`);
+    lines.push(`  Directory: ${pack.packDir}`);
+    lines.push(`  Manifest: ${pack.manifestPath}`);
+
+    for (const source of packRecord.sources) {
+      const details = source.configPath || source.packRef;
+      const suffix = details ? ` (${details})` : '';
+      lines.push(`  Source: ${source.label}${suffix}`);
+    }
+
+    lines.push('  Sanitized permissions:');
+    if ((pack.tags || []).length === 0) {
+      lines.push('    tags: none');
+    } else {
+      for (const tag of pack.tags) {
+        const sanitizedAttributes = [];
+        for (const attribute of tag.attributes || []) {
+          if (isSanitizedPackAttribute(attribute)) {
+            sanitizedAttributes.push(attribute);
+          } else {
+            warnings.push(`${packRecord.ownerId}: attribute ${attribute} on ${tag.name} ignored in sanitized mode`);
+          }
+        }
+        lines.push(`    - ${tag.name}`);
+        lines.push(`      sanitized attributes: ${sanitizedAttributes.length ? sanitizedAttributes.join(', ') : 'none'}`);
+      }
+    }
+
+    lines.push('  Assets:');
+    if (!assetRecord || assetRecord.assets.length === 0) {
+      lines.push('    none');
+    } else {
+      for (const asset of assetRecord.assets) {
+        lines.push(`    - ${asset.type} ${asset.path} -> ${asset.outputPath}`);
+      }
+    }
+  }
+
+  lines.push('Warnings:');
+  if (warnings.length === 0) {
+    lines.push('  none');
+  } else {
+    for (const warning of warnings) {
+      lines.push(`  - ${warning}`);
+    }
+  }
+
+  return lines.join('\n');
+}
+
+function isSanitizedPackAttribute(attributeName) {
+  const normalizedName = String(attributeName).toLowerCase();
+  return !normalizedName.startsWith('on') && normalizedName !== 'style' && normalizedName !== 'srcdoc';
 }
 
 function parseRenderArgs(args) {

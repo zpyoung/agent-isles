@@ -136,8 +136,9 @@ The dry-run package should include only the CLI, renderer source, component sour
 ## CLI
 
 ```bash
-isles render <file.md> [--out <file.html>] [--mode trusted|sanitized] [--assets cdn|local]
-isles render <file.md> [--out <file.html>] [--safe|--sanitize] [--assets cdn|local]
+isles render <file.md> [--out <file.html>] [--mode trusted|sanitized] [--assets cdn|local] [--pack <path>]... [--no-user-packs]
+isles render <file.md> [--out <file.html>] [--safe|--sanitize] [--assets cdn|local] [--pack <path>]... [--no-user-packs]
+isles packs resolve <file.md> [--pack <path>]... [--no-user-packs]
 isles watch <file.md> [--out <file.html>]
 ```
 
@@ -173,6 +174,35 @@ node ./bin/isles.mjs render examples/demo.md --out dist/demo.html --assets local
 ```
 
 `isles watch` renders immediately and rebuilds when the Markdown source changes. It remains source-driven: browser interactions in the generated HTML do not write back to the Markdown file.
+
+## Component Packs V1
+
+Component Packs V1 supports trusted local packs from explicit CLI paths, project config, and user config. The full V1 reference is in `docs/component-packs.md`.
+
+Resolution order is deterministic:
+
+1. repeated `--pack <path>` flags,
+2. `isles.config.json` beside the Markdown input,
+3. user config at `${XDG_CONFIG_HOME:-~/.config}/agent-isles/isles.config.json` on Linux/Unix, `~/Library/Application Support/agent-isles/isles.config.json` on macOS, or `%LOCALAPPDATA%\agent-isles\isles.config.json` on Windows.
+
+Use `--no-user-packs` for reproducible renders that should not depend on a developer machine. Use diagnostics before rendering when the pack set matters:
+
+```bash
+isles packs resolve examples/pack-demo.md --pack examples/packs/demo-widget-pack --no-user-packs
+```
+
+A local pack directory contains `agent-isles.pack.json` with `agentIslesPackVersion`, `name`, optional `version`/metadata, declared custom-element `tags`, sanitized-mode `attributes`, and `module`/`style` assets. V1 is local-only: npm/git source resolution, full strict validation, and authoring tools are V1+ follow-ups tracked from https://github.com/zpyoung/agent-isles/discussions/64.
+
+Packs are trusted code. Sanitized Markdown mode can preserve declared custom-element tags and safe manifest-declared attributes, but pack module/style assets are still injected into the generated HTML. Only load reviewed local/project/user packs.
+
+The repo includes a tiny fixture pack for tests and examples:
+
+```bash
+isles render examples/pack-demo.md \
+  --pack examples/packs/demo-widget-pack \
+  --out dist/pack-demo.html \
+  --mode sanitized
+```
 
 ## Architecture
 
