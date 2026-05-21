@@ -10,6 +10,7 @@ import rehypeRaw from 'rehype-raw';
 import rehypeHighlight from 'rehype-highlight';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import rehypeStringify from 'rehype-stringify';
+import { resolvePackInputs } from './pack-resolver.mjs';
 
 const require = createRequire(import.meta.url);
 const moduleDir = dirname(fileURLToPath(import.meta.url));
@@ -218,6 +219,12 @@ export async function renderMarkdownFile(inputPath, options = {}) {
   const markdown = readFileSync(filePath, 'utf8');
   const outFile = options.outFile ? resolve(options.outFile) : undefined;
   const assetMode = normalizeAssetMode(options.assetMode);
+  const resolvedPacks = await resolvePackInputs({
+    explicitPacks: options.explicitPacks || [],
+    projectDir: options.projectDir ?? dirname(filePath),
+    includeUserPacks: options.includeUserPacks === true,
+    userConfigDir: options.userConfigDir || null,
+  });
   const html = await renderMarkdown(markdown, { ...options, assetMode, sourcePath: filePath });
 
   if (outFile) {
@@ -229,7 +236,7 @@ export async function renderMarkdownFile(inputPath, options = {}) {
     }
   }
 
-  return { html, outFile };
+  return { html, outFile, resolvedPacks };
 }
 
 export function defaultOutFile(inputPath) {
