@@ -176,6 +176,63 @@ Use Markdown for surrounding context. The component owns only the chart.
 </agent-gantt>
 ```
 
+### `<agent-status-board>` and `<agent-status-item>`
+
+Use for compact RAG/health boards where an agent report needs to answer “where are we across N workstreams?” without hand-authoring repeated Bootstrap rows.
+
+Status: supported.
+
+Authoring guidance:
+
+- Use `<agent-status-board>` for the rollup container and direct `<agent-status-item>` children for rows.
+- Keep child item bodies as concise prose that remains readable in Markdown source.
+- Use `summary="bar"` only when the derived distribution and worst-of headline add value.
+- Use `group-by="status"` when red/amber/green lanes are easier to scan than source order.
+- Keep nested custom-element children continuous; avoid blank lines between status items inside the board.
+
+Attributes:
+
+| Tag | Attribute | Required | Allowed values | Default | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `agent-status-board` | `label` | No | Plain text | `Status` | Board heading and accessible label. |
+| `agent-status-board` | `meta` | No | Plain text | derived item count | Small right-aligned context such as `wk 24`. |
+| `agent-status-board` | `summary` | No | `bar`, `off` | `off` | `bar` shows a distribution bar and worst-of headline derived from children. |
+| `agent-status-board` | `group-by` | No | `status`, `none` | `none` | `status` renders native collapsible red/amber/green/grey lanes. |
+| `agent-status-item` | `label` | No | Plain text | `Status item` | Visible row label. |
+| `agent-status-item` | `status` | No | `green`, `amber`, `red`, `grey` plus aliases `g`, `a`, `r` | `grey` | Drives status pill, grouping lane, summary count, and row accent. |
+| `agent-status-item` | `owner` | No | Plain text | empty | Accountable person/team rendered as metadata. |
+| `agent-status-item` | `updated` | No | Plain text | empty | Free-form recency hint such as `mon`, `2d ago`, or a date. |
+| `agent-status-item` | `history` | No | Comma-separated status tokens | empty | Renders a small trend strip such as `g,g,a,a`. |
+
+Child content:
+
+- `<agent-status-board>` should contain direct `<agent-status-item>` children.
+- `<agent-status-item>` may contain short prose, evidence, or next-action context.
+
+Accessibility notes:
+
+- Rows expose visible status labels and generated accessible labels; status is not color-only.
+- Grouped boards use native `<details>/<summary>` disclosure for keyboard-safe collapsible lanes.
+- Summary bars include text counts and an `aria-label` describing the distribution.
+
+Trusted/sanitized behavior:
+
+- Trusted mode preserves the tags, attributes, and child HTML.
+- Sanitized mode allows `label`, `meta`, `summary`, `group-by`, `status`, `owner`, `updated`, and `history` while stripping event handlers and unsafe raw HTML.
+
+Example:
+
+```markdown
+<agent-status-board label="Project health" meta="wk 24" summary="bar" group-by="status">
+  <agent-status-item label="Renderer" status="green" owner="Merlin" updated="mon" history="g,g,g,g">
+    CI green; render smoke passing for 9 days.
+  </agent-status-item>
+  <agent-status-item label="Writeback" status="amber" owner="Zach" updated="tue" history="g,g,a,a">
+    Blocked on API boundary decision.
+  </agent-status-item>
+</agent-status-board>
+```
+
 ### `<agent-dependency-map>` and `<agent-dependency>`
 
 Use for project-management dependency chains where you need to show what blocks what without requiring Mermaid, hand-authored SVG, or bespoke CSS connectors.
