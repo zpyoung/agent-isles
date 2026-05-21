@@ -1,5 +1,5 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { basename, dirname, extname, join, resolve } from 'node:path';
+import { basename, dirname, extname, join, relative, resolve } from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { unified } from 'unified';
@@ -20,6 +20,8 @@ const componentBundlePath = join(projectRoot, 'dist', 'agent-components.js');
 const componentScriptName = 'agent-components.js';
 const markdownExtensions = new Set(['.md', '.markdown']);
 const localAssetDirName = 'assets';
+const packAssetRootPath = `${localAssetDirName}/agent-isles/packs`;
+const packMetadataPath = `${localAssetDirName}/agent-isles/packs.json`;
 const localAssets = [
   {
     source: require.resolve('bootstrap/dist/css/bootstrap.min.css'),
@@ -274,11 +276,13 @@ export async function renderMarkdownFile(inputPath, options = {}) {
     includeUserPacks: options.includeUserPacks === true,
     userConfigDir: options.userConfigDir || null,
   });
+  const packAssetRecords = buildPackAssetRecords(resolvedPacks.packs);
   const html = await renderMarkdown(markdown, {
     ...options,
     assetMode,
     sourcePath: filePath,
     resolvedPacks,
+    packAssetRecords,
   });
 
   if (outFile) {
@@ -288,6 +292,8 @@ export async function renderMarkdownFile(inputPath, options = {}) {
     if (assetMode === 'local') {
       copyLocalAssets(dirname(outFile));
     }
+    copyPackAssets(dirname(outFile), packAssetRecords);
+    writePackMetadata(dirname(outFile), packAssetRecords);
   }
 
   return { html, outFile, resolvedPacks };
@@ -347,6 +353,7 @@ function buildHtmlPage(body, options = {}) {
   const title = options.title || 'Agent Isles Output';
   const assetMode = normalizeAssetMode(options.assetMode);
   const theme = readTheme();
+  const packAssetRecords = options.packAssetRecords || buildPackAssetRecords(options.resolvedPacks?.packs || []);
   const mainClass = options.showSource
     ? 'agent-isles-page agent-isles-page--source-view container-fluid py-4'
     : 'agent-isles-page container py-4';
@@ -356,6 +363,9 @@ function buildHtmlPage(body, options = {}) {
     : '\n  <!-- Agent Isles warning: dist/agent-components.js is missing. Run `npm run build`. -->';
   const styles = buildStyles(assetMode);
   const scripts = buildScripts(assetMode, missingBundleComment);
+  const packMetadata = buildPackMetadataTags(packAssetRecords);
+  const packStyleLinks = buildPackStyleLinks(packAssetRecords);
+  const packModuleScripts = buildPackModuleScripts(packAssetRecords);
 
   const mainBody = options.showSource ? pageBody : indent(pageBody, 4);
 
@@ -365,15 +375,15 @@ function buildHtmlPage(body, options = {}) {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${escapeHtml(title)}</title>
-${styles}
-  <style>${theme}</style>
+${packMetadata}${styles}
+  <style>${theme}</style>${packStyleLinks}
 </head>
 <body>
   <main class="${mainClass}">
 ${mainBody}
   </main>
 ${scripts}
-  <script type="module" src="./${componentScriptName}"></script>
+  <script type="module" src="./${componentScriptName}"></script>${packModuleScripts}
 </body>
 </html>`;
 }
@@ -431,6 +441,152 @@ function buildScripts(assetMode, missingBundleComment) {
   </script>`;
 
   return `${bootstrapScript}${missingBundleComment}`;
+}
+
+function buildPackMetadataTags(packAssetRecords) {
+  if (packAssetRecords.length === 0) {
+    return '';
+  }
+
+  const packIds = packAssetRecords.map((record) => record.id).join(',');
+  return `  <meta name="agent-isles-packs" content="${escapeHtml(packIds)}" />
+  <link rel="agent-isles-packs" href="./${packMetadataPath}" type="application/json" />
+`;
+}
+
+function buildPackStyleLinks(packAssetRecords) {
+  const styleLinks = packAssetRecords.flatMap((record) => record.assets
+    .filter((asset) => asset.type === 'style')
+    .map((asset) => `  <link href="${escapeHtml(asset.url)}" rel="stylesheet" data-agent-isles-pack="${escapeHtml(record.id)}" />`));
+
+  if (styleLinks.length === 0) {
+    return '';
+  }
+
+  return `\n${styleLinks.join('\n')}`;
+}
+
+function buildPackModuleScripts(packAssetRecords) {
+  const moduleScripts = packAssetRecords.flatMap((record) => record.assets
+    .filter((asset) => asset.type === 'module')
+    .map((asset) => `  <script type="module" src="${escapeHtml(asset.url)}" data-agent-isles-pack="${escapeHtml(record.id)}"></script>`));
+
+  if (moduleScripts.length === 0) {
+    return '';
+  }
+
+  return `\n${moduleScripts.join('\n')}`;
+}
+
+function buildPackAssetRecords(packs = []) {
+  const seenSafeIds = new Map();
+
+  return packs.map((pack) => {
+    const id = packOwnerId(pack);
+    const baseSafeId = safePackId(id);
+    const safeIdCount = seenSafeIds.get(baseSafeId) || 0;
+    seenSafeIds.set(baseSafeId, safeIdCount + 1);
+    const safeId = safeIdCount === 0 ? baseSafeId : `${baseSafeId}-${safeIdCount + 1}`;
+    const assets = (pack.assets || []).map((asset) => {
+      const normalizedPath = normalizePackAssetPath(pack, asset);
+      const outputPath = joinUrlPaths(packAssetRootPath, safeId, normalizedPath);
+
+      return {
+        ...asset,
+        normalizedPath,
+        outputPath,
+        url: `./${outputPath}`,
+      };
+    });
+
+    return {
+      pack,
+      id,
+      safeId,
+      assets,
+    };
+  });
+}
+
+function packOwnerId(pack) {
+  return pack.version ? `${pack.name}@${pack.version}` : pack.name;
+}
+
+function safePackId(packId) {
+  const safeId = String(packId)
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-');
+
+  return safeId || 'pack';
+}
+
+function normalizePackAssetPath(pack, asset) {
+  const assetPath = asset.resolvedPath && pack.packDir
+    ? relative(pack.packDir, asset.resolvedPath)
+    : asset.path;
+  const normalizedPath = String(assetPath)
+    .split(/[\\/]+/)
+    .filter(Boolean)
+    .join('/');
+
+  if (!normalizedPath || normalizedPath.startsWith('..') || normalizedPath.includes('/../')) {
+    throw new Error(`Pack asset path must stay inside the pack directory: ${asset.path}`);
+  }
+
+  return normalizedPath;
+}
+
+function joinUrlPaths(...parts) {
+  return parts
+    .flatMap((part) => String(part).split('/'))
+    .filter(Boolean)
+    .join('/');
+}
+
+function writePackMetadata(outDir, packAssetRecords) {
+  if (packAssetRecords.length === 0) {
+    return;
+  }
+
+  const metadataFile = join(outDir, packMetadataPath);
+  mkdirSync(dirname(metadataFile), { recursive: true });
+  writeFileSync(metadataFile, `${JSON.stringify(buildPackMetadata(packAssetRecords), null, 2)}\n`);
+}
+
+function buildPackMetadata(packAssetRecords) {
+  return {
+    agentIslesPacksVersion: 1,
+    packs: packAssetRecords.map((record) => ({
+      id: record.id,
+      safeId: record.safeId,
+      name: record.pack.name,
+      version: record.pack.version,
+      description: record.pack.description,
+      homepage: record.pack.homepage,
+      tags: record.pack.tags || [],
+      assets: record.assets.map((asset) => ({
+        type: asset.type,
+        path: asset.path,
+        outputPath: asset.outputPath,
+      })),
+    })),
+  };
+}
+
+function copyPackAssets(outDir, packAssetRecords) {
+  for (const record of packAssetRecords) {
+    for (const asset of record.assets) {
+      if (!existsSync(asset.resolvedPath)) {
+        throw new Error(`Pack asset source missing: ${asset.resolvedPath}`);
+      }
+
+      const destination = join(outDir, asset.outputPath);
+      mkdirSync(dirname(destination), { recursive: true });
+      copyFileSync(asset.resolvedPath, destination);
+    }
+  }
 }
 
 function readTheme() {
