@@ -17,10 +17,10 @@ Use this skill when the user wants help writing Agent Isles Markdown, choosing c
 
 ## Useful references
 
-- Component vocabulary: `docs/component-vocabulary.md`
-- Component packs: `docs/component-packs.md`
-- Demo source: `examples/demo.md`
-- Security modes: README section "Security modes"
+- Component vocabulary: `component-vocabulary.md`
+- Component packs: `component-packs.md`
+- Demo source: `demo.md`
+- Security modes: `security-modes.md`
 
 ## Verification
 
