@@ -154,6 +154,30 @@ Project reports often need to show what blocks what. This map renders a vertical
   </agent-dependency>
 </agent-dependency-map>
 
+## Architecture diagram with D2
+
+Agent Isles now supports D2 fences for diagram-as-code. The D2 library is bundled, so diagrams render without requiring external tools.
+
+```d2
+direction: right
+
+markdown: Markdown input {
+  shape: page
+}
+
+renderer: Agent Isles {
+  shape: hexagon
+}
+
+browser: Browser {
+  shape: rectangle
+}
+
+markdown -> renderer: Fenced\nD2 blocks
+renderer -> browser: SVG diagrams
+renderer -> browser: HTML + components
+```
+
 ## Multi-phase plan
 
 <agent-tabs>
