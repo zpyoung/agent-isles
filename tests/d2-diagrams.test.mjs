@@ -72,8 +72,25 @@ function hello() {
   assert.match(html, /<figure class="beoe d2">/);
   assert.match(html, /<text[^>]*>service<\/text>/);
 
-  // JavaScript code should be syntax highlighted
-  assert.match(html, /<code class="language-javascript">/);
+  // JavaScript code should be syntax highlighted.
+  assert.match(html, /<code class="[^"]*language-javascript[^"]*">/);
+  assert.match(html, /hljs-keyword/);
   assert.match(html, /function/);
   assert.match(html, /hello/);
+});
+
+test('invalid D2 input reports a clear render diagnostic', async () => {
+  const { renderMarkdown } = await import('../src/render.mjs');
+
+  const markdown = `# Bad D2
+
+\`\`\`d2
+x ->
+\`\`\`
+`;
+
+  await assert.rejects(
+    renderMarkdown(markdown),
+    /D2 diagram render failed at line \d+, column \d+:/,
+  );
 });

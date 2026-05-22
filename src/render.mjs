@@ -7,7 +7,7 @@ import remarkParse from 'remark-parse';
 import remarkGfm from 'remark-gfm';
 import remarkRehype from 'remark-rehype';
 import rehypeRaw from 'rehype-raw';
-import rehypeD2 from '@beoe/rehype-d2';
+import { D2 } from '@terrastruct/d2';
 import rehypeHighlight from 'rehype-highlight';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import rehypeStringify from 'rehype-stringify';
@@ -375,8 +375,8 @@ export async function renderMarkdown(markdown, options = {}) {
     .use(remarkParse)
     .use(remarkGfm)
     .use(remarkRehype, { allowDangerousHtml: true })
-    .use(rehypeRaw)
-    .use(rehypeD2);
+    .use(rehypeAgentD2)
+    .use(rehypeRaw);
 
   if (renderMode === RENDER_MODES.SANITIZED) {
     processor
@@ -424,6 +424,80 @@ export async function renderMarkdownFile(inputPath, options = {}) {
   }
 
   return { html, outFile, resolvedPacks };
+}
+
+function rehypeAgentD2() {
+  return async (tree) => {
+    await transformD2CodeBlocks(tree);
+  };
+}
+
+async function transformD2CodeBlocks(node) {
+  if (!Array.isArray(node.children)) {
+    return;
+  }
+
+  for (let index = 0; index < node.children.length; index += 1) {
+    const child = node.children[index];
+    const d2Code = extractD2CodeBlock(child);
+
+    if (d2Code) {
+      const svg = await renderD2Svg(d2Code.value, child.position);
+      node.children[index] = {
+        type: 'element',
+        tagName: 'figure',
+        properties: { className: ['beoe', 'd2'] },
+        children: [{ type: 'raw', value: svg }],
+      };
+      continue;
+    }
+
+    await transformD2CodeBlocks(child);
+  }
+}
+
+function extractD2CodeBlock(node) {
+  if (node?.type !== 'element' || node.tagName !== 'pre') {
+    return null;
+  }
+
+  const codeNode = node.children?.find((child) => child.type === 'element' && child.tagName === 'code');
+  const classNames = codeNode?.properties?.className || [];
+  const hasD2Language = Array.isArray(classNames)
+    ? classNames.includes('language-d2')
+    : String(classNames).split(/\s+/).includes('language-d2');
+
+  if (!hasD2Language) {
+    return null;
+  }
+
+  return {
+    value: codeNode.children?.map((child) => child.value || '').join('') || '',
+  };
+}
+
+async function renderD2Svg(source, position) {
+  const d2 = new D2();
+
+  try {
+    const result = await d2.compile(source, { noXMLTag: true });
+    return await d2.render(result.diagram, { ...result.renderOptions, noXMLTag: true });
+  } catch (error) {
+    const location = formatPosition(position);
+    const message = error?.message || String(error);
+    throw new Error(`D2 diagram render failed${location}: ${message}`);
+  } finally {
+    await d2.worker?.terminate?.();
+  }
+}
+
+function formatPosition(position) {
+  const start = position?.start;
+  if (!start?.line) {
+    return '';
+  }
+
+  return ` at line ${start.line}${start.column ? `, column ${start.column}` : ''}`;
 }
 
 export function defaultOutFile(inputPath) {
