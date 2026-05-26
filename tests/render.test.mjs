@@ -518,11 +518,11 @@ test('demo can render source Markdown beside rendered output', async () => {
 
   assert.match(html, /class="agent-isles-source-comparison/);
   assert.match(html, /Source Markdown/);
-  assert.match(html, /Rendered output/);
+  assert.match(html, /Rendered Output/);
   assert.match(html, /<code class="language-markdown">/);
-  assert.match(html, /# Agent Isles Demo: Launch Readiness Report/);
+  assert.match(html, /# Agent Isles Component Gallery/);
   assert.match(html, /&lt;agent-decision verdict=&quot;ship-with-guardrails&quot;/);
-  assert.match(html, /<agent-decision verdict="ship-with-guardrails" title="Use Markdown islands for agent reports">/);
+  assert.match(html, /<agent-decision verdict="ship-with-guardrails" title="Use Markdown islands for reports">/);
 });
 
 test('source view uses a wide equal split and flush source indentation', async () => {
