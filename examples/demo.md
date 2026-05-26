@@ -44,9 +44,11 @@ Agent Isles is useful when the output must satisfy two audiences at once:
 - **Humans making decisions** need structure, hierarchy, and visual emphasis.
 - **Future automation** needs semantic tags like `<agent-decision>` and `<agent-risk>` that can be queried later.
 
+<!-- agent-gallery-example title="Decision island" -->
 <agent-decision verdict="ship-with-guardrails" title="Use Markdown islands for agent reports">
 Ship the report format as Markdown plus explicit HTML islands. Keep prose portable, use Bootstrap for one-off layout, and reserve Lit components for recurring decision and risk patterns.
 </agent-decision>
+<!-- /agent-gallery-example -->
 
 <div class="card shadow-sm my-3">
   <div class="card-body">
@@ -88,9 +90,11 @@ Ship the report format as Markdown plus explicit HTML islands. Keep prose portab
 <agent-metric label="Renderer confidence" value="92" unit="%" trend="up">
 </agent-metric>
 
+<!-- agent-gallery-example title="Copy block island" -->
 <agent-copy-block lang="bash" label="Render the demo">
 npm run render -- --out dist/demo.html
 </agent-copy-block>
+<!-- /agent-gallery-example -->
 
 ## Status board
 
@@ -265,9 +269,11 @@ New custom elements should earn their place by replacing repeated report pattern
 
 ## Risks and mitigations
 
+<!-- agent-gallery-example title="Risk island" -->
 <agent-risk level="medium" title="Raw HTML is a trust boundary">
 The current renderer is intended for trusted Markdown. Before accepting untrusted input, Agent Isles needs a deliberate sanitization mode with an explicit allowlist.
 </agent-risk>
+<!-- /agent-gallery-example -->
 
 <agent-risk level="low" title="Component vocabulary can sprawl">
 If every report invents new tags, the vocabulary stops being useful. Prefer a small set of semantic primitives that map to common agent outputs: decisions, risks, metrics, timelines, findings, and copy blocks.
@@ -336,6 +342,7 @@ npm run render -- --out dist/demo.html
 
 Use this as a seed prompt for future report generation:
 
+<!-- agent-gallery-example title="Syntax-highlighted code fence" -->
 ```text
 Write an Agent Isles report for the current project state.
 Keep the source readable as Markdown.
@@ -343,6 +350,7 @@ Use Bootstrap only for one-off layout.
 Use <agent-decision> for recommendations and <agent-risk> for caveats.
 End with verification evidence and concrete next actions.
 ```
+<!-- /agent-gallery-example -->
 
 ## Why this matters
 

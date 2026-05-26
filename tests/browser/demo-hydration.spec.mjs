@@ -41,6 +41,27 @@ test('rendered demo loads without console errors and hydrates agent components',
 
     await expect(page.locator('h1')).toContainText('Agent Isles Demo');
 
+    const galleryExamples = page.locator('.agent-isles-example-gallery');
+    await expect(galleryExamples).toHaveCount(4);
+    const firstGallery = galleryExamples.first();
+    const renderedPane = firstGallery.locator('.agent-isles-example-rendered');
+    const sourcePane = firstGallery.locator('.agent-isles-example-source');
+    await expect(renderedPane).toBeVisible();
+    await expect(sourcePane).toBeVisible();
+    const desktopRenderedBox = await renderedPane.boundingBox();
+    const desktopSourceBox = await sourcePane.boundingBox();
+    expect(desktopRenderedBox).not.toBeNull();
+    expect(desktopSourceBox).not.toBeNull();
+    expect(desktopSourceBox.x).toBeGreaterThan(desktopRenderedBox.x);
+    expect(Math.abs(desktopSourceBox.y - desktopRenderedBox.y)).toBeLessThan(4);
+    await page.setViewportSize({ width: 390, height: 900 });
+    const mobileRenderedBox = await renderedPane.boundingBox();
+    const mobileSourceBox = await sourcePane.boundingBox();
+    expect(mobileRenderedBox).not.toBeNull();
+    expect(mobileSourceBox).not.toBeNull();
+    expect(mobileSourceBox.y).toBeGreaterThan(mobileRenderedBox.y);
+    await page.setViewportSize({ width: 1280, height: 720 });
+
     const renderedAgentTags = await page
       .locator('agent-decision, agent-risk, agent-gantt, agent-gantt-phase, agent-gantt-task, agent-status-board, agent-status-item, agent-dependency-map, agent-dependency')
       .evaluateAll((elements) => [

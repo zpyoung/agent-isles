@@ -72,6 +72,33 @@ agent-action {
   white-space: pre-wrap;
 }
 
-.agent-isles-rendered-output > :first-child {
+.agent-isles-rendered-output > :first-child,
+.agent-isles-example-rendered > :first-child {
   margin-top: 0;
+}
+
+.agent-isles-example-gallery {
+  width: 100%;
+}
+
+.agent-isles-example-card {
+  border-color: var(--agent-isles-border);
+  overflow: hidden;
+}
+
+.agent-isles-example-rendered,
+.agent-isles-example-source {
+  min-width: 0;
+}
+
+.agent-isles-example-source-code {
+  background: #0f172a;
+  color: #dbeafe;
+  display: block;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  overflow-x: auto;
+  padding: 1rem;
+  tab-size: 2;
+  white-space: pre;
 }

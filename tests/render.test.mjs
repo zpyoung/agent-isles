@@ -511,6 +511,47 @@ test('demo renders action list islands with nested actions', async () => {
   assert.match(html, /<agent-action-list label="Launch follow-ups \(priority lanes\)" layout="priority" show-done="true">/);
 });
 
+test('gallery example comments render live output beside escaped authoritative source', async () => {
+  const { renderMarkdown } = await import('../src/render.mjs');
+
+  const html = await renderMarkdown(`
+# Reference Gallery
+
+<!-- agent-gallery-example title="Decision island" -->
+<agent-decision verdict="go" title="Ship it">
+  Keep the source Markdown boring.
+</agent-decision>
+<!-- /agent-gallery-example -->
+`);
+
+  assert.match(html, /class="agent-isles-example-gallery"/);
+  assert.match(html, /class="agent-isles-example-card/);
+  assert.match(html, /<h3 class="h5 mb-0">Decision island<\/h3>/);
+  assert.match(html, /<div class="agent-isles-example-rendered col-12 col-lg-6">/);
+  assert.match(html, /<div class="agent-isles-example-source col-12 col-lg-6">/);
+  assert.match(html, /<agent-decision verdict="go" title="Ship it">/);
+  assert.match(html, /(?:&lt;|&#x3C;)agent-decision verdict=(?:&quot;|["'])go(?:&quot;|["']) title=(?:&quot;|["'])Ship it(?:&quot;|["'])(?:&gt;|>)/);
+  assert.doesNotMatch(html, /agent-gallery-example/);
+});
+
+test('gallery shell styles keep example source responsive and copyable', async () => {
+  const { renderMarkdown } = await import('../src/render.mjs');
+
+  const html = await renderMarkdown(`
+<!-- agent-gallery-example title="Copy block" -->
+<agent-copy-block lang="bash" label="Render">
+npm run render -- --out dist/demo.html
+</agent-copy-block>
+<!-- /agent-gallery-example -->
+`);
+  const theme = readFileSync(resolve('src/theme/agent-theme.css'), 'utf8');
+
+  assert.match(html, /agent-isles-example-source-code/);
+  assert.match(theme, /\.agent-isles-example-source-code\s*{[^}]*overflow-x:\s*auto/s);
+  assert.match(theme, /\.agent-isles-example-source-code\s*{[^}]*white-space:\s*pre/s);
+  assert.match(theme, /\.agent-isles-example-rendered\s*>\s*:first-child\s*{/s);
+});
+
 test('demo can render source Markdown beside rendered output', async () => {
   const { renderMarkdownFile } = await import('../src/render.mjs');
 
