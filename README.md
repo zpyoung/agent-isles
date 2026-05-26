@@ -134,6 +134,33 @@ npm run pack:dry-run -- --json
 
 The dry-run package should include only the CLI, renderer source, component source, built component bundle, demo Markdown, README, LICENSE, and package metadata.
 
+Release-readiness smoke before any approved publish:
+
+```bash
+npm test
+npm run render -- --out dist/demo.html --assets local
+npm pack
+mkdir -p /tmp/agent-isles-package-smoke
+cd /tmp/agent-isles-package-smoke
+npm init -y
+npm install /path/to/agent-isles-0.1.0-alpha.N.tgz
+cat > report.md <<'MD'
+# Package smoke
+
+<agent-decision verdict="go" title="Install smoke">
+The packed Agent Isles CLI rendered this file outside the repository.
+</agent-decision>
+MD
+./node_modules/.bin/isles --help
+./node_modules/.bin/isles render ./report.md --out ./report.html --assets local --no-user-packs
+```
+
+Only after those checks pass and the maintainer explicitly approves publication should the release command be run:
+
+```bash
+npm publish --tag next
+```
+
 ## Claude Code plugin marketplace
 
 Agent Isles also ships a Claude Code plugin from this repository. The plugin version intentionally tracks the npm package version so one marketplace install gives Claude the matching install/update, render, and component-authoring guidance.

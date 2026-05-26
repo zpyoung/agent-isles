@@ -73,6 +73,9 @@ test('README documents local and future npm usage expectations', () => {
   assert.match(readme, /npx agent-isles@next render/);
   assert.match(readme, /0\.1\.0-alpha\.N/);
   assert.match(readme, /npm run pack:dry-run -- --json/);
+  assert.match(readme, /npm pack/);
+  assert.match(readme, /agent-isles-package-smoke/);
+  assert.match(readme, /npm publish --tag next/);
   assert.match(readme, /Do not publish/);
 });
 
