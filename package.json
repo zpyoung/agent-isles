@@ -46,6 +46,7 @@
   },
   "dependencies": {
     "@popperjs/core": "^2.11.8",
+    "@terrastruct/d2": "^0.1.33",
     "bootstrap": "^5.3.3",
     "highlight.js": "^11.9.0",
     "lit": "^3.3.2",

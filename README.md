@@ -302,6 +302,31 @@ Supported islands so far:
 - `<agent-tabs>...</agent-tabs>` with `<agent-tab title="...">...</agent-tab>` panels
 - `<agent-timeline label="...">...</agent-timeline>` with `<agent-step status="done|active|pending|failed" label="...">...</agent-step>` entries
 
+### D2 diagram support
+
+Agent Isles includes bundled D2 support for diagram-as-code. D2 fences render diagrams without requiring external tooling:
+
+````md
+```d2
+user -> server: request
+server -> database: query
+database -> server: result
+server -> user: response
+```
+````
+
+D2 diagrams are rendered at build time to SVG and embedded in the generated HTML. The D2 library (`@terrastruct/d2`) is bundled with Agent Isles under the MPL-2.0 license.
+
+**Features:**
+- Build-time SVG generation for deterministic output
+- No client-side rendering or external D2 binary required
+- Works in both trusted and sanitized render modes
+- SVG output is fully accessible and inspectable
+
+**Error handling:**
+- Invalid D2 syntax produces clear error messages with source position
+- Errors include specific details about what's wrong with the diagram
+
 Planned component directions include:
 
 - `<agent-finding>` for structured findings with severity, source location, and remediation context.
