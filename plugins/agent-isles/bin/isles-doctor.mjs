@@ -104,10 +104,14 @@ function commandsFor(manager, hasPackageJson, smokeFile) {
     yarn: 'yarn exec isles',
   }[manager];
   const smoke = smokeFile ? `${exec} render ${smokeFile} --out dist/agent-isles-smoke.html --assets local` : null;
+  const oneShotRender = smokeFile
+    ? `npx ${DEFAULT_SPEC} render ${smokeFile} --out dist/agent-isles-smoke.html --assets local`
+    : null;
   return {
     init,
     installOrUpdate: install,
     smoke,
+    oneShotRender,
   };
 }
 
@@ -159,6 +163,9 @@ function printHuman(report) {
   for (const command of report.commands.init) console.log(`  ${command}`);
   console.log(`  ${report.commands.installOrUpdate}`);
   if (report.commands.smoke) console.log(`  ${report.commands.smoke}`);
+  if (report.commands.oneShotRender) {
+    console.log(`  ${report.commands.oneShotRender}  # one-shot render without installing`);
+  }
 }
 
 try {

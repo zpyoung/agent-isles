@@ -73,6 +73,18 @@ test('isles-doctor bootstraps a directory without package.json', () => {
     report.commands.smoke,
     'npm exec -- isles render README.md --out dist/agent-isles-smoke.html --assets local',
   );
+  assert.equal(
+    report.commands.oneShotRender,
+    'npx agent-isles@next render README.md --out dist/agent-isles-smoke.html --assets local',
+  );
+});
+
+test('isles-doctor emits null one-shot render for missing smoke files', () => {
+  const project = makeProject({ 'README.md': '# Smoke\n' });
+  const report = runDoctor(project, ['--smoke', 'missing.md']);
+
+  assert.equal(report.commands.smoke, null);
+  assert.equal(report.commands.oneShotRender, null);
 });
 
 test('isles-doctor detects npm projects and existing agent-isles dependencies', () => {

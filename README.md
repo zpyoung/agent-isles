@@ -178,9 +178,9 @@ The plugin includes:
 - `agent-isles-install-update` — detects npm, pnpm, or yarn and installs/updates `agent-isles@next` as a project dev dependency.
 - `agent-isles-render` — renders or watches Markdown and verifies the generated HTML artifact.
 - `agent-isles-component-authoring` — guides supported `<agent-*>` island usage and trusted/sanitized rendering boundaries.
-- `plugins/agent-isles/bin/isles-doctor.mjs` — deterministic package-manager detection and smoke-check command generation.
+- `plugins/agent-isles/bin/isles-doctor.mjs` — deterministic package-manager detection, smoke-check command generation, and an explicit `commands.oneShotRender` npx fallback for one-off renders without dependency changes.
 
-The plugin does not auto-install on session start, publish releases, or mutate projects without an explicit install/update request.
+The plugin does not auto-install on session start, publish releases, or mutate projects without an explicit install/update request. If Agent Isles is not installed or the user only wants a one-off render, the plugin can use the doctor-provided `npx agent-isles@next render ...` command instead.
 
 ## CLI
 
