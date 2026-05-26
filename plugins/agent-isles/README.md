@@ -20,7 +20,7 @@ Version: `0.1.0-alpha.0`. The plugin version intentionally tracks the `agent-isl
 
 ## Included helper
 
-`bin/isles-doctor.mjs` performs deterministic package-manager detection and prints the install/update/smoke commands Claude should run.
+`bin/isles-doctor.mjs` performs deterministic package-manager detection and prints the install/update/smoke commands Claude should run. When a valid `--smoke` Markdown file is provided, the JSON output also includes `commands.oneShotRender`, an explicit `npx agent-isles@next render ...` fallback for rendering without adding Agent Isles to the target project's dependencies.
 
 Example:
 
@@ -28,4 +28,4 @@ Example:
 node plugins/agent-isles/bin/isles-doctor.mjs --cwd . --json --smoke README.md
 ```
 
-The helper is intentionally local and explicit. It does not publish packages, install globally, or mutate projects by itself.
+The helper is intentionally local and explicit. It does not publish packages, install globally, or mutate projects by itself. Use `commands.oneShotRender` for one-off renders or when the user asks not to change project dependencies.

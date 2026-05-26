@@ -21,9 +21,11 @@ Make Agent Isles work with as few manual steps as possible while keeping package
    - `commands.init` is present when no `package.json` exists.
    - `commands.installOrUpdate` installs or updates `agent-isles@next` as a dev dependency.
    - `commands.smoke` renders an existing Markdown file when one was provided.
-4. If the user asked you to install/update, run the recommended init/install/update commands.
-5. Run a smoke check. Prefer an existing Markdown file in the project; otherwise create a tiny temporary Markdown fixture, render it, and remove it after verification if appropriate.
-6. Report the package manager detected, commands run, generated HTML path, and any remaining issue.
+   - `commands.oneShotRender` renders the same Markdown with `npx agent-isles@next` without installing Agent Isles into the target project.
+4. If the user only wants a one-off render, Agent Isles is not installed, or the user asked not to mutate dependencies, run `commands.oneShotRender` instead of init/install/update commands.
+5. If the user asked you to install/update, run the recommended init/install/update commands.
+6. Run a smoke check. Prefer an existing Markdown file in the project; otherwise create a tiny temporary Markdown fixture, render it, and remove it after verification if appropriate.
+7. Report the package manager detected, commands run, generated HTML path, and any remaining issue.
 
 ## Safety boundaries
 
@@ -31,4 +33,5 @@ Make Agent Isles work with as few manual steps as possible while keeping package
 - Do not edit generated HTML by hand.
 - Do not publish npm packages or create releases.
 - Keep mutations explicit: only run install/update commands when the user asked for install/update work.
+- Prefer the doctor-provided `commands.oneShotRender` npx command when rendering without dependency changes.
 - If package-manager detection conflicts with the user's instructions, follow the user's stated package manager and mention the mismatch.
