@@ -215,12 +215,21 @@ Asset modes:
 
 - `--assets cdn` is the default prototype-friendly mode. It references Bootstrap and the Highlight.js theme from public CDNs, while still copying the Agent Isles component bundle beside the output HTML.
 - `--assets local` writes network-free HTML references and copies Bootstrap CSS, Bootstrap JS, Highlight.js CSS, and the Agent Isles component bundle into the output directory. Use this for offline review, durable artifacts, or environments where CDN access is unreliable.
+- `--assets inline` embeds all JavaScript and CSS directly into the HTML file, producing a single self-contained artifact with no external dependencies. Use this for portable single-file documents, ephemeral previews, or when you need a single artifact that can be opened anywhere without managing companion asset files.
 
 Example local/offline render:
 
 ```bash
 node ./bin/isles.mjs render examples/demo.md --out dist/demo.html --assets local
 ```
+
+Example single-file inline render:
+
+```bash
+node ./bin/isles.mjs render examples/demo.md --out dist/demo.html --assets inline
+```
+
+**Note on inline mode**: The generated HTML file will be larger (typically 400-500KB for a basic document) because it contains the full Bootstrap CSS/JS, Highlight.js theme, and Agent Isles component runtime. However, it requires no external files and can be opened directly in any browser without network access or an asset directory. Inline scripts may require Content Security Policy adjustments if you're serving the HTML from a web server with strict CSP headers.
 
 `isles watch` renders immediately and rebuilds when the Markdown source changes. It remains source-driven: browser interactions in the generated HTML do not write back to the Markdown file.
 
