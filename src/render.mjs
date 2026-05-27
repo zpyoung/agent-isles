@@ -415,12 +415,14 @@ export async function renderMarkdownFile(inputPath, options = {}) {
   if (outFile) {
     mkdirSync(dirname(outFile), { recursive: true });
     writeFileSync(outFile, html);
-    copyComponentBundle(dirname(outFile));
-    if (assetMode === 'local') {
-      copyLocalAssets(dirname(outFile));
+    if (assetMode !== 'inline') {
+      copyComponentBundle(dirname(outFile));
+      if (assetMode === 'local') {
+        copyLocalAssets(dirname(outFile));
+      }
+      copyPackAssets(dirname(outFile), packAssetRecords);
+      writePackMetadata(dirname(outFile), packAssetRecords);
     }
-    copyPackAssets(dirname(outFile), packAssetRecords);
-    writePackMetadata(dirname(outFile), packAssetRecords);
   }
 
   return { html, outFile, resolvedPacks };
@@ -565,8 +567,9 @@ function buildHtmlPage(body, options = {}) {
   const styles = buildStyles(assetMode);
   const scripts = buildScripts(assetMode, missingBundleComment);
   const packMetadata = buildPackMetadataTags(packAssetRecords);
-  const packStyleLinks = buildPackStyleLinks(packAssetRecords);
-  const packModuleScripts = buildPackModuleScripts(packAssetRecords);
+  const packStyleLinks = buildPackStyleLinks(packAssetRecords, assetMode);
+  const packModuleScripts = buildPackModuleScripts(packAssetRecords, assetMode);
+  const componentScript = buildComponentScript(assetMode, missingBundleComment);
 
   const mainBody = options.showSource ? pageBody : indent(pageBody, 4);
 
@@ -583,8 +586,7 @@ ${packMetadata}${styles}
   <main class="${mainClass}">
 ${mainBody}
   </main>
-${scripts}
-  <script type="module" src="./${componentScriptName}"></script>${packModuleScripts}
+${scripts}${componentScript}${packModuleScripts}
 </body>
 </html>`;
 }
@@ -617,6 +619,19 @@ ${indent(renderedBody, 8)}
 }
 
 function buildStyles(assetMode) {
+  if (assetMode === 'inline') {
+    const bootstrapCss = readFileSync(require.resolve('bootstrap/dist/css/bootstrap.min.css'), 'utf8');
+    const highlightCss = readFileSync(require.resolve('highlight.js/styles/github-dark.min.css'), 'utf8');
+    return `  <style>
+/* Bootstrap CSS */
+${bootstrapCss}
+  </style>
+  <style>
+/* Highlight.js CSS */
+${highlightCss}
+  </style>`;
+  }
+
   if (assetMode === 'local') {
     return `  <link href="./${localAssetDirName}/bootstrap.min.css" rel="stylesheet" />
   <link href="./${localAssetDirName}/github-dark.min.css" rel="stylesheet" />`;
@@ -634,14 +649,41 @@ function buildStyles(assetMode) {
 }
 
 function buildScripts(assetMode, missingBundleComment) {
-  const bootstrapScript = assetMode === 'local'
-    ? `  <script src="./${localAssetDirName}/bootstrap.bundle.min.js"></script>`
-    : `  <script
+  let bootstrapScript;
+
+  if (assetMode === 'inline') {
+    const bootstrapJs = readFileSync(require.resolve('bootstrap/dist/js/bootstrap.bundle.min.js'), 'utf8');
+    bootstrapScript = `  <script>
+/* Bootstrap JS */
+${bootstrapJs}
+  </script>`;
+  } else if (assetMode === 'local') {
+    bootstrapScript = `  <script src="./${localAssetDirName}/bootstrap.bundle.min.js"></script>`;
+  } else {
+    bootstrapScript = `  <script
     src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
     crossorigin="anonymous">
   </script>`;
+  }
 
   return `${bootstrapScript}${missingBundleComment}`;
+}
+
+function buildComponentScript(assetMode, missingBundleComment) {
+  if (assetMode === 'inline') {
+    if (!existsSync(componentBundlePath)) {
+      return missingBundleComment;
+    }
+    const componentJs = readFileSync(componentBundlePath, 'utf8');
+    return `
+  <script type="module">
+/* Agent Isles component runtime */
+${componentJs}
+  </script>`;
+  }
+
+  return `
+  <script type="module" src="./${componentScriptName}"></script>`;
 }
 
 function buildPackMetadataTags(packAssetRecords) {
@@ -655,10 +697,27 @@ function buildPackMetadataTags(packAssetRecords) {
 `;
 }
 
-function buildPackStyleLinks(packAssetRecords) {
-  const styleLinks = packAssetRecords.flatMap((record) => record.assets
-    .filter((asset) => asset.type === 'style')
-    .map((asset) => `  <link href="${escapeHtml(asset.url)}" rel="stylesheet" data-agent-isles-pack="${escapeHtml(record.id)}" />`));
+function buildPackStyleLinks(packAssetRecords, assetMode = 'cdn') {
+  const styleLinks = packAssetRecords.flatMap((record) => {
+    const styleAssets = record.assets.filter((asset) => asset.type === 'style');
+
+    if (assetMode === 'inline') {
+      return styleAssets.map((asset) => {
+        if (!existsSync(asset.resolvedPath)) {
+          return `  <!-- Pack style missing: ${escapeHtml(asset.path)} -->`;
+        }
+        const css = readFileSync(asset.resolvedPath, 'utf8');
+        return `  <style data-agent-isles-pack="${escapeHtml(record.id)}">
+/* Pack: ${escapeHtml(record.id)} - ${escapeHtml(asset.path)} */
+${css}
+  </style>`;
+      });
+    }
+
+    return styleAssets.map((asset) =>
+      `  <link href="${escapeHtml(asset.url)}" rel="stylesheet" data-agent-isles-pack="${escapeHtml(record.id)}" />`
+    );
+  });
 
   if (styleLinks.length === 0) {
     return '';
@@ -667,10 +726,27 @@ function buildPackStyleLinks(packAssetRecords) {
   return `\n${styleLinks.join('\n')}`;
 }
 
-function buildPackModuleScripts(packAssetRecords) {
-  const moduleScripts = packAssetRecords.flatMap((record) => record.assets
-    .filter((asset) => asset.type === 'module')
-    .map((asset) => `  <script type="module" src="${escapeHtml(asset.url)}" data-agent-isles-pack="${escapeHtml(record.id)}"></script>`));
+function buildPackModuleScripts(packAssetRecords, assetMode = 'cdn') {
+  const moduleScripts = packAssetRecords.flatMap((record) => {
+    const moduleAssets = record.assets.filter((asset) => asset.type === 'module');
+
+    if (assetMode === 'inline') {
+      return moduleAssets.map((asset) => {
+        if (!existsSync(asset.resolvedPath)) {
+          return `  <!-- Pack module missing: ${escapeHtml(asset.path)} -->`;
+        }
+        const js = readFileSync(asset.resolvedPath, 'utf8');
+        return `  <script type="module" data-agent-isles-pack="${escapeHtml(record.id)}">
+/* Pack: ${escapeHtml(record.id)} - ${escapeHtml(asset.path)} */
+${js}
+  </script>`;
+      });
+    }
+
+    return moduleAssets.map((asset) =>
+      `  <script type="module" src="${escapeHtml(asset.url)}" data-agent-isles-pack="${escapeHtml(record.id)}"></script>`
+    );
+  });
 
   if (moduleScripts.length === 0) {
     return '';
@@ -819,11 +895,11 @@ function copyLocalAssets(outDir) {
 }
 
 function normalizeAssetMode(assetMode = 'cdn') {
-  if (assetMode === 'cdn' || assetMode === 'local') {
+  if (assetMode === 'cdn' || assetMode === 'local' || assetMode === 'inline') {
     return assetMode;
   }
 
-  throw new Error(`Unsupported asset mode: ${assetMode}. Expected "cdn" or "local".`);
+  throw new Error(`Unsupported asset mode: ${assetMode}. Expected "cdn", "local", or "inline".`);
 }
 
 function indent(text, spaces) {
