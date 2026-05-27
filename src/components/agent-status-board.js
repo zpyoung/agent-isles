@@ -79,9 +79,12 @@ export class AgentStatusItem extends LitElement {
   static properties = {
     label: { type: String },
     status: { type: String },
+    statusColor: { type: String, attribute: 'status-color' },
+    statusLabel: { type: String, attribute: 'status-label' },
     owner: { type: String },
     updatedText: { type: String, attribute: 'updated' },
     history: { type: String },
+    dataIndex: { type: String, attribute: 'data-index', reflect: true },
   };
 
   static styles = css`
@@ -146,6 +149,28 @@ export class AgentStatusItem extends LitElement {
       font-weight: 850;
       line-height: 1.2;
       margin: 0;
+    }
+
+    .status-reference {
+      align-items: center;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      border-radius: 0.35rem;
+      color: #64748b;
+      display: inline-flex;
+      font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      margin-left: 0.5rem;
+      padding: 0.15rem 0.4rem;
+    }
+
+    .status-pill-wrapper {
+      display: flex;
+      flex: 0 0 auto;
+      gap: 0.5rem;
+      align-items: center;
     }
 
     .status-pill {
@@ -228,20 +253,32 @@ export class AgentStatusItem extends LitElement {
   `;
 
   updated() {
-    const status = normalizeStatus(this.status);
-    const detail = statusDetail(status);
+    // Determine status color: prefer status-color, fall back to status
+    const rawStatusColor = this.statusColor || this.status;
+    const statusColor = normalizeStatus(rawStatusColor);
+
+    // Determine display label: use status-label if provided, otherwise use default
+    const displayLabel = this.statusLabel || statusDetail(statusColor).label;
+
+    const detail = statusDetail(statusColor);
     const pieces = [
       this.label || 'Status item',
-      detail.label,
+      displayLabel,
       detail.description,
       this.owner ? `Owner ${this.owner}` : null,
       this.updatedText ? `Updated ${this.updatedText}` : null,
       itemText(this),
     ].filter(Boolean);
 
-    this.status = status;
+    // Store normalized status color for grouping
+    this.status = statusColor;
     this.setAttribute('role', 'listitem');
     this.setAttribute('aria-label', pieces.join(' — '));
+
+    // Set DOM ID if data-index is available
+    if (this.dataIndex !== undefined && this.dataIndex !== null) {
+      this.id = `status-item-${parseInt(this.dataIndex, 10) + 1}`;
+    }
   }
 
   renderTrend(statuses) {
@@ -266,18 +303,32 @@ export class AgentStatusItem extends LitElement {
   }
 
   render() {
-    const status = normalizeStatus(this.status);
-    const detail = statusDetail(status);
+    // Determine status color: prefer status-color, fall back to status
+    const rawStatusColor = this.statusColor || this.status;
+    const statusColor = normalizeStatus(rawStatusColor);
+
+    // Determine display label: use status-label if provided, otherwise use default
+    const displayLabel = this.statusLabel || statusDetail(statusColor).label;
+
+    const detail = statusDetail(statusColor);
     const history = parseHistory(this.history);
 
+    // Get reference badge from data-index property
+    const refBadge = this.dataIndex !== undefined && this.dataIndex !== null ? `#${parseInt(this.dataIndex, 10) + 1}` : null;
+
     return html`
-      <article class="status-item" data-status=${status}>
+      <article class="status-item" data-status=${statusColor}>
         <header class="status-header">
-          <h3 class="status-title">${this.label || 'Status item'}</h3>
-          <span class="status-pill" aria-label=${`${detail.label}: ${detail.description}`}>
-            <span class="status-dot" aria-hidden="true"></span>
-            ${detail.label}
-          </span>
+          <h3 class="status-title">
+            ${this.label || 'Status item'}
+            ${refBadge ? html`<span class="status-reference">${refBadge}</span>` : null}
+          </h3>
+          <div class="status-pill-wrapper">
+            <span class="status-pill" aria-label=${`${displayLabel}: ${detail.description}`}>
+              <span class="status-dot" aria-hidden="true"></span>
+              ${displayLabel}
+            </span>
+          </div>
         </header>
         ${(this.owner || this.updatedText) ? html`
           <div class="status-meta">
@@ -300,6 +351,7 @@ export class AgentStatusBoard extends LitElement {
     meta: { type: String },
     summary: { type: String },
     groupBy: { type: String, attribute: 'group-by' },
+    hideEmptyGroups: { type: Boolean, attribute: 'hide-empty-groups' },
     itemsVersion: { type: Number, state: true },
   };
 
@@ -486,6 +538,7 @@ export class AgentStatusBoard extends LitElement {
     this.label = 'Status';
     this.summary = 'off';
     this.groupBy = 'none';
+    this.hideEmptyGroups = false;
     this.itemsVersion = 0;
     this.observer = new MutationObserver(() => this.refreshItems());
   }
@@ -494,7 +547,7 @@ export class AgentStatusBoard extends LitElement {
     super.connectedCallback();
     this.observer.observe(this, {
       attributes: true,
-      attributeFilter: ['status', 'label', 'owner', 'updated', 'history'],
+      attributeFilter: ['status', 'status-color', 'status-label', 'label', 'owner', 'updated', 'history'],
       childList: true,
       subtree: true,
     });
@@ -524,13 +577,18 @@ export class AgentStatusBoard extends LitElement {
     const grouped = this.isGrouped();
 
     this.statusItems.forEach((item, index) => {
-      const rawStatus = item.getAttribute('status');
-      const status = normalizeStatus(rawStatus);
-      if (rawStatus !== status) {
-        item.setAttribute('status', status);
+      // Get status color from status-color attribute, or fall back to status
+      const rawStatusColor = item.getAttribute('status-color') || item.getAttribute('status');
+      const statusColor = normalizeStatus(rawStatusColor);
+
+      // Normalize the status attribute if needed
+      const currentStatus = item.getAttribute('status');
+      if (currentStatus !== statusColor && !item.hasAttribute('status-color')) {
+        item.setAttribute('status', statusColor);
       }
-      item.slot = grouped ? `status-${status}` : '';
-      item.setAttribute('data-status', status);
+
+      item.slot = grouped ? `status-${statusColor}` : '';
+      item.setAttribute('data-status', statusColor);
       item.setAttribute('data-index', String(index));
     });
 
@@ -549,7 +607,9 @@ export class AgentStatusBoard extends LitElement {
   counts() {
     const counts = Object.fromEntries(STATUS_ORDER.map((status) => [status, 0]));
     for (const item of this.statusItems) {
-      counts[normalizeStatus(item.getAttribute('status'))] += 1;
+      // Get status color from status-color attribute, or fall back to status
+      const rawStatusColor = item.getAttribute('status-color') || item.getAttribute('status');
+      counts[normalizeStatus(rawStatusColor)] += 1;
     }
     return counts;
   }
@@ -607,6 +667,13 @@ export class AgentStatusBoard extends LitElement {
       <div class="groups" role="list" aria-label=${`${this.label || 'Status'} grouped by status`}>
         ${STATUS_ORDER.map((status) => {
           const detail = statusDetail(status);
+          const count = counts[status];
+
+          // Skip rendering if hide-empty-groups is true and count is 0
+          if (this.hideEmptyGroups && count === 0) {
+            return null;
+          }
+
           return html`
             <details class="status-group" open style=${`--group-accent:${detail.accent};`}>
               <summary>
@@ -614,7 +681,7 @@ export class AgentStatusBoard extends LitElement {
                   <span class="group-dot" aria-hidden="true"></span>
                   ${detail.label}
                 </span>
-                <span class="group-count">${counts[status]} ${counts[status] === 1 ? 'item' : 'items'}</span>
+                <span class="group-count">${count} ${count === 1 ? 'item' : 'items'}</span>
               </summary>
               <div class="group-items">
                 <slot name=${`status-${status}`}></slot>

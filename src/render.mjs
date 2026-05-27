@@ -193,8 +193,8 @@ const coreSanitizedSchema = {
     'agent-gantt-phase': ['className', 'label'],
     'agent-gantt-task': ['className', 'label', 'start', 'end', 'tone', 'detail', 'parallel'],
     'agent-kpi': ['className', 'label', 'value', 'unit', 'delta', 'tone'],
-    'agent-status-board': ['className', 'label', 'meta', 'summary', 'group-by'],
-    'agent-status-item': ['className', 'label', 'status', 'owner', 'updated', 'history'],
+    'agent-status-board': ['className', 'label', 'meta', 'summary', 'group-by', 'hide-empty-groups'],
+    'agent-status-item': ['className', 'label', 'status', 'status-color', 'status-label', 'owner', 'updated', 'history'],
     'agent-dependency-map': ['className', 'label', 'direction', 'legend'],
     'agent-dependency': [
       'className',

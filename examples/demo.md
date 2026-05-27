@@ -94,7 +94,9 @@ npm run render -- --out dist/demo.html
 
 ## Status board
 
-Use `<agent-status-board>` when an agent report needs a compact “where are we across N workstreams?” rollup. The board derives its summary from child rows rather than requiring duplicated counts in Markdown.
+Use `<agent-status-board>` when an agent report needs a compact "where are we across N workstreams?" rollup. The board derives its summary from child rows rather than requiring duplicated counts in Markdown.
+
+Items now include visible reference badges like `#1`, `#2` that make it easy to cite specific items (e.g., "Do X with item #2").
 
 <agent-status-board label="Project health" meta="wk 24" summary="bar" group-by="status">
   <agent-status-item label="Renderer" status="green" owner="Merlin" updated="mon" history="g,g,g,g">
@@ -110,6 +112,24 @@ Use `<agent-status-board>` when an agent report needs a compact “where are we 
     Component vocabulary mirror is current with the public wiki.
   </agent-status-item>
 </agent-status-board>
+
+### Custom status labels
+
+You can override the status pill label while keeping the color token for grouping using `status-color` and `status-label`:
+
+<agent-status-board label="Risk assessment" group-by="status" hide-empty-groups>
+  <agent-status-item label="API Authentication" status-color="amber" status-label="Medium Risk" owner="Security Team">
+    OAuth flow needs additional validation before production deployment.
+  </agent-status-item>
+  <agent-status-item label="Database Schema" status-color="amber" status-label="Needs Review" owner="Data Team">
+    Migration scripts ready but awaiting peer review.
+  </agent-status-item>
+  <agent-status-item label="Load Testing" status-color="green" status-label="Verified" owner="QA Team">
+    System handles 10x expected traffic with acceptable latency.
+  </agent-status-item>
+</agent-status-board>
+
+The `hide-empty-groups` option hides status groups with zero items (note: Red and Grey groups are hidden above).
 
 <agent-status-board label="Component readiness">
   <agent-status-item label="KPI" status="green" owner="Merlin">
