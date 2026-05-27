@@ -48,6 +48,7 @@ test('plugin ships install, render, authoring skills, and doctor helper', () => 
     'plugins/agent-isles/skills/install-update/SKILL.md',
     'plugins/agent-isles/skills/render/SKILL.md',
     'plugins/agent-isles/skills/component-authoring/SKILL.md',
+    'plugins/agent-isles/skills/component-pack-authoring/SKILL.md',
     doctorPath,
     'plugins/agent-isles/README.md',
   ];
@@ -59,6 +60,8 @@ test('plugin ships install, render, authoring skills, and doctor helper', () => 
   assert.match(readFileSync('plugins/agent-isles/skills/install-update/SKILL.md', 'utf8'), /agent-isles-install-update/);
   assert.match(readFileSync('plugins/agent-isles/skills/render/SKILL.md', 'utf8'), /agent-isles-render/);
   assert.match(readFileSync('plugins/agent-isles/skills/component-authoring/SKILL.md', 'utf8'), /agent-isles-component-authoring/);
+  assert.match(readFileSync('plugins/agent-isles/skills/component-pack-authoring/SKILL.md', 'utf8'), /agent-isles-component-pack-authoring/);
+  assert.match(readFileSync('plugins/agent-isles/README.md', 'utf8'), /agent-isles-component-pack-authoring/);
 });
 
 test('isles-doctor bootstraps a directory without package.json', () => {
