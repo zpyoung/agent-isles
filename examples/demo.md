@@ -26,6 +26,28 @@
 
 ## Component reference
 
+### Theme toggle
+
+Use `<agent-theme-toggle>` to let readers switch a rendered report between light and dark Bootstrap color modes.
+
+<div class="agent-component-example my-4" data-agent-components="agent-theme-toggle">
+  <h4 class="h5 mb-3">Theme toggle</h4>
+  <div class="row g-4 align-items-stretch">
+    <div class="col-12 col-lg-6">
+      <div class="agent-component-pane agent-component-rendered border rounded p-3 bg-light h-100">
+        <p class="text-uppercase text-primary fw-bold small mb-3">Rendered output</p>
+        <agent-theme-toggle label="Theme"></agent-theme-toggle>
+      </div>
+    </div>
+    <div class="col-12 col-lg-6">
+      <div class="agent-component-pane agent-component-source-card border rounded p-3 h-100">
+        <p class="text-uppercase text-info fw-bold small mb-3">Source Markdown</p>
+        <pre class="agent-component-source mb-0"><code>&lt;agent-theme-toggle label="Theme"&gt;&lt;/agent-theme-toggle&gt;</code></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
 ### Decision island
 
 Use `<agent-decision>` for recommendations, verdicts, and recorded decisions that need a clear stance.

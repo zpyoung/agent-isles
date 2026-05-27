@@ -19,6 +19,7 @@ const expectedCustomElements = [
   'agent-delta',
   'agent-kpi',
   'agent-copy-block',
+  'agent-theme-toggle',
   'agent-tabs',
   'agent-tab',
   'agent-timeline',

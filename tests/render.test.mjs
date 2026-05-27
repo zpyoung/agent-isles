@@ -63,7 +63,7 @@ test('renderMarkdownFile returns structured resolved pack data', async () => {
 test('component bundle registers the initial agent island vocabulary', () => {
   const bundle = readFileSync(componentBundle, 'utf8');
 
-  for (const tagName of ['agent-decision', 'agent-risk', 'agent-metric', 'agent-copy-block']) {
+  for (const tagName of ['agent-decision', 'agent-risk', 'agent-metric', 'agent-copy-block', 'agent-theme-toggle']) {
     assertCustomElementDefinition(bundle, tagName);
   }
 });
@@ -89,6 +89,7 @@ test('sanitized render mode removes active HTML while preserving safe islands', 
 </agent-risk>
 <agent-metric label="Coverage" value="92" unit="%" trend="up" onclick="steal()"></agent-metric>
 <agent-copy-block label="Install command" lang="bash" onclick="steal()">npm install agent-isles</agent-copy-block>
+<agent-theme-toggle label="Theme" storage-key="demo-theme" onclick="steal()"></agent-theme-toggle>
 <agent-tabs label="Safe tabs" onclick="steal()"><agent-tab title="One" active>Body</agent-tab></agent-tabs>
 <agent-timeline label="Safe timeline"><agent-step status="done" label="Reviewed" onclick="steal()">Done</agent-step></agent-timeline>
 `, { renderMode: 'sanitized' });
@@ -96,6 +97,7 @@ test('sanitized render mode removes active HTML while preserving safe islands', 
   assert.match(html, /<agent-risk level="high" title="Review">/);
   assert.match(html, /<agent-metric label="Coverage" value="92" unit="%" trend="up"><\/agent-metric>/);
   assert.match(html, /<agent-copy-block label="Install command" lang="bash">npm install agent-isles<\/agent-copy-block>/);
+  assert.match(html, /<agent-theme-toggle label="Theme" storage-key="demo-theme"><\/agent-theme-toggle>/);
   assert.match(html, /<agent-tabs label="Safe tabs"><agent-tab title="One" active(?:="")?>Body<\/agent-tab><\/agent-tabs>/);
   assert.match(html, /<agent-timeline label="Safe timeline"><agent-step status="done" label="Reviewed">Done<\/agent-step><\/agent-timeline>/);
   assert.match(html, /class="btn btn-danger"/);
