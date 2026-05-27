@@ -371,6 +371,15 @@ export async function renderMarkdown(markdown, options = {}) {
   const renderMode = normalizeRenderMode(options.renderMode);
   const assetMode = normalizeAssetMode(options.assetMode);
   const sourceMarkdown = typeof options.sourceMarkdown === 'string' ? options.sourceMarkdown : markdown;
+  const { markdown: exampleMarkdown, examples } = await extractDemoExamples(markdown, { ...options, renderMode });
+  let body = await renderMarkdownBody(exampleMarkdown, { ...options, renderMode });
+  body = injectDemoExamples(body, examples);
+
+  return buildHtmlPage(String(body), { ...options, renderMode, assetMode, sourceMarkdown });
+}
+
+async function renderMarkdownBody(markdown, options = {}) {
+  const renderMode = normalizeRenderMode(options.renderMode);
   const processor = unified()
     .use(remarkParse)
     .use(remarkGfm)
@@ -384,12 +393,102 @@ export async function renderMarkdown(markdown, options = {}) {
       .use(rehypeSanitize, buildSanitizedSchema(options.resolvedPacks));
   }
 
-  const body = await processor
+  return String(await processor
     .use(rehypeHighlight)
     .use(rehypeStringify, { allowDangerousHtml: renderMode === RENDER_MODES.TRUSTED })
-    .process(markdown);
+    .process(markdown));
+}
 
-  return buildHtmlPage(String(body), { ...options, renderMode, assetMode, sourceMarkdown });
+async function extractDemoExamples(markdown, options = {}) {
+  const examplePattern = /<!--\s*agent-isles-example(?<attrs>[^>]*)-->\r?\n?(?<source>[\s\S]*?)\r?\n?<!--\s*\/agent-isles-example\s*-->/g;
+  const matches = [...markdown.matchAll(examplePattern)];
+
+  if (matches.length === 0) {
+    return { markdown, examples: [] };
+  }
+
+  let rewritten = '';
+  let lastIndex = 0;
+  const examples = [];
+
+  for (const match of matches) {
+    const attrs = parseDemoExampleAttributes(match.groups?.attrs || '');
+    const source = trimDemoExampleSource(match.groups?.source || '');
+    const rendered = await renderMarkdownBody(source, options);
+    const placeholder = `AGENT_ISLES_EXAMPLE_${examples.length}_TOKEN`;
+
+    rewritten += markdown.slice(lastIndex, match.index);
+    rewritten += `\n\n${placeholder}\n\n`;
+    examples.push({ placeholder, html: buildDemoExample({ attrs, rendered, source }) });
+    lastIndex = match.index + match[0].length;
+  }
+
+  return { markdown: `${rewritten}${markdown.slice(lastIndex)}`, examples };
+}
+
+function injectDemoExamples(body, examples) {
+  let html = String(body);
+
+  for (const { placeholder, html: exampleHtml } of examples) {
+    const escapedPlaceholder = escapeRegExp(placeholder);
+    html = html.replace(new RegExp(`<p>${escapedPlaceholder}<\\/p>`, 'g'), exampleHtml);
+    html = html.replace(new RegExp(escapedPlaceholder, 'g'), exampleHtml);
+  }
+
+  return html;
+}
+
+function parseDemoExampleAttributes(source) {
+  const attrs = {};
+  const attrPattern = /([A-Za-z_:][-A-Za-z0-9_:.]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>`=]+))/g;
+
+  for (const match of source.matchAll(attrPattern)) {
+    attrs[match[1]] = match[2] ?? match[3] ?? match[4] ?? '';
+  }
+
+  return attrs;
+}
+
+function trimDemoExampleSource(source) {
+  return source.replace(/^\r?\n/, '').replace(/\r?\n$/, '');
+}
+
+function buildDemoExample({ attrs, rendered, source }) {
+  const title = attrs.title || '';
+  const id = attrs.id || slugify(title) || 'example';
+  const renderedLabel = attrs.renderedLabel || 'Rendered output';
+  const sourceLabel = attrs.sourceLabel || 'Source Markdown';
+  const titleHtml = title
+    ? `\n  <h4 class="h5 mb-3" id="${escapeHtml(id)}">${escapeHtml(title)}</h4>`
+    : '';
+
+  return `<section class="agent-demo-example my-4" data-agent-demo-example="${escapeHtml(id)}">${titleHtml}
+  <div class="row g-4 align-items-stretch">
+    <div class="col-12 col-lg-6">
+      <div class="agent-demo-pane agent-demo-rendered border rounded p-3 bg-light h-100">
+        <p class="text-uppercase text-primary fw-bold small mb-3">${escapeHtml(renderedLabel)}</p>
+${indent(rendered, 8)}
+      </div>
+    </div>
+    <div class="col-12 col-lg-6">
+      <div class="agent-demo-pane agent-demo-source-card border rounded p-3 h-100">
+        <p class="text-uppercase text-info fw-bold small mb-3">${escapeHtml(sourceLabel)}</p>
+        <pre class="agent-demo-source mb-0"><code class="language-markdown">${escapeHtml(source)}</code></pre>
+      </div>
+    </div>
+  </div>
+</section>`;
+}
+
+function slugify(value) {
+  return String(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 export async function renderMarkdownFile(inputPath, options = {}) {

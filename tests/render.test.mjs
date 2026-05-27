@@ -444,71 +444,93 @@ test('sanitized render mode preserves safe action list tags and attributes', asy
   assert.doesNotMatch(html, /onclick=/i);
 });
 
-test('demo renders full and minimal status board examples', async () => {
+test('demo renders atomic side-by-side examples for the core component vocabulary', async () => {
   const { renderMarkdownFile } = await import('../src/render.mjs');
 
   const { html } = await renderMarkdownFile(demo);
+  const exampleIds = [
+    'decision-island',
+    'risk-island',
+    'metric-delta-composition',
+    'kpi-group',
+    'copy-block',
+    'dependency-map',
+    'tabs',
+    'timeline',
+    'gantt',
+    'status-board',
+    'action-list',
+  ];
 
-  assert.match(html, /<h2>Status board<\/h2>/i);
+  for (const id of exampleIds) {
+    assert.match(html, new RegExp(`data-agent-demo-example="${id}"`));
+  }
+
+  for (const tagName of [
+    'agent-decision',
+    'agent-risk',
+    'agent-metric',
+    'agent-delta',
+    'agent-copy-block',
+    'agent-dependency-map',
+    'agent-dependency',
+    'agent-tabs',
+    'agent-tab',
+    'agent-timeline',
+    'agent-step',
+    'agent-gantt',
+    'agent-gantt-phase',
+    'agent-gantt-task',
+    'agent-kpi',
+    'agent-status-board',
+    'agent-status-item',
+    'agent-action-list',
+    'agent-action',
+  ]) {
+    assert.match(html, new RegExp(`<${tagName}\\b`));
+    assert.match(html, new RegExp(`&lt;${tagName}\\b`));
+  }
+
   assert.match(html, /<agent-status-board label="Project health" meta="wk 24" summary="bar" group-by="status">/);
-  assert.match(html, /<agent-status-item label="Writeback" status="amber" owner="Zach" updated="tue" history="g,g,a,a">/);
-  assert.match(html, /<agent-status-board label="Component readiness">/);
-  assert.match(html, /<agent-status-item label="KPI" status="green" owner="Merlin">/);
+  assert.match(html, /<agent-action-list\s+label="From this demo"\s+layout="table"\s+group-by="status"\s+filter-status="open,in-progress"\s+filter-priority="high,normal"\s+show-done="false">/);
 });
 
-test('demo renders a multi-phase plan with tabs and timeline steps', async () => {
+test('demo renders renderer features as side-by-side examples without raw-HTML fence corruption', async () => {
   const { renderMarkdownFile } = await import('../src/render.mjs');
 
   const { html } = await renderMarkdownFile(demo);
 
-  assert.match(html, /<agent-tabs>/);
-  assert.match(html, /<agent-tab title="Phase 1 — Discover">/);
-  assert.match(html, /<agent-tab title="Phase 2 — Build">/);
-  assert.match(html, /<agent-timeline label="Discovery progress">/);
-  assert.match(html, /<agent-step status="done" label="Renderer baseline">/);
-  assert.match(html, /<agent-step status="active" label="Component expansion">/);
-  assert.match(html, /<agent-step status="pending" label="Browser polish">/);
+  for (const id of [
+    'bootstrap-markdown',
+    'syntax-highlighted-code',
+    'd2-diagram',
+    'renderer-command-reference',
+    'pack-fixture',
+    'getting-started',
+  ]) {
+    assert.match(html, new RegExp(`data-agent-demo-example="${id}"`));
+  }
+
+  assert.match(html, /<code class="hljs language-javascript">/);
+  assert.match(html, /<figure class="beoe d2">/);
+  assert.match(html, /<svg[\s\S]*Opens app/);
+  assert.match(html, /<code class="language-markdown">```javascript/);
+  assert.match(html, /<code class="language-markdown">```d2/);
+  assert.doesNotMatch(html, /AGENT_ISLES_EXAMPLE_/);
+  assert.doesNotMatch(html, /<p><section class="agent-demo-example/);
 });
 
-test('demo renders a dependency chain map with blocked nodes', async () => {
+test('demo example source panes are generated from the exact snippet used for rendering', async () => {
   const { renderMarkdownFile } = await import('../src/render.mjs');
 
   const { html } = await renderMarkdownFile(demo);
 
-  assert.match(
-    html,
-    /<agent-dependency-map(?=[^>]*\blabel="Writeback dependency chain")(?=[^>]*\bdirection="vertical")(?=[^>]*\blegend="show")[^>]*>/,
-  );
-  assert.match(html, /<agent-dependency id="source-metadata" label="Source metadata" status="blocked" blocked-by="edit-server"/);
-  assert.match(html, /<agent-dependency id="writeback-release" label="Writeback release" status="risk" blocked-by="browser-client, docs"/);
-});
-
-test('demo renders a focused Gantt chart embedded in Markdown prose', async () => {
-  const { renderMarkdownFile } = await import('../src/render.mjs');
-
-  const { html } = await renderMarkdownFile(demo);
-
-  assert.match(html, /<h2>Revised migration schedule<\/h2>/i);
-  assert.match(html, /<agent-gantt weeks="28" milestones="12,15,28" label="Migration schedule">/);
-  assert.match(html, /<agent-gantt-phase label="Core build">/);
-  assert.match(html, /<agent-gantt-task label="Components \+ Storybook" start="3" end="5" tone="components" detail="2 wks/);
+  assert.match(html, /<agent-tabs>[\s\S]*<agent-tab title="Phase 1 — Discover" active(?:="")?>/);
+  assert.match(html, /&lt;agent-tabs&gt;[\s\S]*&lt;agent-tab title=&quot;Phase 1 — Discover&quot; active&gt;/);
   assert.match(html, /<agent-gantt-task label="Testing — parallel" start="3" end="12" tone="testing" detail="Runs continuously beside component work" parallel(?:="")?>/);
-});
-
-test('demo renders action list islands with nested actions', async () => {
-  const { renderMarkdownFile } = await import('../src/render.mjs');
-
-  const { html } = await renderMarkdownFile(demo);
-
-  assert.match(
-    html,
-    /<agent-action-list\s+label="From this demo"\s+layout="table"\s+group-by="status"\s+filter-status="open,in-progress"\s+filter-priority="high,normal"\s+show-done="false">/,
-  );
-  assert.match(html, /<agent-action owner="You" status="open">/);
-  assert.match(html, /<agent-action owner="You" status="in-progress" priority="high" due="2026-05-24">/);
-  assert.match(html, /<agent-action-list label="From standup \(minimal\)">/);
-  assert.match(html, /<agent-action-list label="Launch follow-ups \(kanban\)" layout="kanban" show-done="false">/);
-  assert.match(html, /<agent-action-list label="Launch follow-ups \(priority lanes\)" layout="priority" show-done="true">/);
+  assert.match(html, /&lt;agent-gantt-task label=&quot;Testing — parallel&quot; start=&quot;3&quot; end=&quot;12&quot; tone=&quot;testing&quot; detail=&quot;Runs continuously beside component work&quot; parallel&gt;/);
+  assert.match(html, /<agent-dependency id="writeback-release" label="Writeback release" status="risk" blocked-by="browser-client, docs"/);
+  assert.match(html, /&lt;agent-dependency id=&quot;writeback-release&quot; label=&quot;Writeback release&quot; status=&quot;risk&quot; blocked-by=&quot;browser-client, docs&quot;/);
 });
 
 test('demo can render source Markdown beside rendered output', async () => {
@@ -518,7 +540,7 @@ test('demo can render source Markdown beside rendered output', async () => {
 
   assert.match(html, /class="agent-isles-source-comparison/);
   assert.match(html, /Source Markdown/);
-  assert.match(html, /Rendered Output/);
+  assert.match(html, /Rendered output/i);
   assert.match(html, /<code class="language-markdown">/);
   assert.match(html, /# Agent Isles Component Gallery/);
   assert.match(html, /&lt;agent-decision verdict=&quot;ship-with-guardrails&quot;/);

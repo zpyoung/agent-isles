@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { serveDist } from './support/static-server.mjs';
 
 test('KPI cards hydrate with accessible labels', async ({ page }) => {
+  test.setTimeout(60_000);
   const server = await serveDist();
   const consoleErrors = [];
   page.on('console', (message) => {

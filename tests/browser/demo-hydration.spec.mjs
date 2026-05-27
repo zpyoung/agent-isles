@@ -39,7 +39,7 @@ test('rendered demo loads without console errors and hydrates agent components',
   try {
     await page.goto(`${server.origin}/demo.html`);
 
-    await expect(page.locator('h1')).toContainText('Agent Isles Demo');
+    await expect(page.locator('h1')).toContainText('Agent Isles Component Gallery');
 
     const renderedAgentTags = await page
       .locator('agent-decision, agent-risk, agent-gantt, agent-gantt-phase, agent-gantt-task, agent-status-board, agent-status-item, agent-dependency-map, agent-dependency')
