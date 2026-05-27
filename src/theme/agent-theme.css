@@ -75,3 +75,21 @@ agent-action {
 .agent-isles-rendered-output > :first-child {
   margin-top: 0;
 }
+
+.agent-component-example {
+  scroll-margin-top: 1rem;
+}
+
+.agent-component-pane > :first-child {
+  margin-top: 0;
+}
+
+.agent-component-source {
+  background: #0f172a;
+  color: #dbeafe;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  padding: 1rem;
+  tab-size: 2;
+  white-space: pre-wrap;
+}
