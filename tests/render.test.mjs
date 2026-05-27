@@ -511,45 +511,34 @@ test('demo renders action list islands with nested actions', async () => {
   assert.match(html, /<agent-action-list label="Launch follow-ups \(priority lanes\)" layout="priority" show-done="true">/);
 });
 
-test('gallery example comments render live output beside escaped authoritative source', async () => {
-  const { renderMarkdown } = await import('../src/render.mjs');
+test('demo renders hand-authored side-by-side gallery sections', async () => {
+  const { renderMarkdownFile } = await import('../src/render.mjs');
 
-  const html = await renderMarkdown(`
-# Reference Gallery
+  const { html } = await renderMarkdownFile(demo);
 
-<!-- agent-gallery-example title="Decision island" -->
-<agent-decision verdict="go" title="Ship it">
-  Keep the source Markdown boring.
-</agent-decision>
-<!-- /agent-gallery-example -->
-`);
-
-  assert.match(html, /class="agent-isles-example-gallery"/);
-  assert.match(html, /class="agent-isles-example-card/);
-  assert.match(html, /<h3 class="h5 mb-0">Decision island<\/h3>/);
-  assert.match(html, /<div class="agent-isles-example-rendered col-12 col-lg-6">/);
-  assert.match(html, /<div class="agent-isles-example-source col-12 col-lg-6">/);
-  assert.match(html, /<agent-decision verdict="go" title="Ship it">/);
-  assert.match(html, /(?:&lt;|&#x3C;)agent-decision verdict=(?:&quot;|["'])go(?:&quot;|["']) title=(?:&quot;|["'])Ship it(?:&quot;|["'])(?:&gt;|>)/);
-  assert.doesNotMatch(html, /agent-gallery-example/);
+  assert.match(html, /data-agent-gallery-example="decision-island"/);
+  assert.match(html, /data-agent-gallery-example="copy-block-island"/);
+  assert.match(html, /data-agent-gallery-example="risk-island"/);
+  assert.match(html, /data-agent-gallery-example="syntax-highlighted-code-fence"/);
+  assert.match(html, /class="agent-gallery-rendered col-12 col-lg-6"/);
+  assert.match(html, /class="agent-gallery-source col-12 col-lg-6"/);
+  assert.match(html, /<agent-decision verdict="ship-with-guardrails" title="Use Markdown islands for agent reports">/);
+  assert.match(html, /&#x3C;agent-decision verdict="ship-with-guardrails" title="Use Markdown islands for agent reports">/);
+  assert.match(html, /<agent-copy-block lang="bash" label="Render the demo">/);
+  assert.match(html, /&#x3C;agent-copy-block lang="bash" label="Render the demo">/);
+  assert.doesNotMatch(html, /agent-gallery-example title=/);
 });
 
-test('gallery shell styles keep example source responsive and copyable', async () => {
-  const { renderMarkdown } = await import('../src/render.mjs');
+test('demo side-by-side code-fence example preserves rendered highlighting and source fence text', async () => {
+  const { renderMarkdownFile } = await import('../src/render.mjs');
 
-  const html = await renderMarkdown(`
-<!-- agent-gallery-example title="Copy block" -->
-<agent-copy-block lang="bash" label="Render">
-npm run render -- --out dist/demo.html
-</agent-copy-block>
-<!-- /agent-gallery-example -->
-`);
-  const theme = readFileSync(resolve('src/theme/agent-theme.css'), 'utf8');
+  const { html } = await renderMarkdownFile(demo);
 
-  assert.match(html, /agent-isles-example-source-code/);
-  assert.match(theme, /\.agent-isles-example-source-code\s*{[^}]*overflow-x:\s*auto/s);
-  assert.match(theme, /\.agent-isles-example-source-code\s*{[^}]*white-space:\s*pre/s);
-  assert.match(theme, /\.agent-isles-example-rendered\s*>\s*:first-child\s*{/s);
+  assert.match(html, /data-agent-gallery-example="syntax-highlighted-code-fence"/);
+  assert.match(html, /<code class="hljs language-text">/);
+  assert.match(html, /Write an Agent Isles report for the current project state\./);
+  assert.match(html, /```text\s+Write an Agent Isles report for the current project state\./);
+  assert.match(html, /class="agent-isles-source-markdown mb-0"/);
 });
 
 test('demo can render source Markdown beside rendered output', async () => {

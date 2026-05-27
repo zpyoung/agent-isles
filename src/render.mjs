@@ -371,16 +371,6 @@ export async function renderMarkdown(markdown, options = {}) {
   const renderMode = normalizeRenderMode(options.renderMode);
   const assetMode = normalizeAssetMode(options.assetMode);
   const sourceMarkdown = typeof options.sourceMarkdown === 'string' ? options.sourceMarkdown : markdown;
-  const body = await renderMarkdownBody(markdown, { ...options, renderMode, assetMode });
-
-  return buildHtmlPage(body, { ...options, renderMode, assetMode, sourceMarkdown });
-}
-
-async function renderMarkdownBody(markdown, options = {}) {
-  const renderMode = normalizeRenderMode(options.renderMode);
-  const expandedMarkdown = options.expandGalleryExamples === false
-    ? markdown
-    : await expandGalleryExamples(markdown, { ...options, renderMode });
   const processor = unified()
     .use(remarkParse)
     .use(remarkGfm)
@@ -397,61 +387,9 @@ async function renderMarkdownBody(markdown, options = {}) {
   const body = await processor
     .use(rehypeHighlight)
     .use(rehypeStringify, { allowDangerousHtml: renderMode === RENDER_MODES.TRUSTED })
-    .process(expandedMarkdown);
+    .process(markdown);
 
-  return String(body);
-}
-
-async function expandGalleryExamples(markdown, options = {}) {
-  const galleryExamplePattern = /<!--\s*agent-gallery-example(?:\s+title="([^"]*)")?\s*-->\n?([\s\S]*?)\n?<!--\s*\/agent-gallery-example\s*-->/g;
-  let cursor = 0;
-  let expanded = '';
-  let match;
-
-  while ((match = galleryExamplePattern.exec(markdown)) !== null) {
-    expanded += markdown.slice(cursor, match.index);
-    const [, rawTitle, rawSource] = match;
-    const source = trimOuterBlankLines(rawSource);
-    const renderedHtml = await renderMarkdownBody(source, {
-      ...options,
-      expandGalleryExamples: false,
-    });
-
-    expanded += buildGalleryExample({
-      title: rawTitle || 'Example',
-      source,
-      renderedHtml,
-    });
-    cursor = match.index + match[0].length;
-  }
-
-  expanded += markdown.slice(cursor);
-  return expanded;
-}
-
-function trimOuterBlankLines(value) {
-  return String(value).replace(/^\s*\n/, '').replace(/\n\s*$/, '');
-}
-
-function buildGalleryExample({ title, source, renderedHtml }) {
-  return `<section class="agent-isles-example-gallery">
-  <div class="agent-isles-example-card card shadow-sm my-4">
-    <div class="card-header bg-white">
-      <p class="text-uppercase text-primary fw-bold small mb-1">Rendered beside source</p>
-      <h3 class="h5 mb-0">${escapeHtml(title)}</h3>
-    </div>
-    <div class="card-body">
-      <div class="row g-4 align-items-start">
-        <div class="agent-isles-example-rendered col-12 col-lg-6">
-${indent(renderedHtml, 10)}
-        </div>
-        <div class="agent-isles-example-source col-12 col-lg-6">
-          <pre class="agent-isles-example-source-code mb-0"><code>${escapeHtml(source)}</code></pre>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>`;
+  return buildHtmlPage(String(body), { ...options, renderMode, assetMode, sourceMarkdown });
 }
 
 export async function renderMarkdownFile(inputPath, options = {}) {

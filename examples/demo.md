@@ -44,11 +44,32 @@ Agent Isles is useful when the output must satisfy two audiences at once:
 - **Humans making decisions** need structure, hierarchy, and visual emphasis.
 - **Future automation** needs semantic tags like `<agent-decision>` and `<agent-risk>` that can be queried later.
 
-<!-- agent-gallery-example title="Decision island" -->
+<section class="agent-gallery-example my-4" data-agent-gallery-example="decision-island" aria-labelledby="agent-gallery-decision-island">
+<div class="card shadow-sm">
+<div class="card-header bg-white">
+<p class="text-uppercase text-primary fw-bold small mb-1">Rendered beside source</p>
+<h3 class="h5 mb-0" id="agent-gallery-decision-island">Decision island</h3>
+</div>
+<div class="card-body">
+<div class="row g-4 align-items-start">
+<div class="agent-gallery-rendered col-12 col-lg-6">
+<p class="text-uppercase text-success fw-bold small mb-3">Rendered output</p>
+
 <agent-decision verdict="ship-with-guardrails" title="Use Markdown islands for agent reports">
 Ship the report format as Markdown plus explicit HTML islands. Keep prose portable, use Bootstrap for one-off layout, and reserve Lit components for recurring decision and risk patterns.
 </agent-decision>
-<!-- /agent-gallery-example -->
+
+</div>
+<div class="agent-gallery-source col-12 col-lg-6">
+<p class="text-uppercase text-info fw-bold small mb-3">Source Markdown</p>
+<pre class="agent-isles-source-markdown mb-0"><code>&lt;agent-decision verdict=&quot;ship-with-guardrails&quot; title=&quot;Use Markdown islands for agent reports&quot;&gt;
+Ship the report format as Markdown plus explicit HTML islands. Keep prose portable, use Bootstrap for one-off layout, and reserve Lit components for recurring decision and risk patterns.
+&lt;/agent-decision&gt;</code></pre>
+</div>
+</div>
+</div>
+</div>
+</section>
 
 <div class="card shadow-sm my-3">
   <div class="card-body">
@@ -90,11 +111,32 @@ Ship the report format as Markdown plus explicit HTML islands. Keep prose portab
 <agent-metric label="Renderer confidence" value="92" unit="%" trend="up">
 </agent-metric>
 
-<!-- agent-gallery-example title="Copy block island" -->
+<section class="agent-gallery-example my-4" data-agent-gallery-example="copy-block-island" aria-labelledby="agent-gallery-copy-block-island">
+<div class="card shadow-sm">
+<div class="card-header bg-white">
+<p class="text-uppercase text-primary fw-bold small mb-1">Rendered beside source</p>
+<h3 class="h5 mb-0" id="agent-gallery-copy-block-island">Copy block island</h3>
+</div>
+<div class="card-body">
+<div class="row g-4 align-items-start">
+<div class="agent-gallery-rendered col-12 col-lg-6">
+<p class="text-uppercase text-success fw-bold small mb-3">Rendered output</p>
+
 <agent-copy-block lang="bash" label="Render the demo">
 npm run render -- --out dist/demo.html
 </agent-copy-block>
-<!-- /agent-gallery-example -->
+
+</div>
+<div class="agent-gallery-source col-12 col-lg-6">
+<p class="text-uppercase text-info fw-bold small mb-3">Source Markdown</p>
+<pre class="agent-isles-source-markdown mb-0"><code>&lt;agent-copy-block lang=&quot;bash&quot; label=&quot;Render the demo&quot;&gt;
+npm run render -- --out dist/demo.html
+&lt;/agent-copy-block&gt;</code></pre>
+</div>
+</div>
+</div>
+</div>
+</section>
 
 ## Status board
 
@@ -269,11 +311,32 @@ New custom elements should earn their place by replacing repeated report pattern
 
 ## Risks and mitigations
 
-<!-- agent-gallery-example title="Risk island" -->
+<section class="agent-gallery-example my-4" data-agent-gallery-example="risk-island" aria-labelledby="agent-gallery-risk-island">
+<div class="card shadow-sm">
+<div class="card-header bg-white">
+<p class="text-uppercase text-primary fw-bold small mb-1">Rendered beside source</p>
+<h3 class="h5 mb-0" id="agent-gallery-risk-island">Risk island</h3>
+</div>
+<div class="card-body">
+<div class="row g-4 align-items-start">
+<div class="agent-gallery-rendered col-12 col-lg-6">
+<p class="text-uppercase text-success fw-bold small mb-3">Rendered output</p>
+
 <agent-risk level="medium" title="Raw HTML is a trust boundary">
 The current renderer is intended for trusted Markdown. Before accepting untrusted input, Agent Isles needs a deliberate sanitization mode with an explicit allowlist.
 </agent-risk>
-<!-- /agent-gallery-example -->
+
+</div>
+<div class="agent-gallery-source col-12 col-lg-6">
+<p class="text-uppercase text-info fw-bold small mb-3">Source Markdown</p>
+<pre class="agent-isles-source-markdown mb-0"><code>&lt;agent-risk level=&quot;medium&quot; title=&quot;Raw HTML is a trust boundary&quot;&gt;
+The current renderer is intended for trusted Markdown. Before accepting untrusted input, Agent Isles needs a deliberate sanitization mode with an explicit allowlist.
+&lt;/agent-risk&gt;</code></pre>
+</div>
+</div>
+</div>
+</div>
+</section>
 
 <agent-risk level="low" title="Component vocabulary can sprawl">
 If every report invents new tags, the vocabulary stops being useful. Prefer a small set of semantic primitives that map to common agent outputs: decisions, risks, metrics, timelines, findings, and copy blocks.
@@ -342,7 +405,17 @@ npm run render -- --out dist/demo.html
 
 Use this as a seed prompt for future report generation:
 
-<!-- agent-gallery-example title="Syntax-highlighted code fence" -->
+<section class="agent-gallery-example my-4" data-agent-gallery-example="syntax-highlighted-code-fence" aria-labelledby="agent-gallery-syntax-highlighted-code-fence">
+<div class="card shadow-sm">
+<div class="card-header bg-white">
+<p class="text-uppercase text-primary fw-bold small mb-1">Rendered beside source</p>
+<h3 class="h5 mb-0" id="agent-gallery-syntax-highlighted-code-fence">Syntax-highlighted code fence</h3>
+</div>
+<div class="card-body">
+<div class="row g-4 align-items-start">
+<div class="agent-gallery-rendered col-12 col-lg-6">
+<p class="text-uppercase text-success fw-bold small mb-3">Rendered output</p>
+
 ```text
 Write an Agent Isles report for the current project state.
 Keep the source readable as Markdown.
@@ -350,7 +423,22 @@ Use Bootstrap only for one-off layout.
 Use <agent-decision> for recommendations and <agent-risk> for caveats.
 End with verification evidence and concrete next actions.
 ```
-<!-- /agent-gallery-example -->
+
+</div>
+<div class="agent-gallery-source col-12 col-lg-6">
+<p class="text-uppercase text-info fw-bold small mb-3">Source fence</p>
+<pre class="agent-isles-source-markdown mb-0"><code>```text
+Write an Agent Isles report for the current project state.
+Keep the source readable as Markdown.
+Use Bootstrap only for one-off layout.
+Use &lt;agent-decision&gt; for recommendations and &lt;agent-risk&gt; for caveats.
+End with verification evidence and concrete next actions.
+```</code></pre>
+</div>
+</div>
+</div>
+</div>
+</section>
 
 ## Why this matters
 
