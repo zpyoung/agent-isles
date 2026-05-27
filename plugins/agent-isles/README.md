@@ -17,6 +17,7 @@ Version: `0.1.0-alpha.0`. The plugin version intentionally tracks the `agent-isl
 - `agent-isles-install-update` — detect npm/pnpm/yarn, install or update `agent-isles@next`, and run a render smoke check.
 - `agent-isles-render` — render or watch Markdown and verify the generated HTML artifact.
 - `agent-isles-component-authoring` — write readable Agent Isles Markdown with supported `<agent-*>` islands and explicit security-boundary guidance.
+- `agent-isles-component-pack-authoring` — create trusted local Component Packs V1 with manifests, custom-element assets, diagnostics, and render smoke verification.
 
 ## Included helper
 
