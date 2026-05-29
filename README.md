@@ -231,7 +231,11 @@ node ./bin/isles.mjs render examples/demo.md --out dist/demo.html --assets inlin
 
 **Note on inline mode**: The generated HTML file will be larger (typically 400-500KB for a basic document) because it contains the full Bootstrap CSS/JS, Highlight.js theme, and Agent Isles component runtime. However, it requires no external files and can be opened directly in any browser without network access or an asset directory. Inline scripts may require Content Security Policy adjustments if you're serving the HTML from a web server with strict CSP headers.
 
-`isles watch` renders immediately and rebuilds when the Markdown source changes. It remains source-driven: browser interactions in the generated HTML do not write back to the Markdown file.
+**Known limitation**: Inline mode embeds each declared pack asset's file contents verbatim; it does not bundle or rewrite references *inside* those files. A pack module that uses relative `import './helper.js'`, dynamic `import()`, `import.meta.url`, or a stylesheet with `@import`/`url(...)` will resolve those references against the output HTML's location rather than the pack directory, so packs that rely on transitive local references are better served by `--assets local`. Self-contained packs whose declared assets have no further local dependencies inline cleanly.
+
+**Security boundary**: Inline mode only inlines trusted, locally resolvable assets — the built-in runtime and component-pack `style`/`module` files declared in a pack manifest that point at files inside the pack directory. It never fetches remote pack assets and never executes arbitrary user-authored JavaScript beyond the existing trusted/raw-HTML model: producing a single portable file does **not** make untrusted Markdown safe to render in `trusted` mode, and the raw-HTML and component-pack boundaries remain security-sensitive regardless of asset mode. If a declared pack asset cannot be resolved locally, inline rendering **fails fast** with an error naming the pack and asset path rather than silently emitting incomplete HTML — fix the asset or fall back to `--assets local`/`--assets cdn`.
+
+`isles watch` renders immediately and rebuilds when the Markdown source changes, and accepts the same `--mode`, `--assets` (including `inline`), `--show-source`, and `--pack` options as `isles render`, so watch rebuilds can also produce single-file inline output. It remains source-driven: browser interactions in the generated HTML do not write back to the Markdown file.
 
 ## Component Packs V1
 

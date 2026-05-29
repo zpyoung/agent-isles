@@ -21,7 +21,7 @@ Usage:
   isles render <file.md> [--out <file.html>] [--mode trusted|sanitized] [--assets cdn|local|inline] [--show-source] [--pack <path>]... [--no-user-packs]
   isles render <file.md> [--out <file.html>] [--safe|--sanitize] [--assets cdn|local|inline] [--show-source] [--pack <path>]... [--no-user-packs]
   isles packs resolve <file.md> [--pack <path>]... [--no-user-packs]
-  isles watch <file.md> [--out <file.html>]
+  isles watch <file.md> [--out <file.html>] [--mode trusted|sanitized] [--assets cdn|local|inline] [--show-source] [--pack <path>]... [--no-user-packs]
 
 Commands:
   render         Render Markdown to browser-ready HTML
@@ -365,9 +365,8 @@ function parseRenderArgs(args) {
 }
 
 async function runWatch(args) {
-  const input = args.find((arg) => !arg.startsWith('-'));
-  const outFlagIndex = args.indexOf('--out');
-  const outFile = outFlagIndex >= 0 ? args[outFlagIndex + 1] : defaultOutFile(input || 'output.md');
+  const parsed = parseRenderArgs(args);
+  const input = parsed.input;
 
   if (!input) {
     console.error('Missing Markdown file for watch.\n');
@@ -381,5 +380,14 @@ async function runWatch(args) {
     process.exit(1);
   }
 
-  await watchMarkdownFile(inputPath, { outFile, exitOnSignal: true });
+  await watchMarkdownFile(inputPath, {
+    outFile: parsed.outFile || defaultOutFile(input),
+    renderMode: parsed.renderMode,
+    assetMode: parsed.assetMode,
+    showSource: parsed.showSource,
+    explicitPacks: parsed.explicitPacks,
+    includeUserPacks: parsed.includeUserPacks,
+    projectDir: dirname(resolve(input)),
+    exitOnSignal: true,
+  });
 }

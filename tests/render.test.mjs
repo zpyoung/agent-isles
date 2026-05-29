@@ -758,3 +758,74 @@ test('inline asset mode embeds pack JavaScript and CSS inline', () => {
   assert.equal(existsSync(join(dir, 'agent-components.js')), false);
 });
 
+test('inline asset mode escapes raw-text end tags in embedded pack assets', async () => {
+  const { renderMarkdown } = await import('../src/render.mjs');
+  const dir = mkdtempSync(join(tmpdir(), 'agent-isles-inline-escape-'));
+  const moduleFile = join(dir, 'breakout.js');
+  const styleFile = join(dir, 'breakout.css');
+  // Asset bodies containing the raw-text element terminators that would otherwise
+  // prematurely close the injected <script>/<style> and break the single file.
+  writeFileSync(moduleFile, 'const marker = "</script><script>alert(1)</script>";\n');
+  writeFileSync(styleFile, '.x::before { content: "</style><style>body{background:red}"; }\n');
+
+  const packAssetRecords = [
+    {
+      id: 'escape-pack@1.0.0',
+      assets: [
+        { type: 'module', path: 'breakout.js', resolvedPath: moduleFile },
+        { type: 'style', path: 'breakout.css', resolvedPath: styleFile },
+      ],
+    },
+  ];
+
+  const html = await renderMarkdown('# Escape\n', { assetMode: 'inline', packAssetRecords });
+
+  // The asset's own end tags must be neutralized so they cannot close our element.
+  assert.ok(!html.includes('alert(1)</script>'), 'pack module end tag must be escaped');
+  assert.ok(html.includes('alert(1)<\\/script>'), 'escaped module end tag must be present');
+  assert.ok(!html.includes('"</style><style>'), 'pack style end tag must be escaped');
+  assert.ok(html.includes('<\\/style>'), 'escaped style end tag must be present');
+});
+
+test('inline asset mode fails fast when a declared pack module asset is missing', async () => {
+  const { renderMarkdown } = await import('../src/render.mjs');
+  const packAssetRecords = [
+    {
+      id: 'gamma-pack@3.0.0',
+      assets: [
+        { type: 'module', path: 'gamma-widget.js', resolvedPath: resolve('tests/fixtures/__missing-inline-asset__.js') },
+      ],
+    },
+  ];
+
+  await assert.rejects(
+    () => renderMarkdown('# Missing module\n', { assetMode: 'inline', packAssetRecords }),
+    (error) => {
+      assert.match(error.message, /gamma-pack@3\.0\.0/, 'error must identify the pack');
+      assert.match(error.message, /gamma-widget\.js/, 'error must identify the asset path');
+      return true;
+    },
+  );
+});
+
+test('inline asset mode fails fast when a declared pack style asset is missing', async () => {
+  const { renderMarkdown } = await import('../src/render.mjs');
+  const packAssetRecords = [
+    {
+      id: 'delta-pack@4.0.0',
+      assets: [
+        { type: 'style', path: 'delta-widget.css', resolvedPath: resolve('tests/fixtures/__missing-inline-style__.css') },
+      ],
+    },
+  ];
+
+  await assert.rejects(
+    () => renderMarkdown('# Missing style\n', { assetMode: 'inline', packAssetRecords }),
+    (error) => {
+      assert.match(error.message, /delta-pack@4\.0\.0/, 'error must identify the pack');
+      assert.match(error.message, /delta-widget\.css/, 'error must identify the asset path');
+      return true;
+    },
+  );
+});
+

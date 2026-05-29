@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { serveDist } from './support/static-server.mjs';
-import { execFileSync, mkdirSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -42,7 +43,7 @@ test('inline HTML renders components without external assets', async ({ page }) 
 
     const decision = page.locator('agent-decision').first();
     await expect(decision).toBeVisible();
-    await expect.poll(() => decision.evaluate((element) => Boolean(element.shadowRoot?.querySelector('.agent-decision')))).toBe(true);
+    await expect.poll(() => decision.evaluate((element) => Boolean(element.shadowRoot?.querySelector('.decision')))).toBe(true);
 
     const metrics = page.locator('agent-metric');
     await expect(metrics.first()).toBeVisible();

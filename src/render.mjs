@@ -620,8 +620,8 @@ ${indent(renderedBody, 8)}
 
 function buildStyles(assetMode) {
   if (assetMode === 'inline') {
-    const bootstrapCss = readFileSync(require.resolve('bootstrap/dist/css/bootstrap.min.css'), 'utf8');
-    const highlightCss = readFileSync(require.resolve('highlight.js/styles/github-dark.min.css'), 'utf8');
+    const bootstrapCss = escapeInlineStyle(readFileSync(require.resolve('bootstrap/dist/css/bootstrap.min.css'), 'utf8'));
+    const highlightCss = escapeInlineStyle(readFileSync(require.resolve('highlight.js/styles/github-dark.min.css'), 'utf8'));
     return `  <style>
 /* Bootstrap CSS */
 ${bootstrapCss}
@@ -652,7 +652,7 @@ function buildScripts(assetMode, missingBundleComment) {
   let bootstrapScript;
 
   if (assetMode === 'inline') {
-    const bootstrapJs = readFileSync(require.resolve('bootstrap/dist/js/bootstrap.bundle.min.js'), 'utf8');
+    const bootstrapJs = escapeInlineScript(readFileSync(require.resolve('bootstrap/dist/js/bootstrap.bundle.min.js'), 'utf8'));
     bootstrapScript = `  <script>
 /* Bootstrap JS */
 ${bootstrapJs}
@@ -674,7 +674,7 @@ function buildComponentScript(assetMode, missingBundleComment) {
     if (!existsSync(componentBundlePath)) {
       return missingBundleComment;
     }
-    const componentJs = readFileSync(componentBundlePath, 'utf8');
+    const componentJs = escapeInlineScript(readFileSync(componentBundlePath, 'utf8'));
     return `
   <script type="module">
 /* Agent Isles component runtime */
@@ -697,16 +697,39 @@ function buildPackMetadataTags(packAssetRecords) {
 `;
 }
 
+// Inline assets land inside raw-text <script>/<style> elements, where a literal
+// </script> or </style> would prematurely close the element and corrupt the
+// single-file output. Neutralize the end-tag opener so trusted bundles and pack
+// assets embed verbatim (the backslash form is inert in JS/CSS string contexts,
+// the only place these sequences legitimately appear).
+function escapeInlineScript(code) {
+  return String(code).replace(/<\/(script)/gi, '<\\/$1');
+}
+
+function escapeInlineStyle(code) {
+  return String(code).replace(/<\/(style)/gi, '<\\/$1');
+}
+
+function readInlinePackAsset(record, asset, kind) {
+  if (!asset.resolvedPath || !existsSync(asset.resolvedPath)) {
+    throw new AgentIslesInputError(
+      `Cannot inline ${kind} asset for pack "${record.id}": declared asset "${asset.path}" was not found` +
+        `${asset.resolvedPath ? ` at ${asset.resolvedPath}` : ''}. ` +
+        'Ensure the file exists locally, or render with --assets local or --assets cdn instead.',
+    );
+  }
+
+  const raw = readFileSync(asset.resolvedPath, 'utf8');
+  return kind === 'style' ? escapeInlineStyle(raw) : escapeInlineScript(raw);
+}
+
 function buildPackStyleLinks(packAssetRecords, assetMode = 'cdn') {
   const styleLinks = packAssetRecords.flatMap((record) => {
     const styleAssets = record.assets.filter((asset) => asset.type === 'style');
 
     if (assetMode === 'inline') {
       return styleAssets.map((asset) => {
-        if (!existsSync(asset.resolvedPath)) {
-          return `  <!-- Pack style missing: ${escapeHtml(asset.path)} -->`;
-        }
-        const css = readFileSync(asset.resolvedPath, 'utf8');
+        const css = readInlinePackAsset(record, asset, 'style');
         return `  <style data-agent-isles-pack="${escapeHtml(record.id)}">
 /* Pack: ${escapeHtml(record.id)} - ${escapeHtml(asset.path)} */
 ${css}
@@ -732,10 +755,7 @@ function buildPackModuleScripts(packAssetRecords, assetMode = 'cdn') {
 
     if (assetMode === 'inline') {
       return moduleAssets.map((asset) => {
-        if (!existsSync(asset.resolvedPath)) {
-          return `  <!-- Pack module missing: ${escapeHtml(asset.path)} -->`;
-        }
-        const js = readFileSync(asset.resolvedPath, 'utf8');
+        const js = readInlinePackAsset(record, asset, 'module');
         return `  <script type="module" data-agent-isles-pack="${escapeHtml(record.id)}">
 /* Pack: ${escapeHtml(record.id)} - ${escapeHtml(asset.path)} */
 ${js}
