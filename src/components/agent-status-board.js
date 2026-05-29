@@ -270,15 +270,8 @@ export class AgentStatusItem extends LitElement {
       itemText(this),
     ].filter(Boolean);
 
-    // Store normalized status color for grouping
-    this.status = statusColor;
     this.setAttribute('role', 'listitem');
     this.setAttribute('aria-label', pieces.join(' — '));
-
-    // Set DOM ID if data-index is available
-    if (this.dataIndex !== undefined && this.dataIndex !== null) {
-      this.id = `status-item-${parseInt(this.dataIndex, 10) + 1}`;
-    }
   }
 
   renderTrend(statuses) {
@@ -344,6 +337,8 @@ export class AgentStatusItem extends LitElement {
 }
 
 customElements.define('agent-status-item', AgentStatusItem);
+
+let nextBoardId = 0;
 
 export class AgentStatusBoard extends LitElement {
   static properties = {
@@ -540,6 +535,7 @@ export class AgentStatusBoard extends LitElement {
     this.groupBy = 'none';
     this.hideEmptyGroups = false;
     this.itemsVersion = 0;
+    this.baseId = `status-board-${nextBoardId++}`;
     this.observer = new MutationObserver(() => this.refreshItems());
   }
 
@@ -590,6 +586,7 @@ export class AgentStatusBoard extends LitElement {
       item.slot = grouped ? `status-${statusColor}` : '';
       item.setAttribute('data-status', statusColor);
       item.setAttribute('data-index', String(index));
+      item.id = `${this.baseId}-item-${index + 1}`;
     });
 
     this.itemsVersion += 1;

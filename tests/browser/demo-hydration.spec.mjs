@@ -93,7 +93,7 @@ test('rendered demo loads without console errors and hydrates agent components',
       .toBe('#1');
     await expect
       .poll(() => firstItem.evaluate((element) => element.id))
-      .toBe('status-item-1');
+      .toMatch(/^status-board-\d+-item-1$/);
 
     const writebackItem = page.locator('agent-status-item[label="Writeback"]');
     await expect
@@ -111,7 +111,7 @@ test('rendered demo loads without console errors and hydrates agent components',
       .toBe(true);
     await statusBoard.evaluate((element) => element.setAttribute('group-by', 'status'));
     await expect
-      .poll(() => statusBoard.evaluate((element) => [...element.querySelectorAll('agent-status-item')].every((item) => item.slot === `status-${item.getAttribute('status')}`)))
+      .poll(() => statusBoard.evaluate((element) => [...element.querySelectorAll('agent-status-item')].every((item) => item.slot === `status-${item.getAttribute('status-color') || item.getAttribute('status')}`)))
       .toBe(true);
 
     // Verify custom status-label and status-color attributes
