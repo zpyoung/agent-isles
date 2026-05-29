@@ -213,7 +213,7 @@ Attributes:
 Reference badges:
 
 - Each item automatically receives a visible reference badge (`#1`, `#2`) based on source order.
-- Items also receive a stable DOM ID (`status-item-1`, `status-item-2`) for programmatic access.
+- Items also receive a stable DOM ID (`status-board-0-item-1`, `status-board-0-item-2`, etc.) for programmatic access. The board prefix is auto-generated and unique per board on the page, preventing duplicate IDs when multiple boards are present.
 - Users can cite items with natural language like "Do X with item #2" or "Update item zpyoung/agent-isles#1".
 
 Child content:
