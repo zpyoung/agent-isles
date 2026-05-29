@@ -566,7 +566,7 @@ function buildHtmlPage(body, options = {}) {
     : '\n  <!-- Agent Isles warning: dist/agent-components.js is missing. Run `npm run build`. -->';
   const styles = buildStyles(assetMode);
   const scripts = buildScripts(assetMode, missingBundleComment);
-  const packMetadata = buildPackMetadataTags(packAssetRecords);
+  const packMetadata = assetMode === 'inline' ? '' : buildPackMetadataTags(packAssetRecords);
   const packStyleLinks = buildPackStyleLinks(packAssetRecords, assetMode);
   const packModuleScripts = buildPackModuleScripts(packAssetRecords, assetMode);
   const componentScript = buildComponentScript(assetMode, missingBundleComment);
