@@ -1,162 +1,575 @@
-# Agent Isles Demo: Launch Readiness Report
+# Agent Isles Demo: Component Gallery
 
-<p class="lead">A public demo of how an agent can write normal Markdown, then add small HTML islands where richer UI helps a human scan, decide, and act.</p>
+<p class="lead">A complete reference demo where every supported Agent Isles component appears in a rendered/source side-by-side pair.</p>
 
-> Scenario: an autonomous maintainer has finished a release-candidate pass and needs to brief a project owner. The source stays readable in git; the rendered page feels closer to a lightweight product report.
+<style>
+.agent-component-example {
+  scroll-margin-top: 1rem;
+}
 
-## At a glance
+.agent-component-pane > :first-child {
+  margin-top: 0;
+}
 
-<div class="row g-3 my-3">
-  <div class="col-md-4">
-    <div class="card h-100 shadow-sm border-success">
-      <div class="card-body">
-        <div class="text-uppercase text-success fw-bold small">Release confidence</div>
-        <div class="display-6 fw-bold">82%</div>
-        <p class="mb-0">Core renderer path is working; docs and component vocabulary are the next leverage points.</p>
+.agent-component-source {
+  background: #0f172a;
+  color: #dbeafe;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  padding: 1rem;
+  tab-size: 2;
+  white-space: pre-wrap;
+}
+</style>
+
+> The thread to pull: source Markdown stays boring and reviewable, while the rendered pane shows the richer island a human actually scans.
+
+## Component reference
+
+### Decision island
+
+Use `<agent-decision>` for recommendations, verdicts, and recorded decisions that need a clear stance.
+
+<div class="agent-component-example my-4" data-agent-components="agent-decision">
+  <h4 class="h5 mb-3">Decision island</h4>
+  <div class="row g-4 align-items-stretch">
+    <div class="col-12 col-lg-6">
+      <div class="agent-component-pane agent-component-rendered border rounded p-3 bg-light h-100">
+        <p class="text-uppercase text-primary fw-bold small mb-3">Rendered output</p>
+        <agent-decision verdict="ship-with-guardrails" title="Use Markdown islands for reports">
+        Ship the report format as Markdown plus explicit HTML islands. Keep prose portable, use Bootstrap for layout, and reserve components for repeated patterns.
+        </agent-decision>
       </div>
     </div>
-  </div>
-  <div class="col-md-4">
-    <div class="card h-100 shadow-sm border-primary">
-      <div class="card-body">
-        <div class="text-uppercase text-primary fw-bold small">Time to brief</div>
-        <div class="display-6 fw-bold">3 min</div>
-        <p class="mb-0">Markdown remains skimmable while rendered cards expose the important numbers first.</p>
-      </div>
-    </div>
-  </div>
-  <div class="col-md-4">
-    <div class="card h-100 shadow-sm border-warning">
-      <div class="card-body">
-        <div class="text-uppercase text-warning fw-bold small">Open risks</div>
-        <div class="display-6 fw-bold">2</div>
-        <p class="mb-0">Risk islands keep caveats visible without burying them in paragraphs.</p>
+    <div class="col-12 col-lg-6">
+      <div class="agent-component-pane agent-component-source-card border rounded p-3 h-100">
+        <p class="text-uppercase text-info fw-bold small mb-3">Source Markdown</p>
+        <pre class="agent-component-source mb-0"><code>&lt;agent-decision verdict="ship-with-guardrails" title="Use Markdown islands for reports"&gt;
+Ship the report format as Markdown plus explicit HTML islands. Keep prose portable, use Bootstrap for layout, and reserve components for repeated patterns.
+&lt;/agent-decision&gt;</code></pre>
       </div>
     </div>
   </div>
 </div>
 
-## Executive summary
+### Risk callout
 
-Agent Isles is useful when the output must satisfy two audiences at once:
+Use `<agent-risk>` for blockers, hazards, and concerns that need severity plus mitigation context.
 
-- **Agents and maintainers** need boring Markdown that is easy to diff, review, and archive.
-- **Humans making decisions** need structure, hierarchy, and visual emphasis.
-- **Future automation** needs semantic tags like `<agent-decision>` and `<agent-risk>` that can be queried later.
-
-<agent-decision verdict="ship-with-guardrails" title="Use Markdown islands for agent reports">
-Ship the report format as Markdown plus explicit HTML islands. Keep prose portable, use Bootstrap for one-off layout, and reserve Lit components for recurring decision and risk patterns.
-</agent-decision>
-
-<div class="card shadow-sm my-3">
-  <div class="card-body">
-    <h3 class="h5">Timeline comparison</h3>
-    <div class="row g-3">
-      <div class="col-md-6">
-        <agent-metric label="Original — no AI, new design" value="38" unit="wks" tone="neutral">
-        </agent-metric>
-      </div>
-      <div class="col-md-6">
-        <agent-metric label="Revised — AI + 1:1 parity + existing assets" value="28" unit="wks" tone="good">
-        </agent-metric>
+<div class="agent-component-example my-4" data-agent-components="agent-risk">
+  <h4 class="h5 mb-3">Risk callout</h4>
+  <div class="row g-4 align-items-stretch">
+    <div class="col-12 col-lg-6">
+      <div class="agent-component-pane agent-component-rendered border rounded p-3 bg-light h-100">
+        <p class="text-uppercase text-primary fw-bold small mb-3">Rendered output</p>
+        <agent-risk level="medium" title="Raw HTML is a trust boundary">
+        Current renderer mode is for trusted Markdown. Use safe mode before accepting untrusted input.
+        </agent-risk>
       </div>
     </div>
-    <agent-delta label="Timeline delta" value="-10" unit="wks" percent="-26" direction="lower-better">
-      26% faster · ~10 weeks saved
-    </agent-delta>
+    <div class="col-12 col-lg-6">
+      <div class="agent-component-pane agent-component-source-card border rounded p-3 h-100">
+        <p class="text-uppercase text-info fw-bold small mb-3">Source Markdown</p>
+        <pre class="agent-component-source mb-0"><code>&lt;agent-risk level="medium" title="Raw HTML is a trust boundary"&gt;
+Current renderer mode is for trusted Markdown. Use safe mode before accepting untrusted input.
+&lt;/agent-risk&gt;</code></pre>
+      </div>
+    </div>
   </div>
 </div>
 
-<div class="row g-3 my-4" role="list" aria-label="Migration milestones">
-  <div class="col-md-4" role="listitem">
-    <agent-kpi label="Phase 1 dev complete" value="~12" unit="wks" delta="was ~26 wks" tone="success">
-      From kick-off
-    </agent-kpi>
-  </div>
-  <div class="col-md-4" role="listitem">
-    <agent-kpi label="Live Ireland" value="~15" unit="wks" delta="was ~28 wks" tone="warning">
-      Soft launch
-    </agent-kpi>
-  </div>
-  <div class="col-md-4" role="listitem">
-    <agent-kpi label="Phase 2 complete" value="~28" unit="wks" delta="was ~38 wks" tone="primary">
-      Full delivery
-    </agent-kpi>
+### Metric and delta composition
+
+Use `<agent-metric>` for compact measurements and `<agent-delta>` for signed comparisons, timeline changes, savings, or regressions.
+
+<div class="agent-component-example my-4" data-agent-components="agent-metric agent-delta">
+  <h4 class="h5 mb-3">Metric and delta composition</h4>
+  <div class="row g-4 align-items-stretch">
+    <div class="col-12 col-lg-6">
+      <div class="agent-component-pane agent-component-rendered border rounded p-3 bg-light h-100">
+        <p class="text-uppercase text-primary fw-bold small mb-3">Rendered output</p>
+        <div class="card shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title">Timeline comparison</h5>
+            <div class="row g-3 mb-3">
+              <div class="col-md-6">
+                <agent-metric label="Original — no AI, new design" value="38" unit="wks" tone="neutral"></agent-metric>
+              </div>
+              <div class="col-md-6">
+                <agent-metric label="Revised — AI + 1:1 parity + existing assets" value="28" unit="wks" tone="good"></agent-metric>
+              </div>
+            </div>
+            <agent-delta label="Timeline delta" value="-10" unit="wks" percent="-26" direction="lower-better">
+        26% faster · ~10 weeks saved
+            </agent-delta>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-lg-6">
+      <div class="agent-component-pane agent-component-source-card border rounded p-3 h-100">
+        <p class="text-uppercase text-info fw-bold small mb-3">Source Markdown</p>
+        <pre class="agent-component-source mb-0"><code>&lt;div class="card shadow-sm"&gt;
+  &lt;div class="card-body"&gt;
+    &lt;h5 class="card-title"&gt;Timeline comparison&lt;/h5&gt;
+    &lt;div class="row g-3 mb-3"&gt;
+      &lt;div class="col-md-6"&gt;
+        &lt;agent-metric label="Original — no AI, new design" value="38" unit="wks" tone="neutral"&gt;&lt;/agent-metric&gt;
+      &lt;/div&gt;
+      &lt;div class="col-md-6"&gt;
+        &lt;agent-metric label="Revised — AI + 1:1 parity + existing assets" value="28" unit="wks" tone="good"&gt;&lt;/agent-metric&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;agent-delta label="Timeline delta" value="-10" unit="wks" percent="-26" direction="lower-better"&gt;
+26% faster · ~10 weeks saved
+    &lt;/agent-delta&gt;
+  &lt;/div&gt;
+&lt;/div&gt;</code></pre>
+      </div>
+    </div>
   </div>
 </div>
 
-<agent-metric label="Renderer confidence" value="92" unit="%" trend="up">
-</agent-metric>
+### KPI group
 
-<agent-copy-block lang="bash" label="Render the demo">
+Use `<agent-kpi>` for milestone summaries, executive dashboards, and before/after status bands.
+
+<div class="agent-component-example my-4" data-agent-components="agent-kpi">
+  <h4 class="h5 mb-3">KPI group</h4>
+  <div class="row g-4 align-items-stretch">
+    <div class="col-12 col-lg-6">
+      <div class="agent-component-pane agent-component-rendered border rounded p-3 bg-light h-100">
+        <p class="text-uppercase text-primary fw-bold small mb-3">Rendered output</p>
+        <div class="row g-3" role="list" aria-label="Migration milestones">
+          <div class="col-md-4" role="listitem">
+            <agent-kpi label="Phase 1 dev complete" value="~12" unit="wks" delta="was ~26 wks" tone="success">
+        From kick-off
+            </agent-kpi>
+          </div>
+          <div class="col-md-4" role="listitem">
+            <agent-kpi label="Live Ireland" value="~15" unit="wks" delta="was ~28 wks" tone="warning">
+        Soft launch
+            </agent-kpi>
+          </div>
+          <div class="col-md-4" role="listitem">
+            <agent-kpi label="Phase 2 complete" value="~28" unit="wks" delta="was ~38 wks" tone="primary">
+        Full delivery
+            </agent-kpi>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-lg-6">
+      <div class="agent-component-pane agent-component-source-card border rounded p-3 h-100">
+        <p class="text-uppercase text-info fw-bold small mb-3">Source Markdown</p>
+        <pre class="agent-component-source mb-0"><code>&lt;div class="row g-3" role="list" aria-label="Migration milestones"&gt;
+  &lt;div class="col-md-4" role="listitem"&gt;
+    &lt;agent-kpi label="Phase 1 dev complete" value="~12" unit="wks" delta="was ~26 wks" tone="success"&gt;
+From kick-off
+    &lt;/agent-kpi&gt;
+  &lt;/div&gt;
+  &lt;div class="col-md-4" role="listitem"&gt;
+    &lt;agent-kpi label="Live Ireland" value="~15" unit="wks" delta="was ~28 wks" tone="warning"&gt;
+Soft launch
+    &lt;/agent-kpi&gt;
+  &lt;/div&gt;
+  &lt;div class="col-md-4" role="listitem"&gt;
+    &lt;agent-kpi label="Phase 2 complete" value="~28" unit="wks" delta="was ~38 wks" tone="primary"&gt;
+Full delivery
+    &lt;/agent-kpi&gt;
+  &lt;/div&gt;
+&lt;/div&gt;</code></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+### Copy block
+
+Use `<agent-copy-block>` for commands, config fragments, prompts, and code a reader is likely to copy.
+
+<div class="agent-component-example my-4" data-agent-components="agent-copy-block">
+  <h4 class="h5 mb-3">Copy block</h4>
+  <div class="row g-4 align-items-stretch">
+    <div class="col-12 col-lg-6">
+      <div class="agent-component-pane agent-component-rendered border rounded p-3 bg-light h-100">
+        <p class="text-uppercase text-primary fw-bold small mb-3">Rendered output</p>
+        <agent-copy-block lang="bash" label="Render the demo">
+        npm run render -- --out dist/demo.html
+        </agent-copy-block>
+      </div>
+    </div>
+    <div class="col-12 col-lg-6">
+      <div class="agent-component-pane agent-component-source-card border rounded p-3 h-100">
+        <p class="text-uppercase text-info fw-bold small mb-3">Source Markdown</p>
+        <pre class="agent-component-source mb-0"><code>&lt;agent-copy-block lang="bash" label="Render the demo"&gt;
 npm run render -- --out dist/demo.html
-</agent-copy-block>
+&lt;/agent-copy-block&gt;</code></pre>
+      </div>
+    </div>
+  </div>
+</div>
 
-## Status board
+### Status board
 
-Use `<agent-status-board>` when an agent report needs a compact “where are we across N workstreams?” rollup. The board derives its summary from child rows rather than requiring duplicated counts in Markdown.
+Use `<agent-status-board>` with `<agent-status-item>` rows for RAG/health rollups across workstreams.
 
-<agent-status-board label="Project health" meta="wk 24" summary="bar" group-by="status">
-  <agent-status-item label="Renderer" status="green" owner="Merlin" updated="mon" history="g,g,g,g">
-    CI green; render smoke passing for 9 days.
-  </agent-status-item>
-  <agent-status-item label="Writeback" status="amber" owner="Zach" updated="tue" history="g,g,a,a">
-    Blocked on API boundary decision. Localhost auth design due Thu.
-  </agent-status-item>
-  <agent-status-item label="Pages" status="amber" owner="Merlin" updated="wed" history="a,a,a,a">
-    Publishing is pending until GitHub Pages is enabled by a repo owner.
-  </agent-status-item>
-  <agent-status-item label="Docs" status="green" owner="Merlin" updated="wed" history="g,g,g,g">
-    Component vocabulary mirror is current with the public wiki.
-  </agent-status-item>
-</agent-status-board>
+<div class="agent-component-example my-4" data-agent-components="agent-status-board agent-status-item">
+  <h4 class="h5 mb-3">Status board</h4>
+  <div class="row g-4 align-items-stretch">
+    <div class="col-12 col-lg-6">
+      <div class="agent-component-pane agent-component-rendered border rounded p-3 bg-light h-100">
+        <p class="text-uppercase text-primary fw-bold small mb-3">Rendered output</p>
+        <agent-status-board label="Project health" meta="wk 24" summary="bar" group-by="status">
+          <agent-status-item label="Renderer" status="green" owner="Merlin" updated="mon" history="g,g,g,g">
+        CI green; render smoke passing for 9 days.
+          </agent-status-item>
+          <agent-status-item label="Writeback" status="amber" owner="Zach" updated="tue" history="g,g,a,a">
+        Blocked on API boundary decision. Localhost auth design due Thu.
+          </agent-status-item>
+          <agent-status-item label="Pages" status="amber" owner="Merlin" updated="wed" history="a,a,a,a">
+        Publishing is pending until GitHub Pages is enabled by a repo owner.
+          </agent-status-item>
+          <agent-status-item label="Docs" status="green" owner="Merlin" updated="wed" history="g,g,g,g">
+        Component vocabulary mirror is current with the public wiki.
+          </agent-status-item>
+        </agent-status-board>
+        <agent-status-board label="Component readiness">
+          <agent-status-item label="KPI" status="green" owner="Merlin">
+        Stable and covered by browser smoke.
+          </agent-status-item>
+          <agent-status-item label="Status board" status="amber" owner="Merlin">
+        New island under review; verify grouped lanes and summary behavior.
+          </agent-status-item>
+        </agent-status-board>
+      </div>
+    </div>
+    <div class="col-12 col-lg-6">
+      <div class="agent-component-pane agent-component-source-card border rounded p-3 h-100">
+        <p class="text-uppercase text-info fw-bold small mb-3">Source Markdown</p>
+        <pre class="agent-component-source mb-0"><code>&lt;agent-status-board label="Project health" meta="wk 24" summary="bar" group-by="status"&gt;
+  &lt;agent-status-item label="Renderer" status="green" owner="Merlin" updated="mon" history="g,g,g,g"&gt;
+CI green; render smoke passing for 9 days.
+  &lt;/agent-status-item&gt;
+  &lt;agent-status-item label="Writeback" status="amber" owner="Zach" updated="tue" history="g,g,a,a"&gt;
+Blocked on API boundary decision. Localhost auth design due Thu.
+  &lt;/agent-status-item&gt;
+  &lt;agent-status-item label="Pages" status="amber" owner="Merlin" updated="wed" history="a,a,a,a"&gt;
+Publishing is pending until GitHub Pages is enabled by a repo owner.
+  &lt;/agent-status-item&gt;
+  &lt;agent-status-item label="Docs" status="green" owner="Merlin" updated="wed" history="g,g,g,g"&gt;
+Component vocabulary mirror is current with the public wiki.
+  &lt;/agent-status-item&gt;
+&lt;/agent-status-board&gt;
+&lt;agent-status-board label="Component readiness"&gt;
+  &lt;agent-status-item label="KPI" status="green" owner="Merlin"&gt;
+Stable and covered by browser smoke.
+  &lt;/agent-status-item&gt;
+  &lt;agent-status-item label="Status board" status="amber" owner="Merlin"&gt;
+New island under review; verify grouped lanes and summary behavior.
+  &lt;/agent-status-item&gt;
+&lt;/agent-status-board&gt;</code></pre>
+      </div>
+    </div>
+  </div>
+</div>
 
-<agent-status-board label="Component readiness">
-  <agent-status-item label="KPI" status="green" owner="Merlin">
-    Stable and covered by browser smoke.
-  </agent-status-item>
-  <agent-status-item label="Status board" status="amber" owner="Merlin">
-    New island under review; verify grouped lanes and summary behavior.
-  </agent-status-item>
-</agent-status-board>
+### Dependency map
 
-## What changed in this pass
+Use `<agent-dependency-map>` with `<agent-dependency>` nodes to show what blocks what in a plan.
 
-| Area | Status | Evidence |
-| --- | --- | --- |
-| Renderer smoke path | Ready | `npm run render -- --out dist/demo.html` writes a standalone page. |
-| Component vocabulary | Expanded | Decision, risk, metric, copy-block, tabs, and timeline islands render as reusable Lit components. |
-| Public narrative | Improved | This demo now explains why Markdown islands matter. |
-| Plain Markdown readability | Preserved | The report still reads coherently before rendering. |
+<div class="agent-component-example my-4" data-agent-components="agent-dependency-map agent-dependency">
+  <h4 class="h5 mb-3">Dependency map</h4>
+  <div class="row g-4 align-items-stretch">
+    <div class="col-12 col-lg-6">
+      <div class="agent-component-pane agent-component-rendered border rounded p-3 bg-light h-100">
+        <p class="text-uppercase text-primary fw-bold small mb-3">Rendered output</p>
+        <agent-dependency-map label="Writeback dependency chain" direction="vertical" legend="show">
+          <agent-dependency id="edit-server" label="Edit server" status="ready" owner="Merlin" priority="P0">
+        Starts the localhost edit workflow.
+          </agent-dependency>
+          <agent-dependency id="source-metadata" label="Source metadata" status="blocked" blocked-by="edit-server" owner="Merlin" priority="P0">
+        Requires the edit server entrypoint first.
+          </agent-dependency>
+          <agent-dependency id="patch-api" label="Patch API" status="blocked" blocked-by="source-metadata" owner="Merlin" priority="P1">
+        Applies safe task-list source patches.
+          </agent-dependency>
+          <agent-dependency id="browser-client" label="Browser client" status="blocked" blocked-by="patch-api" owner="Merlin" priority="P1">
+        Enables checkbox writeback from rendered output.
+          </agent-dependency>
+          <agent-dependency id="docs" label="Docs and prompts" status="active" blocked-by="patch-api" owner="Nia" priority="P2">
+        Document the safe authoring + edit boundaries and ship example prompts.
+          </agent-dependency>
+          <agent-dependency id="writeback-release" label="Writeback release" status="risk" blocked-by="browser-client, docs" owner="Ariel" priority="P0">
+        Launch when the client and docs converge; treat cross-surface integration as a risk gate.
+          </agent-dependency>
+        </agent-dependency-map>
+      </div>
+    </div>
+    <div class="col-12 col-lg-6">
+      <div class="agent-component-pane agent-component-source-card border rounded p-3 h-100">
+        <p class="text-uppercase text-info fw-bold small mb-3">Source Markdown</p>
+        <pre class="agent-component-source mb-0"><code>&lt;agent-dependency-map label="Writeback dependency chain" direction="vertical" legend="show"&gt;
+  &lt;agent-dependency id="edit-server" label="Edit server" status="ready" owner="Merlin" priority="P0"&gt;
+Starts the localhost edit workflow.
+  &lt;/agent-dependency&gt;
+  &lt;agent-dependency id="source-metadata" label="Source metadata" status="blocked" blocked-by="edit-server" owner="Merlin" priority="P0"&gt;
+Requires the edit server entrypoint first.
+  &lt;/agent-dependency&gt;
+  &lt;agent-dependency id="patch-api" label="Patch API" status="blocked" blocked-by="source-metadata" owner="Merlin" priority="P1"&gt;
+Applies safe task-list source patches.
+  &lt;/agent-dependency&gt;
+  &lt;agent-dependency id="browser-client" label="Browser client" status="blocked" blocked-by="patch-api" owner="Merlin" priority="P1"&gt;
+Enables checkbox writeback from rendered output.
+  &lt;/agent-dependency&gt;
+  &lt;agent-dependency id="docs" label="Docs and prompts" status="active" blocked-by="patch-api" owner="Nia" priority="P2"&gt;
+Document the safe authoring + edit boundaries and ship example prompts.
+  &lt;/agent-dependency&gt;
+  &lt;agent-dependency id="writeback-release" label="Writeback release" status="risk" blocked-by="browser-client, docs" owner="Ariel" priority="P0"&gt;
+Launch when the client and docs converge; treat cross-surface integration as a risk gate.
+  &lt;/agent-dependency&gt;
+&lt;/agent-dependency-map&gt;</code></pre>
+      </div>
+    </div>
+  </div>
+</div>
 
-## Dependency map: writeback chain
+### Tabs
 
-Project reports often need to show what blocks what. This map renders a vertical dependency DAG without requiring Mermaid.
+Use `<agent-tabs>` with `<agent-tab>` panels for alternate views, platform-specific instructions, or evidence groups.
 
-<agent-dependency-map label="Writeback dependency chain" direction="vertical" legend="show">
-  <agent-dependency id="edit-server" label="Edit server" status="ready" owner="Merlin" priority="P0">
-    Starts the localhost edit workflow.
-  </agent-dependency>
-  <agent-dependency id="source-metadata" label="Source metadata" status="blocked" blocked-by="edit-server" owner="Merlin" priority="P0">
-    Requires the edit server entrypoint first.
-  </agent-dependency>
-  <agent-dependency id="patch-api" label="Patch API" status="blocked" blocked-by="source-metadata" owner="Merlin" priority="P1">
-    Applies safe task-list source patches.
-  </agent-dependency>
-  <agent-dependency id="browser-client" label="Browser client" status="blocked" blocked-by="patch-api" owner="Merlin" priority="P1">
-    Enables checkbox writeback from rendered output.
-  </agent-dependency>
-  <agent-dependency id="docs" label="Docs and prompts" status="active" blocked-by="patch-api" owner="Nia" priority="P2">
-    Document the safe authoring + edit boundaries and ship example prompts.
-  </agent-dependency>
-  <agent-dependency id="writeback-release" label="Writeback release" status="risk" blocked-by="browser-client, docs" owner="Ariel" priority="P0">
-    Launch when the client and docs converge; treat cross-surface integration as a risk gate.
-  </agent-dependency>
-</agent-dependency-map>
+<div class="agent-component-example my-4" data-agent-components="agent-tabs agent-tab">
+  <h4 class="h5 mb-3">Tabs</h4>
+  <div class="row g-4 align-items-stretch">
+    <div class="col-12 col-lg-6">
+      <div class="agent-component-pane agent-component-rendered border rounded p-3 bg-light h-100">
+        <p class="text-uppercase text-primary fw-bold small mb-3">Rendered output</p>
+        <agent-tabs>
+          <agent-tab title="Phase 1 — Discover" active>
+            <p>Map current Markdown patterns and identify reusable component seams.</p>
+          </agent-tab>
+          <agent-tab title="Phase 2 — Build">
+            <p>Implement renderer features, hydrate components, and keep examples inspectable.</p>
+          </agent-tab>
+          <agent-tab title="Phase 3 — Ship">
+            <p>Run browser smoke, publish docs, and keep deployment settings separate.</p>
+          </agent-tab>
+        </agent-tabs>
+      </div>
+    </div>
+    <div class="col-12 col-lg-6">
+      <div class="agent-component-pane agent-component-source-card border rounded p-3 h-100">
+        <p class="text-uppercase text-info fw-bold small mb-3">Source Markdown</p>
+        <pre class="agent-component-source mb-0"><code>&lt;agent-tabs&gt;
+  &lt;agent-tab title="Phase 1 — Discover" active&gt;
+    &lt;p&gt;Map current Markdown patterns and identify reusable component seams.&lt;/p&gt;
+  &lt;/agent-tab&gt;
+  &lt;agent-tab title="Phase 2 — Build"&gt;
+    &lt;p&gt;Implement renderer features, hydrate components, and keep examples inspectable.&lt;/p&gt;
+  &lt;/agent-tab&gt;
+  &lt;agent-tab title="Phase 3 — Ship"&gt;
+    &lt;p&gt;Run browser smoke, publish docs, and keep deployment settings separate.&lt;/p&gt;
+  &lt;/agent-tab&gt;
+&lt;/agent-tabs&gt;</code></pre>
+      </div>
+    </div>
+  </div>
+</div>
 
-## Architecture diagram with D2
+### Timeline
 
-Agent Isles now supports D2 fences for diagram-as-code. The D2 library is bundled, so diagrams render without requiring external tools.
+Use `<agent-timeline>` with `<agent-step>` entries for chronological steps, incident logs, and release phases.
+
+<div class="agent-component-example my-4" data-agent-components="agent-timeline agent-step">
+  <h4 class="h5 mb-3">Timeline</h4>
+  <div class="row g-4 align-items-stretch">
+    <div class="col-12 col-lg-6">
+      <div class="agent-component-pane agent-component-rendered border rounded p-3 bg-light h-100">
+        <p class="text-uppercase text-primary fw-bold small mb-3">Rendered output</p>
+        <agent-timeline label="Discovery progress">
+          <agent-step status="done" label="Renderer baseline">
+        Markdown, raw HTML islands, theme injection, and browser smoke are in place.
+          </agent-step>
+          <agent-step status="active" label="Component expansion">
+        Status, dependency, action, and schedule islands are being rounded out.
+          </agent-step>
+          <agent-step status="pending" label="Browser polish">
+        Responsive gallery and visual smoke coverage remain the final pass.
+          </agent-step>
+        </agent-timeline>
+      </div>
+    </div>
+    <div class="col-12 col-lg-6">
+      <div class="agent-component-pane agent-component-source-card border rounded p-3 h-100">
+        <p class="text-uppercase text-info fw-bold small mb-3">Source Markdown</p>
+        <pre class="agent-component-source mb-0"><code>&lt;agent-timeline label="Discovery progress"&gt;
+  &lt;agent-step status="done" label="Renderer baseline"&gt;
+Markdown, raw HTML islands, theme injection, and browser smoke are in place.
+  &lt;/agent-step&gt;
+  &lt;agent-step status="active" label="Component expansion"&gt;
+Status, dependency, action, and schedule islands are being rounded out.
+  &lt;/agent-step&gt;
+  &lt;agent-step status="pending" label="Browser polish"&gt;
+Responsive gallery and visual smoke coverage remain the final pass.
+  &lt;/agent-step&gt;
+&lt;/agent-timeline&gt;</code></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+### Gantt chart
+
+Use `<agent-gantt>`, `<agent-gantt-phase>`, and `<agent-gantt-task>` for schedules, phase lanes, milestones, overlap, and details.
+
+<div class="agent-component-example my-4" data-agent-components="agent-gantt agent-gantt-phase agent-gantt-task">
+  <h4 class="h5 mb-3">Gantt chart</h4>
+  <div class="row g-4 align-items-stretch">
+    <div class="col-12 col-lg-6">
+      <div class="agent-component-pane agent-component-rendered border rounded p-3 bg-light h-100">
+        <p class="text-uppercase text-primary fw-bold small mb-3">Rendered output</p>
+        <agent-gantt weeks="28" milestones="12,15,28" label="Migration schedule">
+          <agent-gantt-phase label="Core build">
+            <agent-gantt-task label="Components + Storybook" start="3" end="5" tone="components" detail="2 wks — was 8 wks; 1:1 parity removes design review loop">
+        Component parity keeps the source Markdown simple while the rendered chart shows schedule compression.
+            </agent-gantt-task>
+            <agent-gantt-task label="Testing — parallel" start="3" end="12" tone="testing" detail="Runs continuously beside component work" parallel>
+        Regression and browser smoke coverage run alongside build work instead of waiting for handoff.
+            </agent-gantt-task>
+          </agent-gantt-phase>
+          <agent-gantt-phase label="Launch readiness">
+            <agent-gantt-task label="UAT" start="13" end="15" tone="validation" detail="Migration-critical paths only">
+        UAT stays scoped to flows that decide whether launch can proceed.
+            </agent-gantt-task>
+            <agent-gantt-task label="Go-live checkpoint" start="28" end="28" tone="launch" detail="Milestone week 28">
+        Final readiness review and publish decision.
+            </agent-gantt-task>
+          </agent-gantt-phase>
+        </agent-gantt>
+      </div>
+    </div>
+    <div class="col-12 col-lg-6">
+      <div class="agent-component-pane agent-component-source-card border rounded p-3 h-100">
+        <p class="text-uppercase text-info fw-bold small mb-3">Source Markdown</p>
+        <pre class="agent-component-source mb-0"><code>&lt;agent-gantt weeks="28" milestones="12,15,28" label="Migration schedule"&gt;
+  &lt;agent-gantt-phase label="Core build"&gt;
+    &lt;agent-gantt-task label="Components + Storybook" start="3" end="5" tone="components" detail="2 wks — was 8 wks; 1:1 parity removes design review loop"&gt;
+Component parity keeps the source Markdown simple while the rendered chart shows schedule compression.
+    &lt;/agent-gantt-task&gt;
+    &lt;agent-gantt-task label="Testing — parallel" start="3" end="12" tone="testing" detail="Runs continuously beside component work" parallel&gt;
+Regression and browser smoke coverage run alongside build work instead of waiting for handoff.
+    &lt;/agent-gantt-task&gt;
+  &lt;/agent-gantt-phase&gt;
+  &lt;agent-gantt-phase label="Launch readiness"&gt;
+    &lt;agent-gantt-task label="UAT" start="13" end="15" tone="validation" detail="Migration-critical paths only"&gt;
+UAT stays scoped to flows that decide whether launch can proceed.
+    &lt;/agent-gantt-task&gt;
+    &lt;agent-gantt-task label="Go-live checkpoint" start="28" end="28" tone="launch" detail="Milestone week 28"&gt;
+Final readiness review and publish decision.
+    &lt;/agent-gantt-task&gt;
+  &lt;/agent-gantt-phase&gt;
+&lt;/agent-gantt&gt;</code></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+### Action list
+
+Use `<agent-action-list>` with `<agent-action>` items for follow-up work in table, kanban, or priority layouts.
+
+<div class="agent-component-example my-4" data-agent-components="agent-action-list agent-action">
+  <h4 class="h5 mb-3">Action list</h4>
+  <div class="row g-4 align-items-stretch">
+    <div class="col-12 col-lg-6">
+      <div class="agent-component-pane agent-component-rendered border rounded p-3 bg-light h-100">
+        <p class="text-uppercase text-primary fw-bold small mb-3">Rendered output</p>
+        <agent-action-list label="From this demo" layout="table" group-by="status" filter-status="open,in-progress" filter-priority="high,normal" show-done="false">
+          <agent-action owner="You" status="open">
+        Open examples/demo.md and inspect the source beside the rendered output.
+          </agent-action>
+          <agent-action owner="You" status="in-progress" priority="high" due="2026-05-24">
+        Run the render smoke after changing component examples.
+          </agent-action>
+          <agent-action owner="Merlin" status="open" priority="high">
+        Verify each component appears once as an atomic rendered/source pair.
+          </agent-action>
+          <agent-action owner="Merlin" status="done" priority="normal">
+        Keep the source snippets visible next to the rendered output.
+          </agent-action>
+        </agent-action-list>
+        <agent-action-list label="From standup (minimal)">
+          <agent-action owner="You" status="open">Review the generated demo.</agent-action>
+          <agent-action owner="Merlin" status="done">Mirror component docs to the wiki.</agent-action>
+        </agent-action-list>
+        <agent-action-list label="Launch follow-ups (kanban)" layout="kanban" show-done="false">
+          <agent-action owner="Merlin" status="open" priority="high">Re-run browser smoke.</agent-action>
+          <agent-action owner="Zach" status="in-progress" priority="normal">Review gallery scope.</agent-action>
+          <agent-action owner="Merlin" status="blocked" priority="normal">Wait for Pages enablement.</agent-action>
+          <agent-action owner="Pix" status="done" priority="low">Mirror component docs to the wiki.</agent-action>
+        </agent-action-list>
+        <agent-action-list label="Launch follow-ups (priority lanes)" layout="priority" show-done="true">
+          <agent-action owner="Merlin" status="open" priority="high">Re-run browser smoke.</agent-action>
+          <agent-action owner="Zach" status="in-progress" priority="normal">Review gallery scope.</agent-action>
+          <agent-action owner="Pix" status="done" priority="low">Mirror component docs to the wiki.</agent-action>
+        </agent-action-list>
+      </div>
+    </div>
+    <div class="col-12 col-lg-6">
+      <div class="agent-component-pane agent-component-source-card border rounded p-3 h-100">
+        <p class="text-uppercase text-info fw-bold small mb-3">Source Markdown</p>
+        <pre class="agent-component-source mb-0"><code>&lt;agent-action-list label="From this demo" layout="table" group-by="status" filter-status="open,in-progress" filter-priority="high,normal" show-done="false"&gt;
+  &lt;agent-action owner="You" status="open"&gt;
+Open examples/demo.md and inspect the source beside the rendered output.
+  &lt;/agent-action&gt;
+  &lt;agent-action owner="You" status="in-progress" priority="high" due="2026-05-24"&gt;
+Run the render smoke after changing component examples.
+  &lt;/agent-action&gt;
+  &lt;agent-action owner="Merlin" status="open" priority="high"&gt;
+Verify each component appears once as an atomic rendered/source pair.
+  &lt;/agent-action&gt;
+  &lt;agent-action owner="Merlin" status="done" priority="normal"&gt;
+Keep the source snippets visible next to the rendered output.
+  &lt;/agent-action&gt;
+&lt;/agent-action-list&gt;
+&lt;agent-action-list label="From standup (minimal)"&gt;
+  &lt;agent-action owner="You" status="open"&gt;Review the generated demo.&lt;/agent-action&gt;
+  &lt;agent-action owner="Merlin" status="done"&gt;Mirror component docs to the wiki.&lt;/agent-action&gt;
+&lt;/agent-action-list&gt;
+&lt;agent-action-list label="Launch follow-ups (kanban)" layout="kanban" show-done="false"&gt;
+  &lt;agent-action owner="Merlin" status="open" priority="high"&gt;Re-run browser smoke.&lt;/agent-action&gt;
+  &lt;agent-action owner="Zach" status="in-progress" priority="normal"&gt;Review gallery scope.&lt;/agent-action&gt;
+  &lt;agent-action owner="Merlin" status="blocked" priority="normal"&gt;Wait for Pages enablement.&lt;/agent-action&gt;
+  &lt;agent-action owner="Pix" status="done" priority="low"&gt;Mirror component docs to the wiki.&lt;/agent-action&gt;
+&lt;/agent-action-list&gt;
+&lt;agent-action-list label="Launch follow-ups (priority lanes)" layout="priority" show-done="true"&gt;
+  &lt;agent-action owner="Merlin" status="open" priority="high"&gt;Re-run browser smoke.&lt;/agent-action&gt;
+  &lt;agent-action owner="Zach" status="in-progress" priority="normal"&gt;Review gallery scope.&lt;/agent-action&gt;
+  &lt;agent-action owner="Pix" status="done" priority="low"&gt;Mirror component docs to the wiki.&lt;/agent-action&gt;
+&lt;/agent-action-list&gt;</code></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+## Renderer features
+
+### Syntax-highlighted fenced code
+
+Fenced code blocks are highlighted with Highlight.js and remain normal Markdown source.
+
+```javascript
+function greet(name) {
+  return `Hello, ${name}!`;
+}
+
+const message = greet('Agent Isles');
+console.log(message);
+```
+
+### Bundled D2 diagram fences
+
+D2 fences render as SVG diagrams without requiring an external command.
 
 ```d2
 direction: right
@@ -178,172 +591,15 @@ renderer -> browser: SVG diagrams
 renderer -> browser: HTML + components
 ```
 
-## Multi-phase plan
-
-<agent-tabs>
-  <agent-tab title="Phase 1 — Discover">
-    <p>Map the report shape, decide which details need richer UI, and keep the source document readable in plain Markdown.</p>
-    <agent-timeline label="Discovery progress">
-      <agent-step status="done" label="Renderer baseline">
-        Markdown renders to a complete HTML page with Bootstrap, theme CSS, and the component bundle.
-      </agent-step>
-      <agent-step status="active" label="Component expansion">
-        Tabs and timeline islands now cover multi-phase plans without hand-writing Bootstrap boilerplate.
-      </agent-step>
-      <agent-step status="pending" label="Browser polish">
-        Add deeper browser smoke coverage for keyboard and hydration behavior as the vocabulary grows.
-      </agent-step>
-    </agent-timeline>
-  </agent-tab>
-  <agent-tab title="Phase 2 — Build">
-    <p>Use explicit islands when structure matters. The tab component owns its own state; it does not rely on global framework state.</p>
-    <ul>
-      <li><code>&lt;agent-tabs&gt;</code> provides the tablist and keyboard navigation.</li>
-      <li><code>&lt;agent-tab title="..."&gt;</code> marks each named panel.</li>
-      <li><code>&lt;agent-timeline&gt;</code> groups ordered progress steps.</li>
-      <li><code>&lt;agent-step status="done|active|pending|failed" label="..."&gt;</code> labels each status-bearing step.</li>
-    </ul>
-  </agent-tab>
-  <agent-tab title="Phase 3 — Review">
-    <p>Rendered output should be inspectable HTML with accessible labels, ARIA tab semantics, and no hidden dependency on app-level state.</p>
-  </agent-tab>
-</agent-tabs>
-
-## Revised migration schedule
-
-Use Markdown for the section title and explanatory prose; `<agent-gantt>` owns only the chart: phase lanes, week axis, milestone markers, task bars, overlap, legend, and task details.
-
-<agent-gantt weeks="28" milestones="12,15,28" label="Migration schedule">
-  <agent-gantt-phase label="Core build">
-    <agent-gantt-task
-      label="Components + Storybook"
-      start="3"
-      end="5"
-      tone="components"
-      detail="2 wks — was 8 wks; 1:1 parity removes design review loop">
-      Component parity keeps the source Markdown simple while the rendered chart shows schedule compression.
-    </agent-gantt-task>
-    <agent-gantt-task
-      label="Testing — parallel"
-      start="3"
-      end="12"
-      tone="testing"
-      detail="Runs continuously beside component work"
-      parallel>
-      Regression and browser smoke coverage run alongside build work instead of waiting for handoff.
-    </agent-gantt-task>
-  </agent-gantt-phase>
-  <agent-gantt-phase label="Launch readiness">
-    <agent-gantt-task
-      label="UAT"
-      start="13"
-      end="15"
-      tone="validation"
-      detail="Migration-critical paths only">
-      UAT stays scoped to flows that decide whether launch can proceed.
-    </agent-gantt-task>
-    <agent-gantt-task
-      label="Go-live checkpoint"
-      start="28"
-      end="28"
-      tone="launch"
-      detail="Milestone week 28">
-      Final readiness review and publish decision.
-    </agent-gantt-task>
-  </agent-gantt-phase>
-</agent-gantt>
-
-## Decisions
-
-<agent-decision verdict="go" title="Keep the source boring">
-Use standard Markdown for headings, tables, lists, quotes, and code fences. This keeps review workflows simple and avoids turning every report into a custom app.
-</agent-decision>
-
-<agent-decision verdict="needs-review" title="Add richer components deliberately">
-New custom elements should earn their place by replacing repeated report patterns. One-off visual layout can stay as Bootstrap HTML until the pattern proves durable.
-</agent-decision>
-
-## Risks and mitigations
-
-<agent-risk level="medium" title="Raw HTML is a trust boundary">
-The current renderer is intended for trusted Markdown. Before accepting untrusted input, Agent Isles needs a deliberate sanitization mode with an explicit allowlist.
-</agent-risk>
-
-<agent-risk level="low" title="Component vocabulary can sprawl">
-If every report invents new tags, the vocabulary stops being useful. Prefer a small set of semantic primitives that map to common agent outputs: decisions, risks, metrics, timelines, findings, and copy blocks.
-</agent-risk>
-
-## Suggested next actions
-
-<agent-action-list
-  label="From this demo"
-  layout="table"
-  group-by="status"
-  filter-status="open,in-progress"
-  filter-priority="high,normal"
-  show-done="false">
-  <agent-action owner="You" status="open">
-    Render this file and open the generated HTML.
-  </agent-action>
-  <agent-action owner="You" status="in-progress" priority="high" due="2026-05-24">
-    Add an action list island for follow-ups that keeps ownership and status visible.
-  </agent-action>
-  <agent-action owner="Reviewers" status="open" priority="normal">
-    Use the source Markdown in pull requests so reviewers can inspect the exact report text.
-  </agent-action>
-  <agent-action owner="Maintainers" status="done">
-    Promote repeated Bootstrap patterns into semantic agent-* components only after they recur.
-  </agent-action>
-</agent-action-list>
-
-<agent-action-list label="From standup (minimal)">
-  <agent-action owner="Pix">Mirror docs to wiki.</agent-action>
-  <agent-action owner="Merlin">Re-run smoke after component bundle changes.</agent-action>
-  <agent-action owner="Zach" status="done">Open the three PRs.</agent-action>
-</agent-action-list>
-
-<agent-action-list label="Launch follow-ups (kanban)" layout="kanban" show-done="false">
-  <agent-action owner="Merlin" due="2026-05-24" priority="high" status="in-progress">
-    Re-run render smoke after component bundle changes.
-  </agent-action>
-  <agent-action owner="Zach" due="next wk" priority="normal" status="blocked">
-    Decide whether writeback should support action status edits in the first pass.
-  </agent-action>
-  <agent-action owner="Pix" status="done">
-    Mirror component docs to the wiki.
-  </agent-action>
-</agent-action-list>
-
-<agent-action-list label="Launch follow-ups (priority lanes)" layout="priority" show-done="true">
-  <agent-action owner="Merlin" due="2026-05-24" priority="high" status="in-progress">
-    Re-run render smoke after component bundle changes.
-  </agent-action>
-  <agent-action owner="Zach" due="next wk" priority="normal" status="blocked">
-    Decide whether writeback should support action status edits in the first pass.
-  </agent-action>
-  <agent-action owner="Pix" status="done" priority="low">
-    Mirror component docs to the wiki.
-  </agent-action>
-</agent-action-list>
+### Render commands
 
 ```bash
 npm install
 npm test
 npm run render -- --out dist/demo.html
-```
-
-## Copyable agent prompt
-
-Use this as a seed prompt for future report generation:
-
-```text
-Write an Agent Isles report for the current project state.
-Keep the source readable as Markdown.
-Use Bootstrap only for one-off layout.
-Use <agent-decision> for recommendations and <agent-risk> for caveats.
-End with verification evidence and concrete next actions.
+node ./bin/isles.mjs render examples/demo.md --show-source --out dist/demo-source.html
 ```
 
 ## Why this matters
 
-Plain Markdown is the sea: durable, portable, and easy to navigate. Islands are the landmarks: decisions, risks, metrics, timelines, and actions that deserve stronger shape. Agent Isles lets an agent produce both in one source file.
+Plain Markdown is the sea: durable, portable, and easy to navigate. Islands are the landmarks: decisions, risks, metrics, timelines, schedules, status, dependencies, and actions that deserve stronger shape.
