@@ -15,6 +15,14 @@ const contentTypes = new Map([
 const expectedCustomElements = [
   'agent-decision',
   'agent-risk',
+  'agent-metric',
+  'agent-delta',
+  'agent-kpi',
+  'agent-copy-block',
+  'agent-tabs',
+  'agent-tab',
+  'agent-timeline',
+  'agent-step',
   'agent-gantt',
   'agent-gantt-phase',
   'agent-gantt-task',
@@ -22,6 +30,8 @@ const expectedCustomElements = [
   'agent-status-item',
   'agent-dependency-map',
   'agent-dependency',
+  'agent-action-list',
+  'agent-action',
 ];
 
 test('rendered demo loads without console errors and hydrates agent components', async ({ page }) => {
@@ -41,8 +51,29 @@ test('rendered demo loads without console errors and hydrates agent components',
 
     await expect(page.locator('h1')).toContainText('Agent Isles Demo');
 
+    const galleryExamples = page.locator('.agent-component-example');
+    await expect(galleryExamples).toHaveCount(11);
+    const firstGallery = galleryExamples.first();
+    const renderedPane = firstGallery.locator('.agent-component-rendered');
+    const sourcePane = firstGallery.locator('.agent-component-source-card');
+    await expect(renderedPane).toBeVisible();
+    await expect(sourcePane).toBeVisible();
+    const desktopRenderedBox = await renderedPane.boundingBox();
+    const desktopSourceBox = await sourcePane.boundingBox();
+    expect(desktopRenderedBox).not.toBeNull();
+    expect(desktopSourceBox).not.toBeNull();
+    expect(desktopSourceBox.x).toBeGreaterThan(desktopRenderedBox.x);
+    expect(Math.abs(desktopSourceBox.y - desktopRenderedBox.y)).toBeLessThan(4);
+    await page.setViewportSize({ width: 390, height: 900 });
+    const mobileRenderedBox = await renderedPane.boundingBox();
+    const mobileSourceBox = await sourcePane.boundingBox();
+    expect(mobileRenderedBox).not.toBeNull();
+    expect(mobileSourceBox).not.toBeNull();
+    expect(mobileSourceBox.y).toBeGreaterThan(mobileRenderedBox.y);
+    await page.setViewportSize({ width: 1280, height: 720 });
+
     const renderedAgentTags = await page
-      .locator('agent-decision, agent-risk, agent-gantt, agent-gantt-phase, agent-gantt-task, agent-status-board, agent-status-item, agent-dependency-map, agent-dependency')
+      .locator(expectedCustomElements.join(', '))
       .evaluateAll((elements) => [
         ...new Set(elements.map((element) => element.localName)),
       ]);
@@ -58,7 +89,7 @@ test('rendered demo loads without console errors and hydrates agent components',
     await expect
       .poll(() => decision.evaluate((element) => Boolean(element.shadowRoot?.querySelector('.decision'))))
       .toBe(true);
-    await expect(decision).toContainText('Use Markdown islands');
+    await expect(decision).toContainText('Ship the report format');
 
     const risk = page.locator('agent-risk').first();
     await expect

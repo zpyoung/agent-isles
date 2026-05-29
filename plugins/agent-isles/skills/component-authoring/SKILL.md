@@ -3,7 +3,7 @@ name: agent-isles-component-authoring
 description: Author Agent Isles Markdown with supported <agent-*> islands, readable source, and explicit security boundaries.
 ---
 
-Use this skill when the user wants help writing Agent Isles Markdown, choosing components, or converting a report into semantic islands.
+Use this skill when the user wants help writing Agent Isles Markdown, choosing components, or converting a report into semantic islands. If the user wants to create or modify a Component Pack itself, use `agent-isles-component-pack-authoring` instead.
 
 ## Authoring principles
 
