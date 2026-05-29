@@ -415,12 +415,14 @@ export async function renderMarkdownFile(inputPath, options = {}) {
   if (outFile) {
     mkdirSync(dirname(outFile), { recursive: true });
     writeFileSync(outFile, html);
-    copyComponentBundle(dirname(outFile));
-    if (assetMode === 'local') {
-      copyLocalAssets(dirname(outFile));
+    if (assetMode !== 'inline') {
+      copyComponentBundle(dirname(outFile));
+      if (assetMode === 'local') {
+        copyLocalAssets(dirname(outFile));
+      }
+      copyPackAssets(dirname(outFile), packAssetRecords);
+      writePackMetadata(dirname(outFile), packAssetRecords);
     }
-    copyPackAssets(dirname(outFile), packAssetRecords);
-    writePackMetadata(dirname(outFile), packAssetRecords);
   }
 
   return { html, outFile, resolvedPacks };
@@ -564,9 +566,10 @@ function buildHtmlPage(body, options = {}) {
     : '\n  <!-- Agent Isles warning: dist/agent-components.js is missing. Run `npm run build`. -->';
   const styles = buildStyles(assetMode);
   const scripts = buildScripts(assetMode, missingBundleComment);
-  const packMetadata = buildPackMetadataTags(packAssetRecords);
-  const packStyleLinks = buildPackStyleLinks(packAssetRecords);
-  const packModuleScripts = buildPackModuleScripts(packAssetRecords);
+  const packMetadata = assetMode === 'inline' ? '' : buildPackMetadataTags(packAssetRecords);
+  const packStyleLinks = buildPackStyleLinks(packAssetRecords, assetMode);
+  const packModuleScripts = buildPackModuleScripts(packAssetRecords, assetMode);
+  const componentScript = buildComponentScript(assetMode, missingBundleComment);
 
   const mainBody = options.showSource ? pageBody : indent(pageBody, 4);
 
@@ -583,8 +586,7 @@ ${packMetadata}${styles}
   <main class="${mainClass}">
 ${mainBody}
   </main>
-${scripts}
-  <script type="module" src="./${componentScriptName}"></script>${packModuleScripts}
+${scripts}${componentScript}${packModuleScripts}
 </body>
 </html>`;
 }
@@ -617,6 +619,19 @@ ${indent(renderedBody, 8)}
 }
 
 function buildStyles(assetMode) {
+  if (assetMode === 'inline') {
+    const bootstrapCss = escapeInlineStyle(readFileSync(require.resolve('bootstrap/dist/css/bootstrap.min.css'), 'utf8'));
+    const highlightCss = escapeInlineStyle(readFileSync(require.resolve('highlight.js/styles/github-dark.min.css'), 'utf8'));
+    return `  <style>
+/* Bootstrap CSS */
+${bootstrapCss}
+  </style>
+  <style>
+/* Highlight.js CSS */
+${highlightCss}
+  </style>`;
+  }
+
   if (assetMode === 'local') {
     return `  <link href="./${localAssetDirName}/bootstrap.min.css" rel="stylesheet" />
   <link href="./${localAssetDirName}/github-dark.min.css" rel="stylesheet" />`;
@@ -634,14 +649,41 @@ function buildStyles(assetMode) {
 }
 
 function buildScripts(assetMode, missingBundleComment) {
-  const bootstrapScript = assetMode === 'local'
-    ? `  <script src="./${localAssetDirName}/bootstrap.bundle.min.js"></script>`
-    : `  <script
+  let bootstrapScript;
+
+  if (assetMode === 'inline') {
+    const bootstrapJs = escapeInlineScript(readFileSync(require.resolve('bootstrap/dist/js/bootstrap.bundle.min.js'), 'utf8'));
+    bootstrapScript = `  <script>
+/* Bootstrap JS */
+${bootstrapJs}
+  </script>`;
+  } else if (assetMode === 'local') {
+    bootstrapScript = `  <script src="./${localAssetDirName}/bootstrap.bundle.min.js"></script>`;
+  } else {
+    bootstrapScript = `  <script
     src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
     crossorigin="anonymous">
   </script>`;
+  }
 
   return `${bootstrapScript}${missingBundleComment}`;
+}
+
+function buildComponentScript(assetMode, missingBundleComment) {
+  if (assetMode === 'inline') {
+    if (!existsSync(componentBundlePath)) {
+      return missingBundleComment;
+    }
+    const componentJs = escapeInlineScript(readFileSync(componentBundlePath, 'utf8'));
+    return `
+  <script type="module">
+/* Agent Isles component runtime */
+${componentJs}
+  </script>`;
+  }
+
+  return `
+  <script type="module" src="./${componentScriptName}"></script>`;
 }
 
 function buildPackMetadataTags(packAssetRecords) {
@@ -655,10 +697,50 @@ function buildPackMetadataTags(packAssetRecords) {
 `;
 }
 
-function buildPackStyleLinks(packAssetRecords) {
-  const styleLinks = packAssetRecords.flatMap((record) => record.assets
-    .filter((asset) => asset.type === 'style')
-    .map((asset) => `  <link href="${escapeHtml(asset.url)}" rel="stylesheet" data-agent-isles-pack="${escapeHtml(record.id)}" />`));
+// Inline assets land inside raw-text <script>/<style> elements, where a literal
+// </script> or </style> would prematurely close the element and corrupt the
+// single-file output. Neutralize the end-tag opener so trusted bundles and pack
+// assets embed verbatim (the backslash form is inert in JS/CSS string contexts,
+// the only place these sequences legitimately appear).
+function escapeInlineScript(code) {
+  return String(code).replace(/<\/(script)/gi, '<\\/$1');
+}
+
+function escapeInlineStyle(code) {
+  return String(code).replace(/<\/(style)/gi, '<\\/$1');
+}
+
+function readInlinePackAsset(record, asset, kind) {
+  if (!asset.resolvedPath || !existsSync(asset.resolvedPath)) {
+    throw new AgentIslesInputError(
+      `Cannot inline ${kind} asset for pack "${record.id}": declared asset "${asset.path}" was not found` +
+        `${asset.resolvedPath ? ` at ${asset.resolvedPath}` : ''}. ` +
+        'Ensure the file exists locally, or render with --assets local or --assets cdn instead.',
+    );
+  }
+
+  const raw = readFileSync(asset.resolvedPath, 'utf8');
+  return kind === 'style' ? escapeInlineStyle(raw) : escapeInlineScript(raw);
+}
+
+function buildPackStyleLinks(packAssetRecords, assetMode = 'cdn') {
+  const styleLinks = packAssetRecords.flatMap((record) => {
+    const styleAssets = record.assets.filter((asset) => asset.type === 'style');
+
+    if (assetMode === 'inline') {
+      return styleAssets.map((asset) => {
+        const css = readInlinePackAsset(record, asset, 'style');
+        return `  <style data-agent-isles-pack="${escapeHtml(record.id)}">
+/* Pack: ${escapeHtml(record.id)} - ${escapeHtml(asset.path)} */
+${css}
+  </style>`;
+      });
+    }
+
+    return styleAssets.map((asset) =>
+      `  <link href="${escapeHtml(asset.url)}" rel="stylesheet" data-agent-isles-pack="${escapeHtml(record.id)}" />`
+    );
+  });
 
   if (styleLinks.length === 0) {
     return '';
@@ -667,10 +749,24 @@ function buildPackStyleLinks(packAssetRecords) {
   return `\n${styleLinks.join('\n')}`;
 }
 
-function buildPackModuleScripts(packAssetRecords) {
-  const moduleScripts = packAssetRecords.flatMap((record) => record.assets
-    .filter((asset) => asset.type === 'module')
-    .map((asset) => `  <script type="module" src="${escapeHtml(asset.url)}" data-agent-isles-pack="${escapeHtml(record.id)}"></script>`));
+function buildPackModuleScripts(packAssetRecords, assetMode = 'cdn') {
+  const moduleScripts = packAssetRecords.flatMap((record) => {
+    const moduleAssets = record.assets.filter((asset) => asset.type === 'module');
+
+    if (assetMode === 'inline') {
+      return moduleAssets.map((asset) => {
+        const js = readInlinePackAsset(record, asset, 'module');
+        return `  <script type="module" data-agent-isles-pack="${escapeHtml(record.id)}">
+/* Pack: ${escapeHtml(record.id)} - ${escapeHtml(asset.path)} */
+${js}
+  </script>`;
+      });
+    }
+
+    return moduleAssets.map((asset) =>
+      `  <script type="module" src="${escapeHtml(asset.url)}" data-agent-isles-pack="${escapeHtml(record.id)}"></script>`
+    );
+  });
 
   if (moduleScripts.length === 0) {
     return '';
@@ -819,11 +915,11 @@ function copyLocalAssets(outDir) {
 }
 
 function normalizeAssetMode(assetMode = 'cdn') {
-  if (assetMode === 'cdn' || assetMode === 'local') {
+  if (assetMode === 'cdn' || assetMode === 'local' || assetMode === 'inline') {
     return assetMode;
   }
 
-  throw new Error(`Unsupported asset mode: ${assetMode}. Expected "cdn" or "local".`);
+  throw new Error(`Unsupported asset mode: ${assetMode}. Expected "cdn", "local", or "inline".`);
 }
 
 function indent(text, spaces) {

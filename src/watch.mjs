@@ -11,6 +11,15 @@ export async function watchMarkdownFile(inputPath, options = {}) {
   const outFile = resolve(options.outFile || defaultOutFile(sourceFile));
   const stdout = options.stdout || process.stdout;
   const stderr = options.stderr || process.stderr;
+  const renderOptions = {
+    outFile,
+    renderMode: options.renderMode,
+    assetMode: options.assetMode,
+    showSource: options.showSource,
+    explicitPacks: options.explicitPacks,
+    includeUserPacks: options.includeUserPacks,
+    projectDir: options.projectDir ?? sourceDir,
+  };
 
   let timer;
   let closed = false;
@@ -29,7 +38,7 @@ export async function watchMarkdownFile(inputPath, options = {}) {
 
     rendering = true;
     try {
-      await renderMarkdownFile(sourceFile, { outFile });
+      await renderMarkdownFile(sourceFile, renderOptions);
       stdout.write(`[isles] ${kind}: ${outFile}\n`);
     } catch (error) {
       const label = kind === 'rendered' ? 'initial render failed' : 'rebuild failed';

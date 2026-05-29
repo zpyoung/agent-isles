@@ -18,10 +18,10 @@ import { watchMarkdownFile } from '../src/watch.mjs';
 const USAGE = `Agent Isles — Markdown seas, component islands.
 
 Usage:
-  isles render <file.md> [--out <file.html>] [--mode trusted|sanitized] [--assets cdn|local] [--show-source] [--pack <path>]... [--no-user-packs]
-  isles render <file.md> [--out <file.html>] [--safe|--sanitize] [--assets cdn|local] [--show-source] [--pack <path>]... [--no-user-packs]
+  isles render <file.md> [--out <file.html>] [--mode trusted|sanitized] [--assets cdn|local|inline] [--show-source] [--pack <path>]... [--no-user-packs]
+  isles render <file.md> [--out <file.html>] [--safe|--sanitize] [--assets cdn|local|inline] [--show-source] [--pack <path>]... [--no-user-packs]
   isles packs resolve <file.md> [--pack <path>]... [--no-user-packs]
-  isles watch <file.md> [--out <file.html>]
+  isles watch <file.md> [--out <file.html>] [--mode trusted|sanitized] [--assets cdn|local|inline] [--show-source] [--pack <path>]... [--no-user-packs]
 
 Commands:
   render         Render Markdown to browser-ready HTML
@@ -29,10 +29,10 @@ Commands:
   watch          Render immediately and rebuild when the Markdown file changes
 
 Options:
-  --assets cdn|local   Use CDN assets by default, or copy local offline assets
-  --show-source        Display escaped source Markdown beside rendered output
-  --pack <path>        Load component pack from path (repeatable)
-  --no-user-packs      Skip automatic user config packs for reproducible renders
+  --assets cdn|local|inline   Use CDN assets (default), copy local offline assets, or inline all assets into single HTML file
+  --show-source               Display escaped source Markdown beside rendered output
+  --pack <path>               Load component pack from path (repeatable)
+  --no-user-packs             Skip automatic user config packs for reproducible renders
 `;
 
 const packageJson = JSON.parse(readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '..', 'package.json'), 'utf8'));
@@ -310,11 +310,11 @@ function parseRenderArgs(args) {
     if (arg === '--assets') {
       const value = args[index + 1];
       if (!value || value.startsWith('-')) {
-        console.error('Missing value for --assets. Expected cdn or local.');
+        console.error('Missing value for --assets. Expected cdn, local, or inline.');
         process.exit(2);
       }
-      if (value !== 'cdn' && value !== 'local') {
-        console.error(`Invalid --assets value: ${value}. Expected cdn or local.`);
+      if (value !== 'cdn' && value !== 'local' && value !== 'inline') {
+        console.error(`Invalid --assets value: ${value}. Expected cdn, local, or inline.`);
         process.exit(2);
       }
       parsed.assetMode = value;
@@ -365,9 +365,8 @@ function parseRenderArgs(args) {
 }
 
 async function runWatch(args) {
-  const input = args.find((arg) => !arg.startsWith('-'));
-  const outFlagIndex = args.indexOf('--out');
-  const outFile = outFlagIndex >= 0 ? args[outFlagIndex + 1] : defaultOutFile(input || 'output.md');
+  const parsed = parseRenderArgs(args);
+  const input = parsed.input;
 
   if (!input) {
     console.error('Missing Markdown file for watch.\n');
@@ -381,5 +380,14 @@ async function runWatch(args) {
     process.exit(1);
   }
 
-  await watchMarkdownFile(inputPath, { outFile, exitOnSignal: true });
+  await watchMarkdownFile(inputPath, {
+    outFile: parsed.outFile || defaultOutFile(input),
+    renderMode: parsed.renderMode,
+    assetMode: parsed.assetMode,
+    showSource: parsed.showSource,
+    explicitPacks: parsed.explicitPacks,
+    includeUserPacks: parsed.includeUserPacks,
+    projectDir: dirname(resolve(input)),
+    exitOnSignal: true,
+  });
 }
