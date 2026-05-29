@@ -178,7 +178,7 @@ Use Markdown for surrounding context. The component owns only the chart.
 
 ### `<agent-status-board>` and `<agent-status-item>`
 
-Use for compact RAG/health boards where an agent report needs to answer “where are we across N workstreams?” without hand-authoring repeated Bootstrap rows.
+Use for compact RAG/health boards where an agent report needs to answer "where are we across N workstreams?" without hand-authoring repeated Bootstrap rows.
 
 Status: supported.
 
@@ -188,6 +188,9 @@ Authoring guidance:
 - Keep child item bodies as concise prose that remains readable in Markdown source.
 - Use `summary="bar"` only when the derived distribution and worst-of headline add value.
 - Use `group-by="status"` when red/amber/green lanes are easier to scan than source order.
+- Use `hide-empty-groups` to hide status groups with zero items (only applies when `group-by="status"`).
+- Each item automatically receives a visible reference badge (`#1`, `#2`, etc.) and a stable DOM ID for citations.
+- Use `status-color` and `status-label` to customize the pill label while keeping color-based grouping.
 - Keep nested custom-element children continuous; avoid blank lines between status items inside the board.
 
 Attributes:
@@ -198,16 +201,25 @@ Attributes:
 | `agent-status-board` | `meta` | No | Plain text | derived item count | Small right-aligned context such as `wk 24`. |
 | `agent-status-board` | `summary` | No | `bar`, `off` | `off` | `bar` shows a distribution bar and worst-of headline derived from children. |
 | `agent-status-board` | `group-by` | No | `status`, `none` | `none` | `status` renders native collapsible red/amber/green/grey lanes. |
+| `agent-status-board` | `hide-empty-groups` | No | boolean | `false` | When `true`, hides status groups with 0 items (only applies with `group-by="status"`). |
 | `agent-status-item` | `label` | No | Plain text | `Status item` | Visible row label. |
 | `agent-status-item` | `status` | No | `green`, `amber`, `red`, `grey` plus aliases `g`, `a`, `r` | `grey` | Drives status pill, grouping lane, summary count, and row accent. |
+| `agent-status-item` | `status-color` | No | `green`, `amber`, `red`, `grey` plus aliases | inherited from `status` | Override the status color token for grouping/theming without changing the label. |
+| `agent-status-item` | `status-label` | No | Plain text | derived from status | Custom label for the status pill; does not affect grouping (uses `status-color` or `status` for grouping). |
 | `agent-status-item` | `owner` | No | Plain text | empty | Accountable person/team rendered as metadata. |
 | `agent-status-item` | `updated` | No | Plain text | empty | Free-form recency hint such as `mon`, `2d ago`, or a date. |
 | `agent-status-item` | `history` | No | Comma-separated status tokens | empty | Renders a small trend strip such as `g,g,a,a`. |
 
+Reference badges:
+
+- Each item automatically receives a visible reference badge (`#1`, `#2`) based on source order.
+- Items also receive a stable DOM ID (`status-board-0-item-1`, `status-board-0-item-2`, etc.) for programmatic access. The board prefix is auto-generated and unique per board on the page, preventing duplicate IDs when multiple boards are present.
+- Users can cite items with natural language like "Do X with item #2" or "Update item zpyoung/agent-isles#1".
+
 Child content:
 
 - `<agent-status-board>` should contain direct `<agent-status-item>` children.
-- `<agent-status-item>` may contain short prose, evidence, or next-action context.
+- `<agent-status-item>` may contain short prose, evidence, or next-action context, or rich slotted HTML content.
 
 Accessibility notes:
 
@@ -218,7 +230,7 @@ Accessibility notes:
 Trusted/sanitized behavior:
 
 - Trusted mode preserves the tags, attributes, and child HTML.
-- Sanitized mode allows `label`, `meta`, `summary`, `group-by`, `status`, `owner`, `updated`, and `history` while stripping event handlers and unsafe raw HTML.
+- Sanitized mode allows `label`, `meta`, `summary`, `group-by`, `hide-empty-groups`, `status`, `status-color`, `status-label`, `owner`, `updated`, and `history` while stripping event handlers and unsafe raw HTML.
 
 Example:
 
@@ -229,6 +241,22 @@ Example:
   </agent-status-item>
   <agent-status-item label="Writeback" status="amber" owner="Zach" updated="tue" history="g,g,a,a">
     Blocked on API boundary decision.
+  </agent-status-item>
+</agent-status-board>
+```
+
+Custom status labels example:
+
+```markdown
+<agent-status-board label="Risk assessment" group-by="status" hide-empty-groups>
+  <agent-status-item label="API Auth" status-color="amber" status-label="Medium Risk" owner="Security">
+    OAuth flow needs validation.
+  </agent-status-item>
+  <agent-status-item label="DB Schema" status-color="amber" status-label="Needs Review" owner="Data">
+    Migration scripts awaiting review.
+  </agent-status-item>
+  <agent-status-item label="Load Testing" status-color="green" status-label="Verified" owner="QA">
+    System handles 10x traffic.
   </agent-status-item>
 </agent-status-board>
 ```

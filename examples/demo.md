@@ -212,7 +212,9 @@ npm run render -- --out dist/demo.html
 
 ### Status board
 
-Use `<agent-status-board>` with `<agent-status-item>` rows for RAG/health rollups across workstreams.
+Use `<agent-status-board>` with `<agent-status-item>` rows for RAG/health rollups across workstreams. The board derives its summary from child rows rather than requiring duplicated counts in Markdown.
+
+Items include visible reference badges like `#1`, `#2` that make it easy to cite specific items (e.g., "Do X with item #2").
 
 <div class="agent-component-example my-4" data-agent-components="agent-status-board agent-status-item">
   <h4 class="h5 mb-3">Status board</h4>
@@ -273,6 +275,24 @@ New island under review; verify grouped lanes and summary behavior.
     </div>
   </div>
 </div>
+
+### Custom status labels
+
+You can override the status pill label while keeping the color token for grouping using `status-color` and `status-label`:
+
+<agent-status-board label="Risk assessment" group-by="status" hide-empty-groups>
+  <agent-status-item label="API Authentication" status-color="amber" status-label="Medium Risk" owner="Security Team">
+    OAuth flow needs additional validation before production deployment.
+  </agent-status-item>
+  <agent-status-item label="Database Schema" status-color="amber" status-label="Needs Review" owner="Data Team">
+    Migration scripts ready but awaiting peer review.
+  </agent-status-item>
+  <agent-status-item label="Load Testing" status-color="green" status-label="Verified" owner="QA Team">
+    System handles 10x expected traffic with acceptable latency.
+  </agent-status-item>
+</agent-status-board>
+
+The `hide-empty-groups` option hides status groups with zero items (note: Red and Grey groups are hidden above).
 
 ### Dependency map
 

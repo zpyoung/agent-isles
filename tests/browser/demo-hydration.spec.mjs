@@ -117,6 +117,15 @@ test('rendered demo loads without console errors and hydrates agent components',
     await expect(statusBoard).toContainText('Project health');
     await expect(statusBoard).toContainText('Overall Amber');
 
+    // Verify reference badges are present
+    const firstItem = page.locator('agent-status-item').first();
+    await expect
+      .poll(() => firstItem.evaluate((element) => element.shadowRoot?.querySelector('.status-reference')?.textContent))
+      .toBe('#1');
+    await expect
+      .poll(() => firstItem.evaluate((element) => element.id))
+      .toMatch(/^status-board-\d+-item-1$/);
+
     const writebackItem = page.locator('agent-status-item[label="Writeback"]');
     await expect
       .poll(() => writebackItem.evaluate((element) => Boolean(element.shadowRoot?.querySelector('.status-item'))))
@@ -133,8 +142,24 @@ test('rendered demo loads without console errors and hydrates agent components',
       .toBe(true);
     await statusBoard.evaluate((element) => element.setAttribute('group-by', 'status'));
     await expect
-      .poll(() => statusBoard.evaluate((element) => [...element.querySelectorAll('agent-status-item')].every((item) => item.slot === `status-${item.getAttribute('status')}`)))
+      .poll(() => statusBoard.evaluate((element) => [...element.querySelectorAll('agent-status-item')].every((item) => item.slot === `status-${item.getAttribute('status-color') || item.getAttribute('status')}`)))
       .toBe(true);
+
+    // Verify custom status-label and status-color attributes
+    const customLabelBoard = page.locator('agent-status-board[label="Risk assessment"]');
+    await expect(customLabelBoard).toBeVisible();
+    const apiAuthItem = customLabelBoard.locator('agent-status-item[label="API Authentication"]');
+    await expect
+      .poll(() => apiAuthItem.evaluate((element) => element.shadowRoot?.querySelector('.status-pill')?.textContent?.trim()))
+      .toBe('Medium Risk');
+
+    // Verify hide-empty-groups works (Red and Grey should be hidden)
+    await expect
+      .poll(() => customLabelBoard.evaluate((element) => {
+        const groups = element.shadowRoot?.querySelectorAll('.status-group') || [];
+        return groups.length;
+      }))
+      .toBe(2); // Only Amber and Green groups should be visible
 
     const dependencyMap = page.locator('agent-dependency-map').first();
     await expect(dependencyMap).toBeVisible();

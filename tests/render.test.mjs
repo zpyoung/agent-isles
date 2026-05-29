@@ -399,18 +399,25 @@ test('sanitized render mode preserves safe status board tags and attributes', as
   const html = await renderMarkdown(`
 # Safe Status Board
 
-<agent-status-board label="Project health" meta="wk 24" summary="bar" group-by="status" onclick="steal()">
+<agent-status-board label="Project health" meta="wk 24" summary="bar" group-by="status" hide-empty-groups onclick="steal()">
   <agent-status-item label="Renderer" status="green" owner="Merlin" updated="mon" history="g,g,g,g" onclick="steal()">
     <script>alert('owned')</script>
     CI green; render smoke passing.
   </agent-status-item>
+  <agent-status-item label="Security" status-color="amber" status-label="Medium Risk" owner="Team">
+    Needs review.
+  </agent-status-item>
 </agent-status-board>
 `, { renderMode: 'sanitized' });
 
-  assert.match(html, /<agent-status-board label="Project health" meta="wk 24" summary="bar" group-by="status">/);
+  assert.match(html, /<agent-status-board label="Project health" meta="wk 24" summary="bar" group-by="status" hide-empty-groups(?:="")?>/);
   assert.match(
     html,
     /<agent-status-item label="Renderer" status="green" owner="Merlin" updated="mon" history="g,g,g,g">\s*CI green; render smoke passing\.\s*<\/agent-status-item>/,
+  );
+  assert.match(
+    html,
+    /<agent-status-item label="Security" status-color="amber" status-label="Medium Risk" owner="Team">\s*Needs review\.\s*<\/agent-status-item>/,
   );
   assert.doesNotMatch(html, /<script>/i);
   assert.doesNotMatch(html, /onclick=/i);
