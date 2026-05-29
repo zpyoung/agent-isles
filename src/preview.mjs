@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -45,6 +46,7 @@ function defaultOpener(target) {
     // ISLES_PREVIEW_OPEN_CMD must be a bare executable name or absolute path
     // (no embedded arguments — "open -a Firefox" will not work).
     const child = spawn(override, [target], { stdio: 'ignore', detached: true });
+    child.once('error', () => {}); // launch failures must not crash the process
     child.unref();
     return;
   }
@@ -64,6 +66,7 @@ function defaultOpener(target) {
   }
 
   const child = spawn(command, args, { stdio: 'ignore', detached: true });
+  child.once('error', () => {}); // launch failures must not crash the process
   child.unref();
 }
 
@@ -97,8 +100,7 @@ export async function previewMarkdown(options = {}) {
   mkdirSync(dir, { recursive: true });
   prunePreviewDir(dir, previewTtlMs(), now);
 
-  const unique = `${now}-${Math.random().toString(36).slice(2, 10)}`;
-  const outFile = join(dir, `isles-preview-${unique}.html`);
+  const outFile = join(dir, `isles-preview-${now}-${randomUUID()}.html`);
   writeFileSync(outFile, html);
 
   const fileUrl = pathToFileURL(outFile).href;

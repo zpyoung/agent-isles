@@ -101,3 +101,18 @@ test('previewMarkdown reports opened=false when the opener throws but still retu
   assert.equal(opened, false);
   assert.ok(existsSync(outFile));
 });
+
+test('previewMarkdown does not crash when the default opener command is missing', async () => {
+  const { previewMarkdown } = await import('../src/preview.mjs');
+  const dir = mkdtempSync(join(tmpdir(), 'agent-isles-preview-badopen-'));
+  process.env.ISLES_PREVIEW_OPEN_CMD = '/nonexistent/agent-isles-opener-xyz';
+  try {
+    const { outFile } = await previewMarkdown({ markdown: SIMPLE, includeUserPacks: false, dir, open: true });
+    assert.ok(existsSync(outFile));
+    // Give the async spawn 'error' event a chance to fire; the process must survive it.
+    await new Promise((r) => setTimeout(r, 50));
+    assert.ok(existsSync(outFile));
+  } finally {
+    delete process.env.ISLES_PREVIEW_OPEN_CMD;
+  }
+});
