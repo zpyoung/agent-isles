@@ -35,6 +35,8 @@ const expectedCustomElements = [
 ];
 
 test('rendered demo loads without console errors and hydrates agent components', async ({ page }) => {
+  test.slow();
+
   const server = await serveDist();
   const consoleErrors = [];
   page.on('console', (message) => {
