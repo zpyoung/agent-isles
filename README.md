@@ -266,7 +266,7 @@ isles preview /tmp/scratch.md --open
 
 - Previews are written to `os.tmpdir()/agent-isles-preview/` (e.g. `/var/folders/...` on macOS, `/tmp/...` on Linux). They never land in your project, so `git status --short` stays clean.
 - On each run, `preview` prunes files in that directory older than 24 hours, then writes the new one. The fresh preview is kept long enough for the browser to read it. Override the retention window with `ISLES_PREVIEW_TTL_MS` (milliseconds); set `ISLES_PREVIEW_TTL_MS=0` to prune everything but the current preview.
-- Override the launch command for `--open` with `ISLES_PREVIEW_OPEN_CMD` (invoked as `<cmd> <file>`; it must be a bare executable name or absolute path — embedded arguments like `open -a Firefox` are not supported). By default `preview` uses `open` (macOS), `xdg-open` (Linux), or `start` (Windows).
+- Override the launch command for `--open` with `ISLES_PREVIEW_OPEN_CMD` (invoked as `<cmd> <file>`; it must be a bare executable name or absolute path — embedded arguments like `open -a Firefox` are not supported). By default `preview` uses `open` (macOS), `xdg-open` (Linux), or `cmd /c start` (Windows).
 
 ### Security boundary
 
