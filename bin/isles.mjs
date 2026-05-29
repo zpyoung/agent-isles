@@ -14,6 +14,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CONFIG_FILE, getUserConfigDir, PackResolutionError, resolvePackInputs } from '../src/pack-resolver.mjs';
 import { watchMarkdownFile } from '../src/watch.mjs';
+import { previewMarkdown } from '../src/preview.mjs';
 
 const USAGE = `Agent Isles — Markdown seas, component islands.
 
@@ -22,11 +23,13 @@ Usage:
   isles render <file.md> [--out <file.html>] [--safe|--sanitize] [--assets cdn|local|inline] [--show-source] [--pack <path>]... [--no-user-packs]
   isles packs resolve <file.md> [--pack <path>]... [--no-user-packs]
   isles watch <file.md> [--out <file.html>] [--mode trusted|sanitized] [--assets cdn|local|inline] [--show-source] [--pack <path>]... [--no-user-packs]
+  isles preview (--stdin | <file.md>) [--open] [--mode trusted|sanitized] [--safe|--sanitize] [--show-source] [--pack <path>]... [--no-user-packs]
 
 Commands:
   render         Render Markdown to browser-ready HTML
   packs resolve  Print resolved component packs, sources, asset outputs, and sanitizer permissions
   watch          Render immediately and rebuild when the Markdown file changes
+  preview        Render ephemeral Markdown (stdin or a file) to a temp HTML file and print its file:// URL
 
 Options:
   --assets cdn|local|inline   Use CDN assets (default), copy local offline assets, or inline all assets into single HTML file
@@ -54,6 +57,8 @@ if (command === 'render') {
   await runPacks(args);
 } else if (command === 'watch') {
   await runWatch(args);
+} else if (command === 'preview') {
+  await runPreview(args);
 } else {
   console.error(`Unknown command: ${command}\n`);
   console.error(USAGE);
@@ -390,4 +395,148 @@ async function runWatch(args) {
     projectDir: dirname(resolve(input)),
     exitOnSignal: true,
   });
+}
+
+function parsePreviewArgs(args) {
+  const parsed = {
+    stdin: false,
+    input: undefined,
+    open: false,
+    renderMode: RENDER_MODES.TRUSTED,
+    showSource: false,
+    explicitPacks: [],
+    includeUserPacks: true,
+  };
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+
+    if (arg === '--stdin') {
+      parsed.stdin = true;
+      continue;
+    }
+
+    if (arg === '--open') {
+      parsed.open = true;
+      continue;
+    }
+
+    if (arg === '--assets' || arg === '--out') {
+      console.error(`${arg} is not supported by preview. Use "isles render" for persistent output and asset modes.`);
+      process.exit(2);
+    }
+
+    if (arg === '--mode') {
+      const value = args[index + 1];
+      if (!value || value.startsWith('-')) {
+        console.error('Missing value for --mode. Use trusted or sanitized.');
+        process.exit(2);
+      }
+      try {
+        parsed.renderMode = normalizeRenderMode(value);
+      } catch (error) {
+        console.error(error.message);
+        process.exit(2);
+      }
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--safe' || arg === '--sanitize') {
+      parsed.renderMode = RENDER_MODES.SANITIZED;
+      continue;
+    }
+
+    if (arg === '--show-source') {
+      parsed.showSource = true;
+      continue;
+    }
+
+    if (arg === '--pack') {
+      const value = args[index + 1];
+      if (!value || value.startsWith('-')) {
+        console.error('Missing value for --pack. Provide a pack directory path.');
+        process.exit(2);
+      }
+      parsed.explicitPacks.push(value);
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--no-user-packs') {
+      parsed.includeUserPacks = false;
+      continue;
+    }
+
+    if (arg.startsWith('-')) {
+      console.error(`Unknown preview option: ${arg}`);
+      process.exit(2);
+    }
+
+    if (parsed.input) {
+      console.error(`Unexpected extra argument: ${arg}`);
+      process.exit(2);
+    }
+
+    parsed.input = arg;
+  }
+
+  return parsed;
+}
+
+async function runPreview(args) {
+  const parsed = parsePreviewArgs(args);
+
+  if (parsed.stdin && parsed.input) {
+    console.error('Choose one input source: either --stdin or a Markdown file path, not both.\n');
+    console.error(USAGE);
+    process.exit(2);
+  }
+
+  if (!parsed.stdin && !parsed.input) {
+    console.error('Missing input. Provide --stdin (pipe Markdown) or a Markdown file path.\n');
+    console.error(USAGE);
+    process.exit(2);
+  }
+
+  let markdown;
+  let projectDir;
+  try {
+    if (parsed.stdin) {
+      markdown = readFileSync(0, 'utf8');
+      projectDir = process.cwd();
+    } else {
+      const filePath = validateMarkdownInput(parsed.input);
+      markdown = readFileSync(filePath, 'utf8');
+      projectDir = dirname(resolve(filePath));
+    }
+
+    const { outFile, fileUrl, opened } = await previewMarkdown({
+      markdown,
+      projectDir,
+      renderMode: parsed.renderMode,
+      showSource: parsed.showSource,
+      explicitPacks: parsed.explicitPacks,
+      includeUserPacks: parsed.includeUserPacks,
+      open: parsed.open,
+    });
+
+    console.log(fileUrl);
+    console.log(outFile);
+    if (parsed.open) {
+      console.log(opened ? '[isles] opened in browser' : '[isles] could not open a browser; open the path above manually');
+    }
+  } catch (error) {
+    if (error instanceof AgentIslesInputError) {
+      console.error(error.message);
+      process.exit(1);
+    }
+
+    if (error instanceof PackResolutionError || error.name === 'PackLoadError') {
+      console.error(error.message);
+      process.exit(1);
+    }
+
+    throw error;
+  }
 }
