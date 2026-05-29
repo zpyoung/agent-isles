@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { renderMarkdownString } from './render.mjs';
 
@@ -42,6 +42,8 @@ function prunePreviewDir(dir, ttlMs, now) {
 function defaultOpener(target) {
   const override = process.env.ISLES_PREVIEW_OPEN_CMD;
   if (override) {
+    // ISLES_PREVIEW_OPEN_CMD must be a bare executable name or absolute path
+    // (no embedded arguments — "open -a Firefox" will not work).
     const child = spawn(override, [target], { stdio: 'ignore', detached: true });
     child.unref();
     return;
@@ -96,7 +98,7 @@ export async function previewMarkdown(options = {}) {
   prunePreviewDir(dir, previewTtlMs(), now);
 
   const unique = `${now}-${Math.random().toString(36).slice(2, 10)}`;
-  const outFile = resolve(join(dir, `isles-preview-${unique}.html`));
+  const outFile = join(dir, `isles-preview-${unique}.html`);
   writeFileSync(outFile, html);
 
   const fileUrl = pathToFileURL(outFile).href;
@@ -104,6 +106,8 @@ export async function previewMarkdown(options = {}) {
   let opened = false;
   if (open) {
     try {
+      // The opener contract is synchronous: a synchronous throw is caught
+      // here; an async rejection is not part of the contract.
       opener(outFile);
       opened = true;
     } catch {

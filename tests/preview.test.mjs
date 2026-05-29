@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readdirSync, utimesSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -22,7 +22,7 @@ test('previewMarkdown renders inline HTML to a temp file and returns a file:// U
   assert.ok(fileUrl.startsWith('file://'), 'returns a file:// URL');
   assert.ok(fileUrl.endsWith('.html'));
 
-  const html = (await import('node:fs')).readFileSync(outFile, 'utf8');
+  const html = readFileSync(outFile, 'utf8');
   assert.match(html, /<agent-decision verdict="go" title="Go">/);
   // Self-contained: no external or sibling-file asset references.
   assert.doesNotMatch(html, /src="https?:\/\//);
@@ -44,8 +44,14 @@ test('previewMarkdown uses os.tmpdir()/agent-isles-preview by default', async ()
   const { previewMarkdown, previewDir, PREVIEW_DIR_NAME } = await import('../src/preview.mjs');
   assert.equal(previewDir(), join(tmpdir(), PREVIEW_DIR_NAME));
 
-  const { outFile } = await previewMarkdown({ markdown: SIMPLE, includeUserPacks: false });
-  assert.ok(outFile.startsWith(join(tmpdir(), PREVIEW_DIR_NAME)));
+  let created;
+  try {
+    const { outFile } = await previewMarkdown({ markdown: SIMPLE, includeUserPacks: false });
+    created = outFile;
+    assert.ok(outFile.startsWith(join(tmpdir(), PREVIEW_DIR_NAME)));
+  } finally {
+    if (created) rmSync(created, { force: true });
+  }
 });
 
 test('previewMarkdown prunes stale files but keeps the fresh preview', async () => {
