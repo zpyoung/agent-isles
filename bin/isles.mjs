@@ -524,7 +524,11 @@ async function runPreview(args) {
     console.log(fileUrl);
     console.log(outFile);
     if (parsed.open) {
-      console.log(opened ? '[isles] opening in browser (best-effort launch)' : '[isles] could not launch a browser; open the path above manually');
+      if (opened) {
+        console.log('[isles] opening in browser (best-effort launch)');
+      } else {
+        console.warn('[isles] could not launch a browser; open the path above manually');
+      }
     }
   } catch (error) {
     if (error instanceof AgentIslesInputError) {
