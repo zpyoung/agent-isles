@@ -2,6 +2,26 @@
 
 <p class="lead">A complete reference demo where every supported Agent Isles component appears in a rendered/source side-by-side pair.</p>
 
+<style>
+.agent-component-example {
+  scroll-margin-top: 1rem;
+}
+
+.agent-component-pane > :first-child {
+  margin-top: 0;
+}
+
+.agent-component-source {
+  background: #0f172a;
+  color: #dbeafe;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  padding: 1rem;
+  tab-size: 2;
+  white-space: pre-wrap;
+}
+</style>
+
 > The thread to pull: source Markdown stays boring and reviewable, while the rendered pane shows the richer island a human actually scans.
 
 ## Component reference
