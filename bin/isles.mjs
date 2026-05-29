@@ -5,6 +5,7 @@ import {
   AgentIslesInputError,
   defaultOutFile,
   normalizeRenderMode,
+  renderMarkdown,
   renderMarkdownFile,
   RENDER_MODES,
   validateMarkdownInput,
@@ -14,6 +15,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CONFIG_FILE, getUserConfigDir, PackResolutionError, resolvePackInputs } from '../src/pack-resolver.mjs';
 import { watchMarkdownFile } from '../src/watch.mjs';
+import { previewMarkdown } from '../src/preview.mjs';
 
 const USAGE = `Agent Isles — Markdown seas, component islands.
 
@@ -22,11 +24,19 @@ Usage:
   isles render <file.md> [--out <file.html>] [--safe|--sanitize] [--assets cdn|local] [--show-source] [--pack <path>]... [--no-user-packs]
   isles packs resolve <file.md> [--pack <path>]... [--no-user-packs]
   isles watch <file.md> [--out <file.html>]
+  isles preview [--stdin] [--open] [--mode trusted|sanitized] [--assets cdn|local]
 
 Commands:
   render         Render Markdown to browser-ready HTML
   packs resolve  Print resolved component packs, sources, asset outputs, and sanitizer permissions
   watch          Render immediately and rebuild when the Markdown file changes
+  preview        Render ephemeral Markdown from stdin to temp HTML without persisting source
+
+Preview options:
+  --stdin              Read Markdown from standard input (default for preview)
+  --open               Open rendered HTML in default browser after rendering
+  --mode trusted|sanitized   Render mode (default: trusted)
+  --assets cdn|local   Use CDN assets by default, or copy local offline assets
 
 Options:
   --assets cdn|local   Use CDN assets by default, or copy local offline assets
@@ -54,6 +64,8 @@ if (command === 'render') {
   await runPacks(args);
 } else if (command === 'watch') {
   await runWatch(args);
+} else if (command === 'preview') {
+  await runPreview(args);
 } else {
   console.error(`Unknown command: ${command}\n`);
   console.error(USAGE);
@@ -382,4 +394,103 @@ async function runWatch(args) {
   }
 
   await watchMarkdownFile(inputPath, { outFile, exitOnSignal: true });
+}
+
+async function runPreview(args) {
+  const parsed = parsePreviewArgs(args);
+
+  try {
+    const result = await previewMarkdown({
+      renderMode: parsed.renderMode,
+      assetMode: parsed.assetMode,
+      open: parsed.open,
+    });
+
+    console.log(`Preview: ${result.outFile}`);
+    if (parsed.open) {
+      console.log('Opening in browser...');
+    }
+  } catch (error) {
+    if (error instanceof AgentIslesInputError) {
+      console.error(error.message);
+      process.exit(1);
+    }
+
+    if (error instanceof PackResolutionError || error.name === 'PackLoadError') {
+      console.error(error.message);
+      process.exit(1);
+    }
+
+    throw error;
+  }
+}
+
+function parsePreviewArgs(args) {
+  const parsed = {
+    renderMode: RENDER_MODES.TRUSTED,
+    assetMode: 'cdn',
+    open: false,
+  };
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+
+    if (arg === '--stdin') {
+      // stdin is the default, just ignore it
+      continue;
+    }
+
+    if (arg === '--open') {
+      parsed.open = true;
+      continue;
+    }
+
+    if (arg === '--mode') {
+      const value = args[index + 1];
+      if (!value || value.startsWith('-')) {
+        console.error('Missing value for --mode. Use trusted or sanitized.');
+        process.exit(2);
+      }
+
+      try {
+        parsed.renderMode = normalizeRenderMode(value);
+      } catch (error) {
+        console.error(error.message);
+        process.exit(2);
+      }
+
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--assets') {
+      const value = args[index + 1];
+      if (!value || value.startsWith('-')) {
+        console.error('Missing value for --assets. Expected cdn or local.');
+        process.exit(2);
+      }
+      if (value !== 'cdn' && value !== 'local') {
+        console.error(`Invalid --assets value: ${value}. Expected cdn or local.`);
+        process.exit(2);
+      }
+      parsed.assetMode = value;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--safe' || arg === '--sanitize') {
+      parsed.renderMode = RENDER_MODES.SANITIZED;
+      continue;
+    }
+
+    if (arg.startsWith('-')) {
+      console.error(`Unknown preview option: ${arg}`);
+      process.exit(2);
+    }
+
+    console.error(`Unexpected argument: ${arg}`);
+    process.exit(2);
+  }
+
+  return parsed;
 }

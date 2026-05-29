@@ -190,7 +190,45 @@ isles render <file.md> [--out <file.html>] [--mode trusted|sanitized] [--assets 
 isles render <file.md> [--out <file.html>] [--safe|--sanitize] [--assets cdn|local] [--pack <path>]... [--no-user-packs]
 isles packs resolve <file.md> [--pack <path>]... [--no-user-packs]
 isles watch <file.md> [--out <file.html>]
+isles preview [--stdin] [--open] [--mode trusted|sanitized] [--assets cdn|local]
 ```
+
+### Ephemeral preview for agent-generated Markdown
+
+The `preview` command renders Markdown from stdin to a temporary HTML file without persisting the source document. This is useful for agents working in chat sessions who want to generate rich documents for user review without creating permanent files in the workspace.
+
+**Usage:**
+
+```bash
+# Basic preview from stdin
+echo '# Report\n\n<agent-decision verdict="go">Proceed</agent-decision>' | isles preview
+
+# Open in browser after rendering
+cat draft.md | isles preview --open
+
+# Use sanitized mode for untrusted content
+printf '%s' "$markdown" | isles preview --mode sanitized
+```
+
+**Behavior:**
+
+- Reads Markdown from standard input
+- Renders to a temporary HTML file in the OS temp directory
+- Copies component bundle and assets to temp location
+- **Does not** persist the source Markdown to disk
+- Prints the path to the generated HTML for browser tooling
+- Optional `--open` flag opens the preview in the default browser
+
+**Agent-facing example:**
+
+```bash
+# Generate and preview a status report without creating workspace files
+printf '# Project Status\n\n<agent-status-board label="Health">\n  <agent-status-item label="Build" status="green">CI passing</agent-status-item>\n</agent-status-board>' | isles preview --open
+```
+
+**Cleanup:**
+
+Preview files are written to `{OS_TEMP}/agent-isles-preview-*/preview.html`. Temp directories follow OS cleanup conventions (typically cleared on reboot or by periodic OS maintenance).
 
 Planned explicit edit/writeback mode:
 
