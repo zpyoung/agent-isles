@@ -95,6 +95,34 @@ GIT_ASKPASS=/tmp/agent-isles-wiki-askpass.sh GIT_TERMINAL_PROMPT=0 \
 
 Do not print tokens. Use `gh auth token` through an askpass script if credentials are needed.
 
+## Merlin bridge work leases
+
+The Agent Isles GitHub bridge uses optional Redis-backed work leases to prevent duplicate Merlin workers from claiming the same GitHub issue or PR.
+
+Configuration:
+
+- `MERLINBOT_WORK_LEASE_ENABLED` — defaults to enabled.
+- `MERLINBOT_WORK_LEASE_REDIS_URL` or `REDIS_URL` — Redis endpoint. If neither is set, the bridge preserves prior behavior and does not create visible working markers.
+- `MERLINBOT_WORK_LEASE_TTL_SECONDS` — defaults to `900` seconds.
+- `MERLINBOT_WORK_LEASE_KEY_PREFIX` — defaults to `merlin:worklease:v1`.
+- `MERLINBOT_WORK_LEASE_FAIL_OPEN` — defaults to false; configured Redis failures stop new work rather than risking duplicate workers.
+- `MERLINBOT_WORKING_LABEL` — defaults to `merlin:working`.
+
+Runtime semantics:
+
+1. Before queueing a direct worker or Kanban handoff, the bridge claims `merlin:worklease:v1:{owner}/{repo}:{issue|pr}:{number}` with Redis `SET NX EX` semantics.
+2. A live lease conflict is treated as duplicate active work: the bridge does not acknowledge, label, spawn, or create Kanban again.
+3. After a successful claim, the bridge may add the disposable GitHub marker label (`merlin:working` by default). The Redis lease remains the source of truth; GitHub state is only a human-visible hint.
+4. Direct workers carry the lease in their payload and release it in worker cleanup. Kanban handoffs release the lease and remove the marker after the handoff is recorded.
+5. The bridge never writes lease metadata into GitHub comments.
+6. Stale visible markers can be cleaned with:
+
+```bash
+/opt/hermes/.venv/bin/python /opt/data/profiles/agent-isles/scripts/github_merlinbot_mentions.py --reconcile-work-leases
+```
+
+The reconciler is suitable for deterministic quiet cron usage: it prints only when it removes stale markers or hits cleanup errors.
+
 ## Verification before reporting success
 
 Always include proof:
