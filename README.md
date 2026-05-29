@@ -238,6 +238,40 @@ node ./bin/isles.mjs render examples/demo.md --out dist/demo.html --assets inlin
 
 `isles watch` renders immediately and rebuilds when the Markdown source changes, and accepts the same `--mode`, `--assets` (including `inline`), `--show-source`, and `--pack` options as `isles render`, so watch rebuilds can also produce single-file inline output. It remains source-driven: browser interactions in the generated HTML do not write back to the Markdown file.
 
+## Ephemeral previews (`isles preview`)
+
+Render agent-authored Markdown to a throwaway HTML preview without saving the source into your repo. Pipe Markdown over stdin and hand the printed `file://` URL to a browser tool:
+
+```bash
+printf '%s' "$markdown" | isles preview --stdin
+# file:///var/folders/.../agent-isles-preview/isles-preview-1748540000000-<uuid>.html
+# /var/folders/.../agent-isles-preview/isles-preview-1748540000000-<uuid>.html
+```
+
+Add `--open` to also launch your default browser (best-effort, fire-and-forget):
+
+```bash
+printf '%s' "$markdown" | isles preview --stdin --open
+```
+
+You can also point it at an already-temporary Markdown file. The file is only read — it is never written back or copied into the repo:
+
+```bash
+isles preview /tmp/scratch.md --open
+```
+
+`preview` accepts the same rendering flags as `render` (`--mode trusted|sanitized`, `--safe`/`--sanitize`, `--show-source`, `--pack <path>`, `--no-user-packs`). It does **not** accept `--assets` or `--out`: previews are always rendered as a single self-contained HTML file (inline assets, no sibling files). For persistent output or `cdn`/`local` asset modes, use `isles render`.
+
+### Where previews go and how they're cleaned up
+
+- Previews are written to `os.tmpdir()/agent-isles-preview/` (e.g. `/var/folders/...` on macOS, `/tmp/...` on Linux). They never land in your project, so `git status --short` stays clean.
+- On each run, `preview` prunes files in that directory older than 24 hours, then writes the new one. The fresh preview is kept long enough for the browser to read it. Override the retention window with `ISLES_PREVIEW_TTL_MS` (milliseconds); set `ISLES_PREVIEW_TTL_MS=0` to prune everything but the current preview.
+- Override the launch command for `--open` with `ISLES_PREVIEW_OPEN_CMD` (invoked as `<cmd> <file>`; it must be a bare executable name or absolute path — embedded arguments like `open -a Firefox` are not supported). By default `preview` uses `open` (macOS), `xdg-open` (Linux), or `start` (Windows).
+
+### Security boundary
+
+Ephemeral does **not** mean trusted. `preview` applies the same raw-HTML policy as `render`: `--mode trusted` (default) embeds raw HTML and the Agent Isles runtime; `--mode sanitized` strips unsafe markup. Inline runtime support means "the Agent Isles component runtime is embedded in the file," not "arbitrary author-supplied JavaScript is now allowed." Treat preview Markdown from untrusted sources with `--mode sanitized`, exactly as you would a file-based render.
+
 ## Component Packs V1
 
 Component Packs V1 supports trusted local packs from explicit CLI paths, project config, and user config. The full V1 reference is in `docs/component-packs.md`.
