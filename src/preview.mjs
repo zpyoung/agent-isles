@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import http from 'node:http';
 import { existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, extname, join, relative, resolve, sep } from 'node:path';
+import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { AgentIslesInputError, renderMarkdownFile, renderMarkdownString, RENDER_MODES } from './render.mjs';
 import { applyWritebackRequest, markdownTaskCheckboxWritebackOperation, WritebackContractError } from './writeback.mjs';
@@ -365,7 +365,7 @@ async function handleRenderRequest(response, root, requestedPath, options) {
       showSource: options.showSource === true,
       explicitPacks: options.explicitPacks || [],
       includeUserPacks: options.includeUserPacks !== false,
-      projectDir: root,
+      projectDir: dirname(filePath),
       title: `${previewPath} — Agent Isles Preview`,
       writeback: options.writeback === true ? {
         enabled: true,

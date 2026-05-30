@@ -202,6 +202,43 @@ test('preview server lists files, renders selected Markdown, rejects traversal, 
   }
 });
 
+test('preview server resolves pack config relative to the selected nested Markdown file', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'agent-isles-preview-nested-pack-'));
+  mkdirSync(join(root, 'nested'), { recursive: true });
+  mkdirSync(join(root, 'widget-pack'), { recursive: true });
+  writeFileSync(join(root, 'nested', 'doc.md'), '# Nested Pack\n\n<nested-widget label="from-pack">Fallback</nested-widget>\n', 'utf8');
+  writeFileSync(join(root, 'nested', 'isles.config.json'), JSON.stringify({ packs: ['../widget-pack'] }, null, 2));
+  writeFileSync(join(root, 'widget-pack', 'agent-isles.pack.json'), JSON.stringify({
+    agentIslesPackVersion: 1,
+    name: 'nested-pack',
+    version: '1.0.0',
+    tags: [{ name: 'nested-widget', attributes: ['label'] }],
+    assets: [{ type: 'module', path: 'nested-widget.js' }],
+  }, null, 2));
+  writeFileSync(
+    join(root, 'widget-pack', 'nested-widget.js'),
+    'customElements.define("nested-widget", class extends HTMLElement {});\n',
+    'utf8',
+  );
+
+  const preview = await startPreviewServer(root, {
+    port: 0,
+    watchIntervalMs: 50,
+    includeUserPacks: false,
+  });
+
+  try {
+    const rendered = await fetchJson(`${preview.url}/api/render?path=nested/doc.md`);
+    assert.equal(rendered.path, 'nested/doc.md');
+    assert.match(rendered.html, /<nested-widget label="from-pack">Fallback<\/nested-widget>/);
+    assert.match(rendered.html, /\/\* Pack: nested-pack@1\.0\.0 - nested-widget\.js \*\//);
+    assert.match(rendered.html, /customElements\.define\("nested-widget"/);
+    assert.doesNotMatch(rendered.html, /<script[^>]*src="[^"]*nested-widget\.js"/i);
+  } finally {
+    await preview.close();
+  }
+});
+
 test('preview server returns render errors as in-page data without crashing', async () => {
   const root = mkdtempSync(join(tmpdir(), 'agent-isles-preview-error-'));
   writeFileSync(join(root, 'bad.md'), '# Broken\n\n```d2\na ->\n```\n', 'utf8');
