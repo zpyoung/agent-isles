@@ -498,9 +498,13 @@ function buildPreviewShell(root) {
     main { min-width: 0; display: grid; grid-template-rows: auto 1fr; }
     h1 { font-size: 1.2rem; margin: 0 0 0.35rem; }
     .root { color: var(--isles-muted); font-size: 0.85rem; overflow-wrap: anywhere; margin: 0 0 1rem; }
-    .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.8rem 1rem; background: var(--isles-panel); border-bottom: 1px solid var(--isles-border); }
+    .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.8rem 1rem; background: var(--isles-panel); border-bottom: 1px solid var(--isles-border); flex-wrap: wrap; }
     .toolbar strong { overflow-wrap: anywhere; }
     .status { color: var(--isles-muted); font-size: 0.9rem; }
+    .reading-controls { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 0.35rem; }
+    .reading-controls span { color: var(--isles-muted); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+    .control-button { border: 1px solid var(--isles-border); border-radius: 999px; background: #fff; color: inherit; cursor: pointer; font: inherit; font-size: 0.82rem; padding: 0.32rem 0.62rem; }
+    .control-button[aria-pressed="true"] { background: var(--isles-blue); border-color: var(--isles-blue); color: #fff; }
     .file-list { display: grid; gap: 0.25rem; }
     .file-button { width: 100%; border: 0; border-radius: 0.55rem; background: transparent; color: inherit; cursor: pointer; display: block; font: inherit; padding: 0.45rem 0.55rem; text-align: left; overflow-wrap: anywhere; }
     .file-button:hover, .file-button:focus { background: #eef2ff; outline: 2px solid transparent; }
@@ -521,6 +525,16 @@ function buildPreviewShell(root) {
   <main>
     <div class="toolbar">
       <strong id="active-file">No file selected</strong>
+      <div class="reading-controls" role="group" aria-label="Reading controls">
+        <span>Width</span>
+        <button type="button" class="control-button" data-width="760px" aria-pressed="false">Focus width</button>
+        <button type="button" class="control-button" data-width="960px" aria-pressed="true">Comfort width</button>
+        <button type="button" class="control-button" data-width="1200px" aria-pressed="false">Wide width</button>
+        <span>Text</span>
+        <button type="button" class="control-button" data-font-size="15px" data-line-height="1.65" aria-pressed="false">Small text</button>
+        <button type="button" class="control-button" data-font-size="16px" data-line-height="1.7" aria-pressed="true">Regular text</button>
+        <button type="button" class="control-button" data-font-size="18px" data-line-height="1.75" aria-pressed="false">Large text</button>
+      </div>
       <span id="status" class="status">Loading…</span>
     </div>
     <section id="empty" class="empty">No Markdown files found under this preview root yet.</section>
@@ -534,6 +548,8 @@ function buildPreviewShell(root) {
     const frame = document.querySelector('#preview-frame');
     const errorPanel = document.querySelector('#error');
     const emptyPanel = document.querySelector('#empty');
+    const readerControls = Array.from(document.querySelectorAll('.control-button'));
+    const readerSettings = { width: '960px', fontSize: '16px', lineHeight: '1.7' };
     let files = [];
     let selectedPath = null;
 
@@ -598,8 +614,41 @@ function buildPreviewShell(root) {
       }
       errorPanel.hidden = true;
       frame.hidden = false;
-      frame.srcdoc = payload.html;
+      frame.srcdoc = decoratePreviewHtml(payload.html);
       status.textContent = 'Rendered';
+    }
+
+    function decoratePreviewHtml(html) {
+      const style = '<style id="agent-isles-preview-reading-settings">:root{--agent-isles-page-max-width:' + readerSettings.width + ';--agent-isles-page-font-size:' + readerSettings.fontSize + ';--agent-isles-page-line-height:' + readerSettings.lineHeight + ';}</style>';
+      if (String(html).includes('</head>')) {
+        return String(html).replace('</head>', style + '</head>');
+      }
+      return style + String(html);
+    }
+
+    function updateReaderControlState(changedButton) {
+      const groupAttribute = changedButton.dataset.width ? 'width' : 'fontSize';
+      for (const button of readerControls) {
+        if ((groupAttribute === 'width' && button.dataset.width) || (groupAttribute === 'fontSize' && button.dataset.fontSize)) {
+          button.setAttribute('aria-pressed', button === changedButton ? 'true' : 'false');
+        }
+      }
+    }
+
+    for (const button of readerControls) {
+      button.addEventListener('click', async () => {
+        if (button.dataset.width) {
+          readerSettings.width = button.dataset.width;
+        }
+        if (button.dataset.fontSize) {
+          readerSettings.fontSize = button.dataset.fontSize;
+          readerSettings.lineHeight = button.dataset.lineHeight || readerSettings.lineHeight;
+        }
+        updateReaderControlState(button);
+        if (selectedPath) {
+          await renderSelectedFile();
+        }
+      });
     }
 
     const events = new EventSource('/events');

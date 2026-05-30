@@ -382,6 +382,7 @@ export async function renderMarkdown(markdown, options = {}) {
   const assetMode = normalizeAssetMode(options.assetMode);
   const sourceMarkdown = typeof options.sourceMarkdown === 'string' ? options.sourceMarkdown : markdown;
   const markdownTaskMarkers = buildMarkdownTaskMarkerRecords(sourceMarkdown);
+  const toc = [];
   const processor = unified()
     .use(remarkParse)
     .use(remarkGfm)
@@ -401,12 +402,14 @@ export async function renderMarkdown(markdown, options = {}) {
       .use(rehypeSanitize, buildSanitizedSchema(options.resolvedPacks));
   }
 
+  processor.use(rehypeAgentHeadingAnchors, { toc });
+
   const body = await processor
     .use(rehypeHighlight)
     .use(rehypeStringify, { allowDangerousHtml: renderMode === RENDER_MODES.TRUSTED })
     .process(markdown);
 
-  return buildHtmlPage(String(body), { ...options, renderMode, assetMode, sourceMarkdown });
+  return buildHtmlPage(String(body), { ...options, renderMode, assetMode, sourceMarkdown, toc });
 }
 
 export async function renderMarkdownString(markdown, options = {}) {
@@ -598,6 +601,77 @@ function dropUnsafeRawHtmlElements() {
       return undefined;
     });
   };
+}
+
+function rehypeAgentHeadingAnchors(options = {}) {
+  return (tree) => {
+    const toc = options.toc || [];
+    const seenIds = new Map();
+
+    visitChildren(tree, (children, index, node) => {
+      if (node?.type !== 'element' || !/^h[1-6]$/.test(node.tagName)) {
+        return undefined;
+      }
+
+      const text = plainText(node).replace(/\s+/g, ' ').trim();
+      if (!text) {
+        return undefined;
+      }
+
+      node.properties ||= {};
+      const level = Number(node.tagName.slice(1));
+      const existingId = readStringProperty(node.properties, 'id');
+      const id = existingId || uniqueHeadingId(slugifyHeading(text), seenIds);
+
+      if (level <= 3) {
+        toc.push({ id, text, level });
+      }
+
+      if (!existingId) {
+        children.splice(index, 0, {
+          type: 'element',
+          tagName: 'span',
+          properties: { id, className: ['agent-isles-heading-anchor'], ariaHidden: 'true' },
+          children: [],
+        });
+        return index + 2;
+      }
+
+      return undefined;
+    });
+  };
+}
+
+function plainText(node) {
+  if (!node) {
+    return '';
+  }
+  if (node.type === 'text') {
+    return node.value || '';
+  }
+  if (!Array.isArray(node.children)) {
+    return '';
+  }
+  return node.children.map(plainText).join('');
+}
+
+function slugifyHeading(text) {
+  const slug = String(text)
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+
+  return slug || 'section';
+}
+
+function uniqueHeadingId(baseId, seenIds) {
+  const count = seenIds.get(baseId) || 0;
+  seenIds.set(baseId, count + 1);
+  return count === 0 ? baseId : `${baseId}-${count + 1}`;
 }
 
 function visitChildren(node, visitor) {
@@ -835,7 +909,9 @@ function buildHtmlPage(body, options = {}) {
   const componentScript = buildComponentScript(assetMode, missingBundleComment);
   const mermaidScripts = hasMermaidDiagrams(body) ? buildMermaidScripts(assetMode) : '';
 
-  const mainBody = options.showSource ? pageBody : indent(pageBody, 4);
+  const mainBody = options.showSource ? pageBody : [buildTableOfContents(options.toc), indent(pageBody, 4)]
+    .filter(Boolean)
+    .join('\n');
 
   return `<!doctype html>
 <html lang="en">
@@ -857,6 +933,24 @@ ${scripts}${writebackClientScript}${mermaidScripts}${componentScript}${packModul
 
 function hasMermaidDiagrams(html) {
   return String(html).includes('data-agent-mermaid');
+}
+
+function buildTableOfContents(toc = []) {
+  const headings = toc.filter((entry) => entry.level >= 2 && entry.level <= 3);
+  if (headings.length < 2) {
+    return '';
+  }
+
+  const items = headings.map((entry) =>
+    `      <li class="agent-isles-toc-item agent-isles-toc-item--h${entry.level}"><a href="#${escapeHtml(entry.id)}">${escapeHtml(entry.text)}</a></li>`
+  ).join('\n');
+
+  return `    <nav class="agent-isles-toc" aria-label="Table of contents">
+      <p class="agent-isles-toc-title">On this page</p>
+      <ol>
+${items}
+      </ol>
+    </nav>`;
 }
 
 function buildSourceComparison(renderedBody, sourceMarkdown) {

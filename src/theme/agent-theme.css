@@ -2,6 +2,8 @@
 :root {
   color-scheme: light;
   --agent-isles-page-max-width: 960px;
+  --agent-isles-page-font-size: 16px;
+  --agent-isles-page-line-height: 1.7;
   --agent-isles-bg: #f8fafc;
   --agent-isles-border: #dbeafe;
   --agent-isles-heading: #0f172a;
@@ -15,6 +17,8 @@ body {
 }
 
 .agent-isles-page {
+  font-size: var(--agent-isles-page-font-size);
+  line-height: var(--agent-isles-page-line-height);
   max-width: var(--agent-isles-page-max-width);
 }
 
@@ -26,6 +30,53 @@ body {
 
 .agent-isles-page > :first-child {
   margin-top: 0;
+}
+
+.agent-isles-toc {
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid var(--agent-isles-border);
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  margin: 0 0 1.5rem;
+  padding: 1rem 1.1rem;
+}
+
+.agent-isles-toc-title {
+  color: var(--agent-isles-heading);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin: 0 0 0.65rem;
+  text-transform: uppercase;
+}
+
+.agent-isles-toc ol {
+  display: grid;
+  gap: 0.35rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.agent-isles-toc a {
+  color: #1d4ed8;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.agent-isles-toc a:hover,
+.agent-isles-toc a:focus {
+  text-decoration: underline;
+}
+
+.agent-isles-toc-item--h3 {
+  padding-left: 1rem;
+}
+
+.agent-isles-heading-anchor {
+  display: block;
+  height: 0;
+  scroll-margin-top: 1.25rem;
 }
 
 agent-decision,
