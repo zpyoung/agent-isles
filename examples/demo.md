@@ -276,6 +276,60 @@ New island under review; verify grouped lanes and summary behavior.
   </div>
 </div>
 
+### Kanban board
+
+Use `<agent-kanban>` with `<agent-kanban-lane>` and `<agent-kanban-card>` for source-order swim lanes where counts and status/card metadata should be derived from readable nested HTML.
+
+<div class="agent-component-example my-4" data-agent-components="agent-kanban agent-kanban-lane agent-kanban-card">
+  <h4 class="h5 mb-3">Kanban board</h4>
+  <div class="row g-4 align-items-stretch">
+    <div class="col-12 col-lg-6">
+      <div class="agent-component-pane agent-component-rendered border rounded p-3 bg-light h-100">
+        <p class="text-uppercase text-primary fw-bold small mb-3">Rendered output</p>
+        <agent-kanban label="Launch board" lanes="backlog,doing,blocked,done">
+          <agent-kanban-lane key="backlog" label="Backlog">
+            <agent-kanban-card title="Draft release notes" owner="Merlin" meta="P2" tone="neutral">
+        Summarize merged component work and remaining release risks.
+            </agent-kanban-card>
+          </agent-kanban-lane>
+          <agent-kanban-lane key="doing" label="Doing">
+            <agent-kanban-card title="Render smoke" owner="Merlin" meta="P1" status="active" tone="active">
+        Verify the demo after component bundle changes.
+            </agent-kanban-card>
+            <agent-kanban-card title="Review docs" owner="Zach" meta="P2" status="ready" tone="ready">
+        Confirm the authoring guidance is readable in source form.
+            </agent-kanban-card>
+          </agent-kanban-lane>
+          <agent-kanban-lane key="blocked" label="Blocked" empty="No blocked work"></agent-kanban-lane>
+          <agent-kanban-lane key="done" label="Done" empty="No completed cards yet"></agent-kanban-lane>
+        </agent-kanban>
+      </div>
+    </div>
+    <div class="col-12 col-lg-6">
+      <div class="agent-component-pane agent-component-source-card border rounded p-3 h-100">
+        <p class="text-uppercase text-info fw-bold small mb-3">Source Markdown</p>
+        <pre class="agent-component-source mb-0"><code>&lt;agent-kanban label="Launch board" lanes="backlog,doing,blocked,done"&gt;
+  &lt;agent-kanban-lane key="backlog" label="Backlog"&gt;
+    &lt;agent-kanban-card title="Draft release notes" owner="Merlin" meta="P2" tone="neutral"&gt;
+Summarize merged component work and remaining release risks.
+    &lt;/agent-kanban-card&gt;
+  &lt;/agent-kanban-lane&gt;
+  &lt;agent-kanban-lane key="doing" label="Doing"&gt;
+    &lt;agent-kanban-card title="Render smoke" owner="Merlin" meta="P1" status="active" tone="active"&gt;
+Verify the demo after component bundle changes.
+    &lt;/agent-kanban-card&gt;
+    &lt;agent-kanban-card title="Review docs" owner="Zach" meta="P2" status="ready" tone="ready"&gt;
+Confirm the authoring guidance is readable in source form.
+    &lt;/agent-kanban-card&gt;
+  &lt;/agent-kanban-lane&gt;
+  &lt;agent-kanban-lane key="blocked" label="Blocked" empty="No blocked work"&gt;&lt;/agent-kanban-lane&gt;
+  &lt;agent-kanban-lane key="done" label="Done" empty="No completed cards yet"&gt;&lt;/agent-kanban-lane&gt;
+&lt;/agent-kanban&gt;</code></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
 ### Custom status labels
 
 You can override the status pill label while keeping the color token for grouping using `status-color` and `status-label`:

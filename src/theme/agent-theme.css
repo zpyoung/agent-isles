@@ -43,6 +43,9 @@ agent-dependency-map,
 agent-dependency,
 agent-action-list,
 agent-action,
+agent-kanban,
+agent-kanban-lane,
+agent-kanban-card,
 .agent-mermaid {
   display: block;
   margin: 1rem 0;
