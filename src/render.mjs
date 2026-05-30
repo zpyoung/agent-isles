@@ -381,6 +381,7 @@ export async function renderMarkdown(markdown, options = {}) {
   const renderMode = normalizeRenderMode(options.renderMode);
   const assetMode = normalizeAssetMode(options.assetMode);
   const sourceMarkdown = typeof options.sourceMarkdown === 'string' ? options.sourceMarkdown : markdown;
+  const markdownTaskMarkers = buildMarkdownTaskMarkerRecords(sourceMarkdown);
   const processor = unified()
     .use(remarkParse)
     .use(remarkGfm)
@@ -391,6 +392,7 @@ export async function renderMarkdown(markdown, options = {}) {
     .use(rehypeAgentWritebackMetadata, {
       ...options,
       sourceMarkdown,
+      markdownTaskMarkers,
     });
 
   if (renderMode === RENDER_MODES.SANITIZED) {
@@ -605,7 +607,7 @@ function visitChildren(node, visitor) {
 
   for (let index = 0; index < node.children.length; index += 1) {
     const child = node.children[index];
-    const nextIndex = visitor(node.children, index, child);
+    const nextIndex = visitor(node.children, index, child, node);
 
     if (typeof nextIndex === 'number') {
       index = nextIndex - 1;
@@ -620,15 +622,47 @@ function rehypeAgentWritebackMetadata(options = {}) {
   return (tree) => {
     const writebackOptions = options.writeback || {};
     const enabled = writebackOptions.enabled === true;
+    const markdownTaskMarkers = options.markdownTaskMarkers || [];
     let generatedId = 0;
+    let markdownTaskIndex = 0;
 
-    visitChildren(tree, (_children, _index, node) => {
+    visitChildren(tree, (_children, _index, node, parent) => {
       if (node?.type !== 'element') {
         return undefined;
       }
 
       const operationType = readWritebackOperationType(node.properties);
       stripWritebackProperties(node.properties);
+
+      if (isMarkdownTaskCheckboxInput(node, parent, _index)) {
+        const marker = markdownTaskMarkers[markdownTaskIndex];
+        markdownTaskIndex += 1;
+
+        if (!enabled || !marker) {
+          return undefined;
+        }
+
+        const sourcePath = sourcePathForWriteback(options.sourcePath, writebackOptions.rootPath);
+        if (!sourcePath) {
+          return undefined;
+        }
+
+        delete node.properties.disabled;
+        node.properties['aria-label'] = marker.checked ? 'Mark task incomplete' : 'Mark task complete';
+        node.properties['data-agent-isles-writeback'] = JSON.stringify({
+          contractVersion: WRITEBACK_CONTRACT_VERSION,
+          sourcePath,
+          sourceVersion: createSourceVersion(options.sourceMarkdown || ''),
+          target: {
+            kind: 'markdown-task-checkbox',
+            tagName: 'input',
+            range: marker.range,
+            anchor: { text: marker.marker },
+          },
+          operation: { type: 'markdown:set-task-checkbox' },
+        });
+        return undefined;
+      }
 
       if (!enabled || !operationType) {
         return undefined;
@@ -664,6 +698,79 @@ function rehypeAgentWritebackMetadata(options = {}) {
       return undefined;
     });
   };
+}
+
+function isMarkdownTaskCheckboxInput(node, parent, index) {
+  if (node?.tagName !== 'input') {
+    return false;
+  }
+
+  const properties = node.properties || {};
+  const isCheckbox = readStringProperty(properties, 'type') === 'checkbox' || properties.type === 'checkbox';
+  if (!isCheckbox || !Object.hasOwn(properties, 'disabled')) {
+    return false;
+  }
+
+  return index === 0 && parent?.tagName === 'li' && hasClassName(parent.properties, 'task-list-item');
+}
+
+function hasClassName(properties = {}, className) {
+  const value = properties.className;
+  if (Array.isArray(value)) {
+    return value.includes(className);
+  }
+  if (typeof value === 'string') {
+    return value.split(/\s+/).includes(className);
+  }
+  return false;
+}
+
+function buildMarkdownTaskMarkerRecords(markdown) {
+  const records = [];
+  const source = String(markdown || '');
+  const linePattern = /.*(?:\r\n|\n|\r|$)/g;
+  let match;
+
+  while ((match = linePattern.exec(source)) !== null) {
+    const lineWithEnding = match[0];
+    if (lineWithEnding === '') {
+      break;
+    }
+
+    const lineOffset = match.index;
+    const lineNumber = recordsLineNumber(source, lineOffset);
+    const lineWithoutEnding = lineWithEnding.replace(/\r\n|\n|\r$/, '');
+    const taskMatch = lineWithoutEnding.match(/^([ \t]*(?:[-+*]|\d+[.)])[ \t]+)(\[[ xX]\])(?=\s|$)/);
+    if (taskMatch) {
+      const markerOffset = lineOffset + taskMatch[1].length;
+      const markerColumn = taskMatch[1].length + 1;
+      const marker = taskMatch[2];
+      records.push({
+        marker,
+        checked: marker === '[x]' || marker === '[X]',
+        range: {
+          start: { line: lineNumber, column: markerColumn, offset: markerOffset },
+          end: { line: lineNumber, column: markerColumn + marker.length, offset: markerOffset + marker.length },
+        },
+      });
+    }
+
+    if (linePattern.lastIndex >= source.length) {
+      break;
+    }
+  }
+
+  return records;
+}
+
+function recordsLineNumber(source, offset) {
+  let line = 1;
+  for (let index = 0; index < offset; index += 1) {
+    if (source[index] === '\n') {
+      line += 1;
+    }
+  }
+  return line;
 }
 
 function readWritebackOperationType(properties = {}) {
@@ -720,6 +827,7 @@ function buildHtmlPage(body, options = {}) {
     : '\n  <!-- Agent Isles warning: dist/agent-components.js is missing. Run `npm run build`. -->';
   const styles = buildStyles(assetMode);
   const scripts = buildScripts(assetMode, missingBundleComment);
+  const writebackClientScript = buildWritebackClientScript(options.writeback);
   const packMetadata = assetMode === 'inline' ? '' : buildPackMetadataTags(packAssetRecords);
   const writebackMetadata = buildWritebackMetadataTags(options.writeback);
   const packStyleLinks = buildPackStyleLinks(packAssetRecords, assetMode);
@@ -742,7 +850,7 @@ ${packMetadata}${writebackMetadata}${styles}
   <main class="${mainClass}">
 ${mainBody}
   </main>
-${scripts}${mermaidScripts}${componentScript}${packModuleScripts}
+${scripts}${writebackClientScript}${mermaidScripts}${componentScript}${packModuleScripts}
 </body>
 </html>`;
 }
@@ -827,6 +935,103 @@ ${bootstrapJs}
   }
 
   return `${bootstrapScript}${missingBundleComment}`;
+}
+
+function buildWritebackClientScript(writebackOptions = {}) {
+  if (writebackOptions.enabled !== true) {
+    return '';
+  }
+
+  return `
+  <script>
+/* Agent Isles local writeback client */
+(function () {
+  const endpointMeta = document.querySelector('meta[name="agent-isles-writeback-endpoint"]');
+  const endpoint = endpointMeta && endpointMeta.getAttribute('content');
+  if (!endpoint) {
+    return;
+  }
+
+  function removeError(input) {
+    const existing = input.parentElement && input.parentElement.querySelector('.agent-isles-writeback-error');
+    if (existing) {
+      existing.remove();
+    }
+  }
+
+  function showError(input, message) {
+    removeError(input);
+    const error = document.createElement('span');
+    error.className = 'agent-isles-writeback-error text-danger small ms-2';
+    error.setAttribute('role', 'alert');
+    error.textContent = 'Writeback failed: ' + message;
+    input.insertAdjacentElement('afterend', error);
+  }
+
+  async function submitCheckboxWriteback(input) {
+    const previousChecked = !input.checked;
+    const rawMetadata = input.getAttribute('data-agent-isles-writeback');
+    if (!rawMetadata) {
+      return;
+    }
+
+    let request;
+    try {
+      const metadata = JSON.parse(rawMetadata);
+      request = {
+        ...metadata,
+        operation: {
+          ...(metadata.operation || {}),
+          payload: {
+            ...(metadata.operation && metadata.operation.payload ? metadata.operation.payload : {}),
+            checked: input.checked,
+          },
+        },
+      };
+    } catch (error) {
+      input.checked = previousChecked;
+      showError(input, 'invalid source metadata');
+      return;
+    }
+
+    input.disabled = true;
+    removeError(input);
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(request),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload.ok !== true) {
+        throw new Error((payload.error && payload.error.message) || payload.message || 'request was rejected');
+      }
+      request.sourceVersion = payload.nextSourceVersion || request.sourceVersion;
+      if (request.target && request.target.anchor) {
+        request.target.anchor.text = input.checked ? '[x]' : '[ ]';
+      }
+      input.setAttribute('data-agent-isles-writeback', JSON.stringify(request));
+    } catch (error) {
+      input.checked = previousChecked;
+      showError(input, error && error.message ? error.message : String(error));
+      console.warn('Agent Isles writeback failed:', error);
+    } finally {
+      input.disabled = false;
+    }
+  }
+
+  document.addEventListener('change', (event) => {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement)) {
+      return;
+    }
+    if (input.type !== 'checkbox' || !input.hasAttribute('data-agent-isles-writeback')) {
+      return;
+    }
+    void submitCheckboxWriteback(input);
+  });
+}());
+  </script>`;
 }
 
 function buildMermaidScripts(assetMode) {

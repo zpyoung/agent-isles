@@ -191,7 +191,7 @@ isles render <file.md> [--out <file.html>] [--safe|--sanitize] [--assets cdn|loc
 isles packs resolve <file.md> [--pack <path>]... [--no-user-packs]
 isles watch <file.md> [--out <file.html>] [--mode trusted|sanitized] [--assets cdn|local|inline] [--show-source] [--pack <path>]... [--no-user-packs]
 isles preview (--stdin | <file.md>) [--open] [--mode trusted|sanitized] [--safe|--sanitize] [--show-source] [--pack <path>]... [--no-user-packs]
-isles preview <dir> [--port <port>] [--mode trusted|sanitized] [--show-source] [--pack <path>]... [--no-user-packs]
+isles preview <dir> [--port <port>] [--writeback] [--mode trusted|sanitized] [--show-source] [--pack <path>]... [--no-user-packs]
 ```
 
 Ephemeral preview mode renders one Markdown document from stdin or a file to an inline-asset temp HTML file and prints a `file://` URL:
@@ -207,17 +207,32 @@ Directory preview mode serves a localhost-only browser UI for a folder of Markdo
 node ./bin/isles.mjs preview docs --port 4173
 ```
 
+Add `--writeback` when you explicitly want the local preview to mutate supported Markdown source interactions. The first supported writeback is generic task-list checkboxes:
+
+```md
+# Launch checklist
+
+- [ ] Review launch gates
+- [x] Add render smoke test
+```
+
+```bash
+node ./bin/isles.mjs preview . --port 4173 --writeback
+```
+
+In writeback mode, clicking a rendered task checkbox posts a localhost-only structured writeback request and patches only the source marker (`[ ]`, `[x]`, or `[X]`, normalized to `[x]` when checked and `[ ]` when unchecked). Indentation, nesting, duplicate labels, surrounding text, and line endings are preserved. Static renders, ephemeral previews, and directory previews without `--writeback` keep generated task-list checkboxes inert and do not expose the writeback endpoint.
+
 The preview UI recursively discovers `.md` and `.markdown` files, shows them in a navigable sidebar, renders the selected file through the normal Agent Isles pipeline, and refreshes the tree/active preview when files are created, updated, renamed, or deleted. Preview rendering uses inline assets internally so each selected document can be shown in the browser pane without managing a generated asset directory.
 
-Path confinement is enforced by the preview server: browser requests can only render supported Markdown files under the selected preview root. Render errors are returned to the preview UI and shown in-page instead of crashing the server.
+Path confinement is enforced by the preview server: browser requests can only render supported Markdown files under the selected preview root. Render and writeback errors are returned to the preview UI and shown in-page instead of crashing the server.
 
-Planned explicit edit/writeback mode:
+Future explicit edit mode may wrap the same local writeback contract in a dedicated command:
 
 ```bash
 isles edit <file.md>
 ```
 
-`isles edit` is not static rendering. It is planned as a localhost-only editing surface that can mutate the selected Markdown source file for supported interactions, starting with Markdown task-list checkboxes.
+For now, use `isles preview <dir> --writeback` for opt-in local checklist writeback.
 
 During local development, run the CLI directly:
 

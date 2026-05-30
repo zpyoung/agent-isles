@@ -1,9 +1,50 @@
 import { expect, test } from '@playwright/test';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { startPreviewServer } from '../../src/preview.mjs';
+
+test('writeback preview toggles markdown task checkboxes and rolls back stale failures', async ({ page }) => {
+  const root = mkdtempSync(join(tmpdir(), 'agent-isles-preview-writeback-browser-'));
+  const sourcePath = join(root, 'plan.md');
+  writeFileSync(sourcePath, '- [ ] duplicate\n  - [x] nested\n- [ ] duplicate\n', 'utf8');
+
+  const preview = await startPreviewServer(root, {
+    port: 0,
+    watchIntervalMs: 60_000,
+    includeUserPacks: false,
+    writeback: true,
+  });
+
+  try {
+    await page.goto(preview.url);
+    const previewFrame = page.frameLocator('iframe[title="Rendered Markdown preview"]');
+    const checkboxes = previewFrame.getByRole('checkbox');
+
+    await expect(checkboxes).toHaveCount(3);
+    await checkboxes.nth(2).click();
+    await expect.poll(() => readFileSync(sourcePath, 'utf8')).toBe('- [ ] duplicate\n  - [x] nested\n- [x] duplicate\n');
+    await checkboxes.nth(2).click();
+    await expect.poll(() => readFileSync(sourcePath, 'utf8')).toBe('- [ ] duplicate\n  - [x] nested\n- [ ] duplicate\n');
+    await checkboxes.nth(2).click();
+    await expect.poll(() => readFileSync(sourcePath, 'utf8')).toBe('- [ ] duplicate\n  - [x] nested\n- [x] duplicate\n');
+
+    const frameHandle = await page.locator('iframe[title="Rendered Markdown preview"]').elementHandle();
+    const frame = await frameHandle.contentFrame();
+    await frame.getByRole('checkbox').first().evaluate((input) => {
+      const metadata = JSON.parse(input.getAttribute('data-agent-isles-writeback'));
+      metadata.sourceVersion = 'sha256-stale';
+      input.setAttribute('data-agent-isles-writeback', JSON.stringify(metadata));
+    });
+    await checkboxes.nth(0).click();
+    await expect(checkboxes.nth(0)).not.toBeChecked();
+    await expect(previewFrame.getByRole('alert')).toContainText('Writeback failed');
+    expect(readFileSync(sourcePath, 'utf8')).toBe('- [ ] duplicate\n  - [x] nested\n- [x] duplicate\n');
+  } finally {
+    await preview.close();
+  }
+});
 
 test('directory preview UI selects and renders multiple Markdown files', async ({ page }) => {
   const root = mkdtempSync(join(tmpdir(), 'agent-isles-preview-browser-'));

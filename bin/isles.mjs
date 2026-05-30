@@ -24,7 +24,7 @@ Usage:
   isles packs resolve <file.md> [--pack <path>]... [--no-user-packs]
   isles watch <file.md> [--out <file.html>] [--mode trusted|sanitized] [--assets cdn|local|inline] [--show-source] [--pack <path>]... [--no-user-packs]
   isles preview (--stdin | <file.md>) [--open] [--mode trusted|sanitized] [--safe|--sanitize] [--show-source] [--pack <path>]... [--no-user-packs]
-  isles preview <dir> [--port <port>] [--mode trusted|sanitized] [--show-source] [--pack <path>]... [--no-user-packs]
+  isles preview <dir> [--port <port>] [--writeback] [--mode trusted|sanitized] [--show-source] [--pack <path>]... [--no-user-packs]
 
 Commands:
   render         Render Markdown to browser-ready HTML
@@ -404,6 +404,7 @@ function parsePreviewArgs(args) {
     input: undefined,
     open: false,
     port: 4173,
+    writeback: false,
     renderMode: RENDER_MODES.TRUSTED,
     showSource: false,
     explicitPacks: [],
@@ -431,6 +432,11 @@ function parsePreviewArgs(args) {
       }
       parsed.port = Number(value);
       index += 1;
+      continue;
+    }
+
+    if (arg === '--writeback') {
+      parsed.writeback = true;
       continue;
     }
 
@@ -527,6 +533,7 @@ async function runPreview(args) {
           showSource: parsed.showSource,
           explicitPacks: parsed.explicitPacks,
           includeUserPacks: parsed.includeUserPacks,
+          writeback: parsed.writeback,
         });
 
         console.log(`[isles] previewing ${preview.rootDir}`);
@@ -547,6 +554,10 @@ async function runPreview(args) {
 
     let markdown;
     let projectDir;
+    if (parsed.writeback) {
+      console.error('--writeback is only supported for localhost directory preview mode.');
+      process.exit(2);
+    }
     if (parsed.stdin) {
       markdown = readFileSync(0, 'utf8');
       projectDir = process.cwd();

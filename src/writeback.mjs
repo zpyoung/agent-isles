@@ -84,6 +84,25 @@ export function applyWritebackRequest(request, context = {}) {
   };
 }
 
+export function markdownTaskCheckboxWritebackOperation({ request, rangeText }) {
+  if (!/^\[[ xX]\]$/.test(rangeText)) {
+    throw new WritebackContractError(
+      'Markdown checkbox writeback target no longer points at a task marker.',
+      'ERR_WRITEBACK_MARKDOWN_CHECKBOX_CONFLICT',
+    );
+  }
+
+  const checked = request.operation?.payload?.checked;
+  if (typeof checked !== 'boolean') {
+    throw new WritebackContractError(
+      'Markdown checkbox writeback requires a boolean checked payload.',
+      'ERR_WRITEBACK_MARKDOWN_CHECKBOX_PAYLOAD',
+    );
+  }
+
+  return { replacement: checked ? '[x]' : '[ ]' };
+}
+
 export function validateWritebackRequest(request, context = {}) {
   if (context.editMode !== true) {
     throw new WritebackContractError('Writeback is available only in explicit edit/preview mode.', 'ERR_WRITEBACK_DISABLED');
@@ -123,8 +142,8 @@ export function validateWritebackRequest(request, context = {}) {
 
   const range = normalizeSourceRange(request.target?.range, source.length);
   const target = request.target || {};
-  if (typeof target.tagName !== 'string' || !target.tagName.startsWith('agent-')) {
-    throw new WritebackContractError('Writeback target must be a component-scoped agent-* element.', 'ERR_WRITEBACK_MALFORMED_TARGET');
+  if (!isSupportedWritebackTarget(target)) {
+    throw new WritebackContractError('Writeback target must be a component-scoped agent-* element or a mapped Markdown task checkbox.', 'ERR_WRITEBACK_MALFORMED_TARGET');
   }
 
   return {
@@ -135,6 +154,18 @@ export function validateWritebackRequest(request, context = {}) {
     target,
     operationHandler,
   };
+}
+
+function isSupportedWritebackTarget(target = {}) {
+  if (typeof target.tagName !== 'string') {
+    return false;
+  }
+
+  if (target.tagName.startsWith('agent-')) {
+    return true;
+  }
+
+  return target.kind === 'markdown-task-checkbox' && target.tagName === 'input';
 }
 
 function resolveWritebackSourcePath(sourcePath, rootPath) {
