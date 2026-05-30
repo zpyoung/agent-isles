@@ -399,18 +399,25 @@ test('sanitized render mode preserves safe status board tags and attributes', as
   const html = await renderMarkdown(`
 # Safe Status Board
 
-<agent-status-board label="Project health" meta="wk 24" summary="bar" group-by="status" onclick="steal()">
+<agent-status-board label="Project health" meta="wk 24" summary="bar" group-by="status" hide-empty-groups onclick="steal()">
   <agent-status-item label="Renderer" status="green" owner="Merlin" updated="mon" history="g,g,g,g" onclick="steal()">
     <script>alert('owned')</script>
     CI green; render smoke passing.
   </agent-status-item>
+  <agent-status-item label="Security" status-color="amber" status-label="Medium Risk" owner="Team">
+    Needs review.
+  </agent-status-item>
 </agent-status-board>
 `, { renderMode: 'sanitized' });
 
-  assert.match(html, /<agent-status-board label="Project health" meta="wk 24" summary="bar" group-by="status">/);
+  assert.match(html, /<agent-status-board label="Project health" meta="wk 24" summary="bar" group-by="status" hide-empty-groups(?:="")?>/);
   assert.match(
     html,
     /<agent-status-item label="Renderer" status="green" owner="Merlin" updated="mon" history="g,g,g,g">\s*CI green; render smoke passing\.\s*<\/agent-status-item>/,
+  );
+  assert.match(
+    html,
+    /<agent-status-item label="Security" status-color="amber" status-label="Medium Risk" owner="Team">\s*Needs review\.\s*<\/agent-status-item>/,
   );
   assert.doesNotMatch(html, /<script>/i);
   assert.doesNotMatch(html, /onclick=/i);
@@ -555,6 +562,27 @@ test('demo gives every supported component a rendered/source side-by-side pair',
   }
 
   assert.doesNotMatch(html, /agent-gallery-example title=/);
+});
+
+test('renderMarkdownString renders a string to self-contained inline HTML without a source file', async () => {
+  const { renderMarkdownString } = await import('../src/render.mjs');
+  const projectDir = mkdtempSync(join(tmpdir(), 'agent-isles-preview-core-'));
+
+  const { html, resolvedPacks, packAssetRecords, assetMode } = await renderMarkdownString(
+    '# Hello\n\n<agent-decision verdict="go" title="Proceed">Ship it.</agent-decision>\n',
+    { assetMode: 'inline', projectDir, includeUserPacks: false },
+  );
+
+  assert.equal(assetMode, 'inline');
+  assert.ok(Array.isArray(resolvedPacks.packs));
+  assert.ok(Array.isArray(packAssetRecords));
+  // Rendered content survives.
+  assert.match(html, /<h1>Hello<\/h1>/);
+  assert.match(html, /<agent-decision verdict="go" title="Proceed">/);
+  // Inline mode is self-contained: no external script/style references.
+  assert.doesNotMatch(html, /src="https?:\/\//);
+  assert.doesNotMatch(html, /href="https?:\/\//);
+  assert.doesNotMatch(html, /src="\.\//);
 });
 
 test('demo can render source Markdown beside rendered output', async () => {
@@ -719,3 +747,159 @@ test('CLI --assets local selects local asset mode', () => {
   assert.doesNotMatch(html, /https?:\/\//);
   assert.ok(existsSync(join(dir, 'assets', 'bootstrap.min.css')));
 });
+
+test('inline asset mode writes single-file HTML with all JavaScript and CSS embedded', async () => {
+  const { renderMarkdownFile } = await import('../src/render.mjs');
+  const dir = mkdtempSync(join(tmpdir(), 'agent-isles-inline-'));
+  const outFile = join(dir, 'simple.html');
+
+  const { html } = await renderMarkdownFile(fixture, { outFile, assetMode: 'inline' });
+
+  assert.doesNotMatch(html, /<link[^>]*href="[^"]*\.css"/i);
+  assert.doesNotMatch(html, /<script[^>]*src="[^"]*\.js"/i);
+  assert.doesNotMatch(html, /<link[^>]*href="https?:\/\//i);
+  assert.doesNotMatch(html, /<script[^>]*src="https?:\/\//i);
+  assert.match(html, /\/\* Bootstrap CSS \*\//);
+  assert.match(html, /\/\* Highlight\.js CSS \*\//);
+  assert.match(html, /\/\* Bootstrap JS \*\//);
+  assert.match(html, /\/\* Agent Isles component runtime \*\//);
+  assert.match(html, /<script type="module">/);
+  assert.match(html, /customElements\.define/);
+  assert.equal(existsSync(join(dir, 'assets')), false, 'expected no assets directory in inline mode');
+  assert.equal(existsSync(join(dir, 'agent-components.js')), false, 'expected no separate component bundle in inline mode');
+});
+
+test('CLI --assets inline selects inline asset mode', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'agent-isles-cli-inline-'));
+  const outFile = join(dir, 'simple.html');
+
+  const stdout = execFileSync(
+    process.execPath,
+    ['bin/isles.mjs', 'render', fixture, '--assets', 'inline', '--out', outFile],
+    { encoding: 'utf8' },
+  );
+  const html = readFileSync(outFile, 'utf8');
+
+  assert.match(stdout, /Assets: inline/);
+  assert.doesNotMatch(html, /<link[^>]*href="[^"]*\.css"/i);
+  assert.doesNotMatch(html, /<script[^>]*src="[^"]*\.js"/i);
+  assert.doesNotMatch(html, /<link[^>]*href="https?:\/\//i);
+  assert.doesNotMatch(html, /<script[^>]*src="https?:\/\//i);
+  assert.match(html, /\/\* Agent Isles component runtime \*\//);
+  assert.equal(existsSync(join(dir, 'assets')), false);
+  assert.equal(existsSync(join(dir, 'agent-components.js')), false);
+});
+
+test('inline asset mode embeds pack JavaScript and CSS inline', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'agent-isles-pack-inline-'));
+  const outFile = join(dir, 'pack.html');
+  const inputFile = join(dir, 'pack.md');
+  const packDir = createPackFixture(
+    {
+      agentIslesPackVersion: 1,
+      name: 'beta-pack',
+      version: '2.0.0',
+      tags: [{ name: 'beta-widget', attributes: ['tone'] }],
+      assets: [
+        { type: 'module', path: 'beta-widget.js' },
+        { type: 'style', path: 'beta-widget.css' },
+      ],
+    },
+    {
+      'beta-widget.js': 'customElements.define("beta-widget", class extends HTMLElement {});',
+      'beta-widget.css': 'beta-widget { display: inline-block; }',
+    },
+  );
+
+  writeFileSync(inputFile, '# Pack inline\n\n<beta-widget tone="neutral">Inlined</beta-widget>');
+
+  execFileSync(
+    process.execPath,
+    [resolve('bin/isles.mjs'), 'render', inputFile, '--assets', 'inline', '--out', outFile, '--pack', packDir, '--no-user-packs'],
+    { encoding: 'utf8' },
+  );
+  const html = readFileSync(outFile, 'utf8');
+
+  assert.match(html, /\/\* Pack: beta-pack@2\.0\.0 - beta-widget\.css \*\//);
+  assert.match(html, /beta-widget { display: inline-block; }/);
+  assert.match(html, /\/\* Pack: beta-pack@2\.0\.0 - beta-widget\.js \*\//);
+  assert.match(html, /customElements\.define\("beta-widget"/);
+  assert.match(html, /<style data-agent-isles-pack="beta-pack@2\.0\.0">/);
+  assert.match(html, /<script type="module" data-agent-isles-pack="beta-pack@2\.0\.0">/);
+  assert.doesNotMatch(html, /<link[^>]*href="[^"]*beta-widget\.css"/i);
+  assert.doesNotMatch(html, /<script[^>]*src="[^"]*beta-widget\.js"/i);
+  assert.equal(existsSync(join(dir, 'assets')), false);
+  assert.equal(existsSync(join(dir, 'agent-components.js')), false);
+});
+
+test('inline asset mode escapes raw-text end tags in embedded pack assets', async () => {
+  const { renderMarkdown } = await import('../src/render.mjs');
+  const dir = mkdtempSync(join(tmpdir(), 'agent-isles-inline-escape-'));
+  const moduleFile = join(dir, 'breakout.js');
+  const styleFile = join(dir, 'breakout.css');
+  // Asset bodies containing the raw-text element terminators that would otherwise
+  // prematurely close the injected <script>/<style> and break the single file.
+  writeFileSync(moduleFile, 'const marker = "</script><script>alert(1)</script>";\n');
+  writeFileSync(styleFile, '.x::before { content: "</style><style>body{background:red}"; }\n');
+
+  const packAssetRecords = [
+    {
+      id: 'escape-pack@1.0.0',
+      assets: [
+        { type: 'module', path: 'breakout.js', resolvedPath: moduleFile },
+        { type: 'style', path: 'breakout.css', resolvedPath: styleFile },
+      ],
+    },
+  ];
+
+  const html = await renderMarkdown('# Escape\n', { assetMode: 'inline', packAssetRecords });
+
+  // The asset's own end tags must be neutralized so they cannot close our element.
+  assert.ok(!html.includes('alert(1)</script>'), 'pack module end tag must be escaped');
+  assert.ok(html.includes('alert(1)<\\/script>'), 'escaped module end tag must be present');
+  assert.ok(!html.includes('"</style><style>'), 'pack style end tag must be escaped');
+  assert.ok(html.includes('<\\/style>'), 'escaped style end tag must be present');
+});
+
+test('inline asset mode fails fast when a declared pack module asset is missing', async () => {
+  const { renderMarkdown } = await import('../src/render.mjs');
+  const packAssetRecords = [
+    {
+      id: 'gamma-pack@3.0.0',
+      assets: [
+        { type: 'module', path: 'gamma-widget.js', resolvedPath: resolve('tests/fixtures/__missing-inline-asset__.js') },
+      ],
+    },
+  ];
+
+  await assert.rejects(
+    () => renderMarkdown('# Missing module\n', { assetMode: 'inline', packAssetRecords }),
+    (error) => {
+      assert.match(error.message, /gamma-pack@3\.0\.0/, 'error must identify the pack');
+      assert.match(error.message, /gamma-widget\.js/, 'error must identify the asset path');
+      return true;
+    },
+  );
+});
+
+test('inline asset mode fails fast when a declared pack style asset is missing', async () => {
+  const { renderMarkdown } = await import('../src/render.mjs');
+  const packAssetRecords = [
+    {
+      id: 'delta-pack@4.0.0',
+      assets: [
+        { type: 'style', path: 'delta-widget.css', resolvedPath: resolve('tests/fixtures/__missing-inline-style__.css') },
+      ],
+    },
+  ];
+
+  await assert.rejects(
+    () => renderMarkdown('# Missing style\n', { assetMode: 'inline', packAssetRecords }),
+    (error) => {
+      assert.match(error.message, /delta-pack@4\.0\.0/, 'error must identify the pack');
+      assert.match(error.message, /delta-widget\.css/, 'error must identify the asset path');
+      return true;
+    },
+  );
+});
+

@@ -12,6 +12,7 @@ import rehypeHighlight from 'rehype-highlight';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import rehypeStringify from 'rehype-stringify';
 import { resolvePackInputs } from './pack-resolver.mjs';
+import { createSourceVersion, sourcePathForWriteback, WRITEBACK_CONTRACT_VERSION } from './writeback.mjs';
 
 const require = createRequire(import.meta.url);
 const moduleDir = dirname(fileURLToPath(import.meta.url));
@@ -19,6 +20,9 @@ const projectRoot = resolve(moduleDir, '..');
 const themePath = join(projectRoot, 'src', 'theme', 'agent-theme.css');
 const componentBundlePath = join(projectRoot, 'dist', 'agent-components.js');
 const componentScriptName = 'agent-components.js';
+const mermaidRuntimePath = require.resolve('mermaid/dist/mermaid.min.js');
+const mermaidRuntimeName = 'mermaid.min.js';
+const mermaidCdnUrl = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js';
 const markdownExtensions = new Set(['.md', '.markdown']);
 const localAssetDirName = 'assets';
 const packAssetRootPath = `${localAssetDirName}/agent-isles/packs`;
@@ -179,7 +183,7 @@ const coreSanitizedSchema = {
       ...(defaultSchema.attributes?.img || []),
     ],
     code: ['className', ...(defaultSchema.attributes?.code || [])],
-    pre: ['className', ...(defaultSchema.attributes?.pre || [])],
+    pre: ['className', 'data*', ...(defaultSchema.attributes?.pre || [])],
     'agent-decision': ['className', 'title', 'verdict'],
     'agent-risk': ['className', 'title', 'level'],
     'agent-metric': ['className', 'label', 'value', 'unit', 'trend', 'tone'],
@@ -193,8 +197,8 @@ const coreSanitizedSchema = {
     'agent-gantt-phase': ['className', 'label'],
     'agent-gantt-task': ['className', 'label', 'start', 'end', 'tone', 'detail', 'parallel'],
     'agent-kpi': ['className', 'label', 'value', 'unit', 'delta', 'tone'],
-    'agent-status-board': ['className', 'label', 'meta', 'summary', 'group-by'],
-    'agent-status-item': ['className', 'label', 'status', 'owner', 'updated', 'history'],
+    'agent-status-board': ['className', 'label', 'meta', 'summary', 'group-by', 'hide-empty-groups'],
+    'agent-status-item': ['className', 'label', 'status', 'status-color', 'status-label', 'owner', 'updated', 'history'],
     'agent-dependency-map': ['className', 'label', 'direction', 'legend'],
     'agent-dependency': [
       'className',
@@ -218,7 +222,7 @@ const coreSanitizedSchema = {
     ],
     'agent-action': ['className', 'owner', 'due', 'priority', 'status'],
     // D2 diagram SVG attributes
-    figure: ['className'],
+    figure: ['className', 'data*'],
     svg: [
       'className',
       'xmlns',
@@ -375,8 +379,13 @@ export async function renderMarkdown(markdown, options = {}) {
     .use(remarkParse)
     .use(remarkGfm)
     .use(remarkRehype, { allowDangerousHtml: true })
+    .use(rehypeAgentMermaid)
     .use(rehypeAgentD2)
-    .use(rehypeRaw);
+    .use(rehypeRaw)
+    .use(rehypeAgentWritebackMetadata, {
+      ...options,
+      sourceMarkdown,
+    });
 
   if (renderMode === RENDER_MODES.SANITIZED) {
     processor
@@ -392,14 +401,11 @@ export async function renderMarkdown(markdown, options = {}) {
   return buildHtmlPage(String(body), { ...options, renderMode, assetMode, sourceMarkdown });
 }
 
-export async function renderMarkdownFile(inputPath, options = {}) {
-  const filePath = validateMarkdownInput(inputPath);
-  const markdown = readFileSync(filePath, 'utf8');
-  const outFile = options.outFile ? resolve(options.outFile) : undefined;
+export async function renderMarkdownString(markdown, options = {}) {
   const assetMode = normalizeAssetMode(options.assetMode);
   const resolvedPacks = await resolvePackInputs({
     explicitPacks: options.explicitPacks || [],
-    projectDir: options.projectDir ?? dirname(filePath),
+    projectDir: options.projectDir ?? process.cwd(),
     includeUserPacks: options.includeUserPacks === true,
     userConfigDir: options.userConfigDir || null,
   });
@@ -407,23 +413,76 @@ export async function renderMarkdownFile(inputPath, options = {}) {
   const html = await renderMarkdown(markdown, {
     ...options,
     assetMode,
-    sourcePath: filePath,
     resolvedPacks,
     packAssetRecords,
+  });
+
+  return { html, resolvedPacks, packAssetRecords, assetMode };
+}
+
+export async function renderMarkdownFile(inputPath, options = {}) {
+  const filePath = validateMarkdownInput(inputPath);
+  const markdown = readFileSync(filePath, 'utf8');
+  const outFile = options.outFile ? resolve(options.outFile) : undefined;
+  const { html, resolvedPacks, packAssetRecords, assetMode } = await renderMarkdownString(markdown, {
+    ...options,
+    sourcePath: filePath,
+    projectDir: options.projectDir ?? dirname(filePath),
   });
 
   if (outFile) {
     mkdirSync(dirname(outFile), { recursive: true });
     writeFileSync(outFile, html);
-    copyComponentBundle(dirname(outFile));
-    if (assetMode === 'local') {
-      copyLocalAssets(dirname(outFile));
+    if (assetMode !== 'inline') {
+      copyComponentBundle(dirname(outFile));
+      if (assetMode === 'local') {
+        copyLocalAssets(dirname(outFile));
+        if (hasMermaidDiagrams(html)) {
+          copyMermaidRuntime(dirname(outFile));
+        }
+      }
+      copyPackAssets(dirname(outFile), packAssetRecords);
+      writePackMetadata(dirname(outFile), packAssetRecords);
     }
-    copyPackAssets(dirname(outFile), packAssetRecords);
-    writePackMetadata(dirname(outFile), packAssetRecords);
   }
 
   return { html, outFile, resolvedPacks };
+}
+
+function rehypeAgentMermaid() {
+  return (tree) => {
+    transformMermaidCodeBlocks(tree);
+  };
+}
+
+function transformMermaidCodeBlocks(node) {
+  if (!Array.isArray(node.children)) {
+    return;
+  }
+
+  for (let index = 0; index < node.children.length; index += 1) {
+    const child = node.children[index];
+    const mermaidCode = extractLanguageCodeBlock(child, 'mermaid');
+
+    if (mermaidCode) {
+      node.children[index] = {
+        type: 'element',
+        tagName: 'figure',
+        properties: { className: ['agent-mermaid'], dataAgentMermaid: true },
+        children: [
+          {
+            type: 'element',
+            tagName: 'pre',
+            properties: { className: ['mermaid'], dataAgentMermaidSource: true },
+            children: [{ type: 'text', value: mermaidCode.value }],
+          },
+        ],
+      };
+      continue;
+    }
+
+    transformMermaidCodeBlocks(child);
+  }
 }
 
 function rehypeAgentD2() {
@@ -439,7 +498,7 @@ async function transformD2CodeBlocks(node) {
 
   for (let index = 0; index < node.children.length; index += 1) {
     const child = node.children[index];
-    const d2Code = extractD2CodeBlock(child);
+    const d2Code = extractLanguageCodeBlock(child, 'd2');
 
     if (d2Code) {
       const svg = await renderD2Svg(d2Code.value, child.position);
@@ -456,18 +515,19 @@ async function transformD2CodeBlocks(node) {
   }
 }
 
-function extractD2CodeBlock(node) {
+function extractLanguageCodeBlock(node, language) {
   if (node?.type !== 'element' || node.tagName !== 'pre') {
     return null;
   }
 
   const codeNode = node.children?.find((child) => child.type === 'element' && child.tagName === 'code');
   const classNames = codeNode?.properties?.className || [];
-  const hasD2Language = Array.isArray(classNames)
-    ? classNames.includes('language-d2')
-    : String(classNames).split(/\s+/).includes('language-d2');
+  const languageClassName = `language-${language}`;
+  const hasLanguage = Array.isArray(classNames)
+    ? classNames.includes(languageClassName)
+    : String(classNames).split(/\s+/).includes(languageClassName);
 
-  if (!hasD2Language) {
+  if (!hasLanguage) {
     return null;
   }
 
@@ -550,6 +610,96 @@ function visitChildren(node, visitor) {
   }
 }
 
+function rehypeAgentWritebackMetadata(options = {}) {
+  return (tree) => {
+    const writebackOptions = options.writeback || {};
+    const enabled = writebackOptions.enabled === true;
+    let generatedId = 0;
+
+    visitChildren(tree, (_children, _index, node) => {
+      if (node?.type !== 'element') {
+        return undefined;
+      }
+
+      const operationType = readWritebackOperationType(node.properties);
+      stripWritebackProperties(node.properties);
+
+      if (!enabled || !operationType) {
+        return undefined;
+      }
+
+      if (!isAgentComponentTag(node.tagName) || !node.position?.start || !node.position?.end) {
+        return undefined;
+      }
+
+      generatedId += 1;
+      const componentId = readStringProperty(node.properties, 'id') || `${node.tagName}-${generatedId}`;
+      const sourcePath = sourcePathForWriteback(options.sourcePath, writebackOptions.rootPath);
+      if (!sourcePath) {
+        return undefined;
+      }
+
+      const metadata = {
+        contractVersion: WRITEBACK_CONTRACT_VERSION,
+        sourcePath,
+        sourceVersion: createSourceVersion(options.sourceMarkdown || ''),
+        target: {
+          componentId,
+          tagName: node.tagName,
+          range: {
+            start: copyPositionPoint(node.position.start),
+            end: copyPositionPoint(node.position.end),
+          },
+        },
+        operation: { type: operationType },
+      };
+
+      node.properties['data-agent-isles-writeback'] = JSON.stringify(metadata);
+      return undefined;
+    });
+  };
+}
+
+function readWritebackOperationType(properties = {}) {
+  return readStringProperty(properties, 'data-agent-isles-writeback-op')
+    || readStringProperty(properties, 'dataAgentIslesWritebackOp');
+}
+
+function stripWritebackProperties(properties = {}) {
+  delete properties['data-agent-isles-writeback-op'];
+  delete properties.dataAgentIslesWritebackOp;
+  delete properties['data-agent-isles-writeback'];
+  delete properties.dataAgentIslesWriteback;
+}
+
+function readStringProperty(properties = {}, propertyName) {
+  const value = properties[propertyName];
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (typeof value === 'number') {
+    return String(value);
+  }
+  return null;
+}
+
+function isAgentComponentTag(tagName) {
+  return typeof tagName === 'string' && tagName.startsWith('agent-');
+}
+
+function copyPositionPoint(point) {
+  const copy = {
+    line: point.line,
+    column: point.column,
+  };
+
+  if (Number.isInteger(point.offset)) {
+    copy.offset = point.offset;
+  }
+
+  return copy;
+}
+
 function buildHtmlPage(body, options = {}) {
   const title = options.title || 'Agent Isles Output';
   const assetMode = normalizeAssetMode(options.assetMode);
@@ -564,9 +714,12 @@ function buildHtmlPage(body, options = {}) {
     : '\n  <!-- Agent Isles warning: dist/agent-components.js is missing. Run `npm run build`. -->';
   const styles = buildStyles(assetMode);
   const scripts = buildScripts(assetMode, missingBundleComment);
-  const packMetadata = buildPackMetadataTags(packAssetRecords);
-  const packStyleLinks = buildPackStyleLinks(packAssetRecords);
-  const packModuleScripts = buildPackModuleScripts(packAssetRecords);
+  const packMetadata = assetMode === 'inline' ? '' : buildPackMetadataTags(packAssetRecords);
+  const writebackMetadata = buildWritebackMetadataTags(options.writeback);
+  const packStyleLinks = buildPackStyleLinks(packAssetRecords, assetMode);
+  const packModuleScripts = buildPackModuleScripts(packAssetRecords, assetMode);
+  const componentScript = buildComponentScript(assetMode, missingBundleComment);
+  const mermaidScripts = hasMermaidDiagrams(body) ? buildMermaidScripts(assetMode) : '';
 
   const mainBody = options.showSource ? pageBody : indent(pageBody, 4);
 
@@ -576,17 +729,20 @@ function buildHtmlPage(body, options = {}) {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${escapeHtml(title)}</title>
-${packMetadata}${styles}
+${packMetadata}${writebackMetadata}${styles}
   <style>${theme}</style>${packStyleLinks}
 </head>
 <body>
   <main class="${mainClass}">
 ${mainBody}
   </main>
-${scripts}
-  <script type="module" src="./${componentScriptName}"></script>${packModuleScripts}
+${scripts}${mermaidScripts}${componentScript}${packModuleScripts}
 </body>
 </html>`;
+}
+
+function hasMermaidDiagrams(html) {
+  return String(html).includes('data-agent-mermaid');
 }
 
 function buildSourceComparison(renderedBody, sourceMarkdown) {
@@ -617,6 +773,19 @@ ${indent(renderedBody, 8)}
 }
 
 function buildStyles(assetMode) {
+  if (assetMode === 'inline') {
+    const bootstrapCss = escapeInlineStyle(readFileSync(require.resolve('bootstrap/dist/css/bootstrap.min.css'), 'utf8'));
+    const highlightCss = escapeInlineStyle(readFileSync(require.resolve('highlight.js/styles/github-dark.min.css'), 'utf8'));
+    return `  <style>
+/* Bootstrap CSS */
+${bootstrapCss}
+  </style>
+  <style>
+/* Highlight.js CSS */
+${highlightCss}
+  </style>`;
+  }
+
   if (assetMode === 'local') {
     return `  <link href="./${localAssetDirName}/bootstrap.min.css" rel="stylesheet" />
   <link href="./${localAssetDirName}/github-dark.min.css" rel="stylesheet" />`;
@@ -634,14 +803,126 @@ function buildStyles(assetMode) {
 }
 
 function buildScripts(assetMode, missingBundleComment) {
-  const bootstrapScript = assetMode === 'local'
-    ? `  <script src="./${localAssetDirName}/bootstrap.bundle.min.js"></script>`
-    : `  <script
+  let bootstrapScript;
+
+  if (assetMode === 'inline') {
+    const bootstrapJs = escapeInlineScript(readFileSync(require.resolve('bootstrap/dist/js/bootstrap.bundle.min.js'), 'utf8'));
+    bootstrapScript = `  <script>
+/* Bootstrap JS */
+${bootstrapJs}
+  </script>`;
+  } else if (assetMode === 'local') {
+    bootstrapScript = `  <script src="./${localAssetDirName}/bootstrap.bundle.min.js"></script>`;
+  } else {
+    bootstrapScript = `  <script
     src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
     crossorigin="anonymous">
   </script>`;
+  }
 
   return `${bootstrapScript}${missingBundleComment}`;
+}
+
+function buildMermaidScripts(assetMode) {
+  return `\n${buildMermaidRuntimeScript(assetMode)}\n${buildMermaidRendererScript()}`;
+}
+
+function buildMermaidRuntimeScript(assetMode) {
+  if (assetMode === 'inline') {
+    const mermaidRuntime = escapeInlineScript(readFileSync(mermaidRuntimePath, 'utf8'));
+    return `  <script>
+/* Mermaid runtime */
+${mermaidRuntime}
+  </script>`;
+  }
+
+  const src = assetMode === 'local' ? `./${localAssetDirName}/${mermaidRuntimeName}` : mermaidCdnUrl;
+  return `  <script src="${src}"></script>`;
+}
+
+function buildMermaidRendererScript() {
+  return `  <script>
+/* Agent Isles Mermaid renderer */
+(function () {
+  const figures = Array.from(document.querySelectorAll('[data-agent-mermaid]'));
+  if (figures.length === 0) {
+    return;
+  }
+
+  const mermaid = globalThis.mermaid;
+  const showError = (figure, sourceElement, message) => {
+    const errorBlock = document.createElement('pre');
+    errorBlock.className = 'agent-mermaid-error';
+    errorBlock.setAttribute('role', 'alert');
+    errorBlock.textContent = 'Mermaid render failed: ' + message;
+    sourceElement.insertAdjacentElement('afterend', errorBlock);
+    figure.dataset.agentMermaidRendered = 'false';
+  };
+
+  if (!mermaid) {
+    for (const figure of figures) {
+      const sourceElement = figure.querySelector('[data-agent-mermaid-source]');
+      if (sourceElement) {
+        showError(figure, sourceElement, 'Mermaid runtime failed to load.');
+      }
+    }
+    return;
+  }
+
+  mermaid.initialize({
+    startOnLoad: false,
+    securityLevel: 'strict',
+    htmlLabels: false,
+  });
+
+  figures.forEach(async (figure, index) => {
+    const sourceElement = figure.querySelector('[data-agent-mermaid-source]');
+    if (!sourceElement) {
+      return;
+    }
+
+    const source = sourceElement.textContent || '';
+    const output = document.createElement('div');
+    output.className = 'agent-mermaid-rendered';
+    sourceElement.insertAdjacentElement('afterend', output);
+
+    try {
+      if (typeof mermaid.parse === 'function') {
+        await mermaid.parse(source);
+      }
+      const renderResult = await mermaid.render(
+        'agent-mermaid-' + index + '-' + Math.random().toString(36).slice(2),
+        source,
+      );
+      output.innerHTML = renderResult.svg;
+      sourceElement.hidden = true;
+      figure.dataset.agentMermaidRendered = 'true';
+    } catch (error) {
+      output.remove();
+      const message = error && error.message ? error.message : String(error);
+      showError(figure, sourceElement, message);
+      console.warn('Agent Isles Mermaid render failed:', error);
+    }
+  });
+}());
+  </script>`;
+}
+
+function buildComponentScript(assetMode, missingBundleComment) {
+  if (assetMode === 'inline') {
+    if (!existsSync(componentBundlePath)) {
+      return missingBundleComment;
+    }
+    const componentJs = escapeInlineScript(readFileSync(componentBundlePath, 'utf8'));
+    return `
+  <script type="module">
+/* Agent Isles component runtime */
+${componentJs}
+  </script>`;
+  }
+
+  return `
+  <script type="module" src="./${componentScriptName}"></script>`;
 }
 
 function buildPackMetadataTags(packAssetRecords) {
@@ -655,10 +936,60 @@ function buildPackMetadataTags(packAssetRecords) {
 `;
 }
 
-function buildPackStyleLinks(packAssetRecords) {
-  const styleLinks = packAssetRecords.flatMap((record) => record.assets
-    .filter((asset) => asset.type === 'style')
-    .map((asset) => `  <link href="${escapeHtml(asset.url)}" rel="stylesheet" data-agent-isles-pack="${escapeHtml(record.id)}" />`));
+function buildWritebackMetadataTags(writebackOptions = {}) {
+  if (writebackOptions.enabled !== true) {
+    return '';
+  }
+
+  const endpoint = writebackOptions.endpoint || '/__agent-isles/writeback';
+  return `  <meta name="agent-isles-writeback-endpoint" content="${escapeHtml(endpoint)}" />
+`;
+}
+
+// Inline assets land inside raw-text <script>/<style> elements, where a literal
+// </script> or </style> would prematurely close the element and corrupt the
+// single-file output. Neutralize the end-tag opener so trusted bundles and pack
+// assets embed verbatim (the backslash form is inert in JS/CSS string contexts,
+// the only place these sequences legitimately appear).
+function escapeInlineScript(code) {
+  return String(code).replace(/<\/(script)/gi, '<\\/$1');
+}
+
+function escapeInlineStyle(code) {
+  return String(code).replace(/<\/(style)/gi, '<\\/$1');
+}
+
+function readInlinePackAsset(record, asset, kind) {
+  if (!asset.resolvedPath || !existsSync(asset.resolvedPath)) {
+    throw new AgentIslesInputError(
+      `Cannot inline ${kind} asset for pack "${record.id}": declared asset "${asset.path}" was not found` +
+        `${asset.resolvedPath ? ` at ${asset.resolvedPath}` : ''}. ` +
+        'Ensure the file exists locally, or render with --assets local or --assets cdn instead.',
+    );
+  }
+
+  const raw = readFileSync(asset.resolvedPath, 'utf8');
+  return kind === 'style' ? escapeInlineStyle(raw) : escapeInlineScript(raw);
+}
+
+function buildPackStyleLinks(packAssetRecords, assetMode = 'cdn') {
+  const styleLinks = packAssetRecords.flatMap((record) => {
+    const styleAssets = record.assets.filter((asset) => asset.type === 'style');
+
+    if (assetMode === 'inline') {
+      return styleAssets.map((asset) => {
+        const css = readInlinePackAsset(record, asset, 'style');
+        return `  <style data-agent-isles-pack="${escapeHtml(record.id)}">
+/* Pack: ${escapeHtml(record.id)} - ${escapeHtml(asset.path)} */
+${css}
+  </style>`;
+      });
+    }
+
+    return styleAssets.map((asset) =>
+      `  <link href="${escapeHtml(asset.url)}" rel="stylesheet" data-agent-isles-pack="${escapeHtml(record.id)}" />`
+    );
+  });
 
   if (styleLinks.length === 0) {
     return '';
@@ -667,10 +998,24 @@ function buildPackStyleLinks(packAssetRecords) {
   return `\n${styleLinks.join('\n')}`;
 }
 
-function buildPackModuleScripts(packAssetRecords) {
-  const moduleScripts = packAssetRecords.flatMap((record) => record.assets
-    .filter((asset) => asset.type === 'module')
-    .map((asset) => `  <script type="module" src="${escapeHtml(asset.url)}" data-agent-isles-pack="${escapeHtml(record.id)}"></script>`));
+function buildPackModuleScripts(packAssetRecords, assetMode = 'cdn') {
+  const moduleScripts = packAssetRecords.flatMap((record) => {
+    const moduleAssets = record.assets.filter((asset) => asset.type === 'module');
+
+    if (assetMode === 'inline') {
+      return moduleAssets.map((asset) => {
+        const js = readInlinePackAsset(record, asset, 'module');
+        return `  <script type="module" data-agent-isles-pack="${escapeHtml(record.id)}">
+/* Pack: ${escapeHtml(record.id)} - ${escapeHtml(asset.path)} */
+${js}
+  </script>`;
+      });
+    }
+
+    return moduleAssets.map((asset) =>
+      `  <script type="module" src="${escapeHtml(asset.url)}" data-agent-isles-pack="${escapeHtml(record.id)}"></script>`
+    );
+  });
 
   if (moduleScripts.length === 0) {
     return '';
@@ -818,12 +1163,22 @@ function copyLocalAssets(outDir) {
   }
 }
 
+function copyMermaidRuntime(outDir) {
+  if (!existsSync(mermaidRuntimePath)) {
+    throw new Error(`Mermaid runtime source missing: ${mermaidRuntimePath}`);
+  }
+
+  const assetsDir = join(outDir, localAssetDirName);
+  mkdirSync(assetsDir, { recursive: true });
+  copyFileSync(mermaidRuntimePath, join(assetsDir, mermaidRuntimeName));
+}
+
 function normalizeAssetMode(assetMode = 'cdn') {
-  if (assetMode === 'cdn' || assetMode === 'local') {
+  if (assetMode === 'cdn' || assetMode === 'local' || assetMode === 'inline') {
     return assetMode;
   }
 
-  throw new Error(`Unsupported asset mode: ${assetMode}. Expected "cdn" or "local".`);
+  throw new Error(`Unsupported asset mode: ${assetMode}. Expected "cdn", "local", or "inline".`);
 }
 
 function indent(text, spaces) {

@@ -31,9 +31,11 @@ const expectedPublishedFiles = [
   'src/components/index.js',
   'src/pack-loader.mjs',
   'src/pack-resolver.mjs',
+  'src/preview.mjs',
   'src/render.mjs',
   'src/theme/agent-theme.css',
   'src/watch.mjs',
+  'src/writeback.mjs',
 ];
 
 function runNpm(args, options = {}) {

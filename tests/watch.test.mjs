@@ -63,6 +63,56 @@ test('isles watch renders immediately, rebuilds on Markdown changes, and exits o
   }
 });
 
+test('isles watch honors --assets inline and rebuilds inline output', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'agent-isles-watch-inline-'));
+  const inputFile = join(dir, 'watch-inline.md');
+  const outFile = join(dir, 'watch-inline.html');
+  writeFileSync(inputFile, '# Inline Watch\n\nFirst pass.\n', 'utf8');
+
+  const child = spawn(process.execPath, [cli, 'watch', inputFile, '--out', outFile, '--assets', 'inline'], {
+    cwd: process.cwd(),
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  let stdout = '';
+  let stderr = '';
+  child.stdout.setEncoding('utf8');
+  child.stderr.setEncoding('utf8');
+  child.stdout.on('data', (chunk) => {
+    stdout += chunk;
+  });
+  child.stderr.on('data', (chunk) => {
+    stderr += chunk;
+  });
+
+  try {
+    await waitFor(() => stdout.includes('[isles] rendered'), () => diagnostic(stdout, stderr));
+    let html = readFileSync(outFile, 'utf8');
+    assert.match(html, /<h1>Inline Watch<\/h1>/);
+    assert.match(html, /\/\* Bootstrap CSS \*\//);
+    assert.match(html, /\/\* Agent Isles component runtime \*\//);
+    assert.doesNotMatch(html, /<script[^>]*src="https?:\/\//i, 'initial inline render must not reference CDN scripts');
+    assert.doesNotMatch(html, /<script[^>]*src="[^"]*\.js"/i, 'initial inline render must not reference external JS files');
+
+    writeFileSync(inputFile, '# Inline Watch Updated\n\nSecond pass.\n', 'utf8');
+
+    await waitFor(() => stdout.includes('[isles] rebuilt'), () => diagnostic(stdout, stderr));
+    html = readFileSync(outFile, 'utf8');
+    assert.match(html, /<h1>Inline Watch Updated<\/h1>/);
+    assert.match(html, /\/\* Agent Isles component runtime \*\//);
+    assert.doesNotMatch(html, /<script[^>]*src="https?:\/\//i, 'inline rebuild must not reference CDN scripts');
+    assert.doesNotMatch(html, /<script[^>]*src="[^"]*\.js"/i, 'inline rebuild must not reference external JS files');
+
+    const close = onceClose(child, () => diagnostic(stdout, stderr));
+    child.kill('SIGINT');
+    await close;
+  } finally {
+    if (!child.killed && child.exitCode === null) {
+      child.kill('SIGKILL');
+    }
+  }
+});
+
 function onceClose(child, diagnostics, timeoutMs = 5000) {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {

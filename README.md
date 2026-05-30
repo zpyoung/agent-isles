@@ -186,11 +186,30 @@ The plugin does not auto-install on session start, publish releases, or mutate p
 ## CLI
 
 ```bash
-isles render <file.md> [--out <file.html>] [--mode trusted|sanitized] [--assets cdn|local] [--pack <path>]... [--no-user-packs]
-isles render <file.md> [--out <file.html>] [--safe|--sanitize] [--assets cdn|local] [--pack <path>]... [--no-user-packs]
+isles render <file.md> [--out <file.html>] [--mode trusted|sanitized] [--assets cdn|local|inline] [--show-source] [--pack <path>]... [--no-user-packs]
+isles render <file.md> [--out <file.html>] [--safe|--sanitize] [--assets cdn|local|inline] [--show-source] [--pack <path>]... [--no-user-packs]
 isles packs resolve <file.md> [--pack <path>]... [--no-user-packs]
-isles watch <file.md> [--out <file.html>]
+isles watch <file.md> [--out <file.html>] [--mode trusted|sanitized] [--assets cdn|local|inline] [--show-source] [--pack <path>]... [--no-user-packs]
+isles preview (--stdin | <file.md>) [--open] [--mode trusted|sanitized] [--safe|--sanitize] [--show-source] [--pack <path>]... [--no-user-packs]
+isles preview <dir> [--port <port>] [--mode trusted|sanitized] [--show-source] [--pack <path>]... [--no-user-packs]
 ```
+
+Ephemeral preview mode renders one Markdown document from stdin or a file to an inline-asset temp HTML file and prints a `file://` URL:
+
+```bash
+node ./bin/isles.mjs preview README.md --open
+printf '# Hello' | node ./bin/isles.mjs preview --stdin
+```
+
+Directory preview mode serves a localhost-only browser UI for a folder of Markdown artifacts:
+
+```bash
+node ./bin/isles.mjs preview docs --port 4173
+```
+
+The preview UI recursively discovers `.md` and `.markdown` files, shows them in a navigable sidebar, renders the selected file through the normal Agent Isles pipeline, and refreshes the tree/active preview when files are created, updated, renamed, or deleted. Preview rendering uses inline assets internally so each selected document can be shown in the browser pane without managing a generated asset directory.
+
+Path confinement is enforced by the preview server: browser requests can only render supported Markdown files under the selected preview root. Render errors are returned to the preview UI and shown in-page instead of crashing the server.
 
 Planned explicit edit/writeback mode:
 
@@ -216,6 +235,7 @@ Asset modes:
 
 - `--assets cdn` is the default prototype-friendly mode. It references Bootstrap and the Highlight.js theme from public CDNs, while still copying the Agent Isles component bundle beside the output HTML.
 - `--assets local` writes network-free HTML references and copies Bootstrap CSS, Bootstrap JS, Highlight.js CSS, and the Agent Isles component bundle into the output directory. Use this for offline review, durable artifacts, or environments where CDN access is unreliable.
+- `--assets inline` embeds all JavaScript and CSS directly into the HTML file, producing a single self-contained artifact with no external dependencies. Use this for portable single-file documents, ephemeral previews, or when you need a single artifact that can be opened anywhere without managing companion asset files.
 
 Example local/offline render:
 
@@ -223,7 +243,53 @@ Example local/offline render:
 node ./bin/isles.mjs render examples/demo.md --out dist/demo.html --assets local
 ```
 
-`isles watch` renders immediately and rebuilds when the Markdown source changes. It remains source-driven: browser interactions in the generated HTML do not write back to the Markdown file.
+Example single-file inline render:
+
+```bash
+node ./bin/isles.mjs render examples/demo.md --out dist/demo.html --assets inline
+```
+
+**Note on inline mode**: The generated HTML file will be larger (typically 400-500KB for a basic document) because it contains the full Bootstrap CSS/JS, Highlight.js theme, and Agent Isles component runtime. However, it requires no external files and can be opened directly in any browser without network access or an asset directory. Inline scripts may require Content Security Policy adjustments if you're serving the HTML from a web server with strict CSP headers.
+
+**Known limitation**: Inline mode embeds each declared pack asset's file contents verbatim; it does not bundle or rewrite references *inside* those files. A pack module that uses relative `import './helper.js'`, dynamic `import()`, `import.meta.url`, or a stylesheet with `@import`/`url(...)` will resolve those references against the output HTML's location rather than the pack directory, so packs that rely on transitive local references are better served by `--assets local`. Self-contained packs whose declared assets have no further local dependencies inline cleanly.
+
+**Security boundary**: Inline mode only inlines trusted, locally resolvable assets — the built-in runtime and component-pack `style`/`module` files declared in a pack manifest that point at files inside the pack directory. It never fetches remote pack assets and never executes arbitrary user-authored JavaScript beyond the existing trusted/raw-HTML model: producing a single portable file does **not** make untrusted Markdown safe to render in `trusted` mode, and the raw-HTML and component-pack boundaries remain security-sensitive regardless of asset mode. If a declared pack asset cannot be resolved locally, inline rendering **fails fast** with an error naming the pack and asset path rather than silently emitting incomplete HTML — fix the asset or fall back to `--assets local`/`--assets cdn`.
+
+`isles watch` renders immediately and rebuilds when the Markdown source changes, and accepts the same `--mode`, `--assets` (including `inline`), `--show-source`, and `--pack` options as `isles render`, so watch rebuilds can also produce single-file inline output. It remains source-driven: browser interactions in the generated HTML do not write back to the Markdown file.
+
+## Ephemeral previews (`isles preview`)
+
+Render agent-authored Markdown to a throwaway HTML preview without saving the source into your repo. Pipe Markdown over stdin and hand the printed `file://` URL to a browser tool:
+
+```bash
+printf '%s' "$markdown" | isles preview --stdin
+# file:///var/folders/.../agent-isles-preview/isles-preview-1748540000000-<uuid>.html
+# /var/folders/.../agent-isles-preview/isles-preview-1748540000000-<uuid>.html
+```
+
+Add `--open` to also launch your default browser (best-effort, fire-and-forget):
+
+```bash
+printf '%s' "$markdown" | isles preview --stdin --open
+```
+
+You can also point it at an already-temporary Markdown file. The file is only read — it is never written back or copied into the repo:
+
+```bash
+isles preview /tmp/scratch.md --open
+```
+
+`preview` accepts the same rendering flags as `render` (`--mode trusted|sanitized`, `--safe`/`--sanitize`, `--show-source`, `--pack <path>`, `--no-user-packs`). It does **not** accept `--assets` or `--out`: previews are always rendered as a single self-contained HTML file (inline assets, no sibling files). For persistent output or `cdn`/`local` asset modes, use `isles render`.
+
+### Where previews go and how they're cleaned up
+
+- Previews are written to `os.tmpdir()/agent-isles-preview/` (e.g. `/var/folders/...` on macOS, `/tmp/...` on Linux). They never land in your project, so `git status --short` stays clean.
+- On each run, `preview` prunes files in that directory older than 24 hours, then writes the new one. The fresh preview is kept long enough for the browser to read it. Override the retention window with `ISLES_PREVIEW_TTL_MS` (milliseconds); set `ISLES_PREVIEW_TTL_MS=0` to prune everything but the current preview.
+- Override the launch command for `--open` with `ISLES_PREVIEW_OPEN_CMD` (invoked as `<cmd> <file>`; it must be a bare executable name or absolute path — embedded arguments like `open -a Firefox` are not supported). By default `preview` uses `open` (macOS), `xdg-open` (Linux), or `cmd /c start` (Windows).
+
+### Security boundary
+
+Ephemeral does **not** mean trusted. `preview` applies the same raw-HTML policy as `render`: `--mode trusted` (default) embeds raw HTML and the Agent Isles runtime; `--mode sanitized` strips unsafe markup. Inline runtime support means "the Agent Isles component runtime is embedded in the file," not "arbitrary author-supplied JavaScript is now allowed." Treat preview Markdown from untrusted sources with `--mode sanitized`, exactly as you would a file-based render.
 
 ## Component Packs V1
 
@@ -260,10 +326,10 @@ Layers:
 
 1. **Source format** — Markdown with explicit HTML islands.
 2. **Component vocabulary** — Bootstrap primitives plus Lit Web Components for agent-specific patterns.
-3. **CLI renderer** — remark/rehype pipeline that injects assets and writes browser-ready HTML.
+3. **CLI renderer and preview server** — remark/rehype pipeline that injects assets and writes browser-ready HTML, plus a localhost-only directory preview server for browsing source trees.
 4. **Local edit/writeback mode** — planned explicit localhost mode for source-backed interactions, starting with Markdown task-list toggles.
 
-Static rendering and source writeback are separate boundaries. `isles render` and `isles watch` should remain inert document-generation tools; `isles edit` should be the only mode that can patch the selected source file.
+Static rendering and source writeback are separate boundaries. `isles render`, `isles watch`, and read-only `isles preview <dir>` should remain inert document-generation/review tools; `isles edit` should be the only mode that can patch the selected source file.
 
 Implementation plans live on the dedicated `plans` branch so planning artifacts remain versioned without shipping on `main`:
 
@@ -302,6 +368,28 @@ Supported islands so far:
 - `<agent-copy-block lang="..." label="...">...</agent-copy-block>`
 - `<agent-tabs>...</agent-tabs>` with `<agent-tab title="...">...</agent-tab>` panels
 - `<agent-timeline label="...">...</agent-timeline>` with `<agent-step status="done|active|pending|failed" label="...">...</agent-step>` entries
+
+### Mermaid diagram support
+
+Agent Isles supports Mermaid fences for Markdown-adjacent diagrams such as flowcharts, sequence diagrams, state diagrams, and architecture sketches:
+
+````md
+```mermaid
+graph TD
+  A[Markdown] --> B[Agent Isles]
+  B --> C[Browser-ready HTML]
+```
+````
+
+Mermaid support intentionally uses a narrow Agent Isles rehype transform plus the upstream `mermaid` browser runtime rather than `rehype-mermaid`. `rehype-mermaid` is a useful prior-art package, but its build-time SVG path adds `mermaid-isomorphic`/headless-rendering weight and hides more of the output strategy than Agent Isles needs right now. Agent Isles keeps the Markdown transform inspectable: `mermaid` fences become `<figure class="agent-mermaid">` blocks, and a small generated script renders them in the browser.
+
+Asset strategy:
+
+- `--assets cdn` loads Mermaid from jsDelivr only when the page contains at least one Mermaid fence.
+- `--assets local` copies `mermaid.min.js` beside the other local runtime assets and references it from the generated HTML.
+- `--assets inline` embeds the Mermaid runtime in the HTML only when Mermaid fences are present, preserving single-file output for diagram documents.
+
+Invalid Mermaid syntax is reported by the generated browser-side renderer as an in-page `Mermaid render failed: ...` diagnostic while leaving the original diagram source visible for debugging. Mermaid diagram source is still authored content: use trusted vs sanitized mode deliberately, and do not treat client-side rendering as a sanitizer for untrusted diagrams.
 
 ### D2 diagram support
 
@@ -363,7 +451,7 @@ The planned writeback feature is deliberately explicit:
 isles edit report.md
 ```
 
-`isles edit` should start a localhost-only editing server, render the selected Markdown with writeback metadata, and accept authenticated local writeback requests for supported interactions. The first MVP is narrow by design: Markdown task-list checkboxes.
+`isles edit` should start a localhost-only editing server, render the selected Markdown with writeback metadata, and accept authenticated local writeback requests for supported interactions. The shared contract is documented in [`docs/writeback-contract.md`](docs/writeback-contract.md). The first MVP is narrow by design: Markdown task-list checkboxes.
 
 Example source:
 
@@ -387,6 +475,8 @@ Guardrails for this roadmap:
 - only the selected source file may be patched,
 - stale source metadata returns a conflict instead of fuzzy-patching,
 - richer component writeback is future work, not part of the task-list MVP.
+
+Component authors should treat `data-agent-isles-writeback-op` and `data-agent-isles-writeback` as reserved contract attributes. A component opts in only when an edit/preview server renders with `writeback.enabled`; static renders strip the reserved opt-in metadata and expose no endpoint.
 
 The tracking issue is #31.
 
