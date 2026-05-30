@@ -392,14 +392,11 @@ export async function renderMarkdown(markdown, options = {}) {
   return buildHtmlPage(String(body), { ...options, renderMode, assetMode, sourceMarkdown });
 }
 
-export async function renderMarkdownFile(inputPath, options = {}) {
-  const filePath = validateMarkdownInput(inputPath);
-  const markdown = readFileSync(filePath, 'utf8');
-  const outFile = options.outFile ? resolve(options.outFile) : undefined;
+export async function renderMarkdownString(markdown, options = {}) {
   const assetMode = normalizeAssetMode(options.assetMode);
   const resolvedPacks = await resolvePackInputs({
     explicitPacks: options.explicitPacks || [],
-    projectDir: options.projectDir ?? dirname(filePath),
+    projectDir: options.projectDir ?? process.cwd(),
     includeUserPacks: options.includeUserPacks === true,
     userConfigDir: options.userConfigDir || null,
   });
@@ -407,9 +404,21 @@ export async function renderMarkdownFile(inputPath, options = {}) {
   const html = await renderMarkdown(markdown, {
     ...options,
     assetMode,
-    sourcePath: filePath,
     resolvedPacks,
     packAssetRecords,
+  });
+
+  return { html, resolvedPacks, packAssetRecords, assetMode };
+}
+
+export async function renderMarkdownFile(inputPath, options = {}) {
+  const filePath = validateMarkdownInput(inputPath);
+  const markdown = readFileSync(filePath, 'utf8');
+  const outFile = options.outFile ? resolve(options.outFile) : undefined;
+  const { html, resolvedPacks, packAssetRecords, assetMode } = await renderMarkdownString(markdown, {
+    ...options,
+    sourcePath: filePath,
+    projectDir: options.projectDir ?? dirname(filePath),
   });
 
   if (outFile) {
