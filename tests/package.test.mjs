@@ -78,6 +78,9 @@ test('README documents local and future npm usage expectations', () => {
   assert.match(readme, /npm run pack:dry-run -- --json/);
   assert.match(readme, /npm pack/);
   assert.match(readme, /agent-isles-package-smoke/);
+  assert.match(readme, /GitHub Release whose tag matches the package version/);
+  assert.match(readme, /release workflow publishes prereleases to the npm `next` dist-tag/);
+  assert.match(readme, /NPM_TOKEN/);
   assert.match(readme, /npm publish --tag next/);
   assert.match(readme, /Do not publish/);
 });
