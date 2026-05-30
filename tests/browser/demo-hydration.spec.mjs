@@ -68,7 +68,7 @@ test('rendered demo loads without console errors and hydrates agent components',
     await expect(page.locator('h1')).toContainText('Agent Isles Demo');
 
     const galleryExamples = page.locator('.agent-component-example');
-    await expect(galleryExamples).toHaveCount(12);
+    await expect(galleryExamples).toHaveCount(13);
     const firstGallery = galleryExamples.first();
     const renderedPane = firstGallery.locator('.agent-component-rendered');
     const sourcePane = firstGallery.locator('.agent-component-source-card');
