@@ -7,13 +7,13 @@ Agent Isles keeps static rendering inert. Source writeback is available only to 
 - Static `isles render` and `isles watch` output must not expose active writeback endpoints or source metadata by default.
 - Edit/preview mode may opt in by rendering with `writeback.enabled: true` and an active workspace root.
 - Requests are accepted only from a localhost edit context.
-- Every request is scoped to one source file under the active root and one supported component operation.
+- Every request is scoped to one source file under the active root and one supported operation.
 - Every request carries a source version hash and exact source range so stale or ambiguous writes fail instead of fuzzy-patching.
 - Browser clients cannot submit arbitrary replacement text. The server chooses a registered operation handler for the requested operation type and that handler returns the replacement.
 
 ## Render-time metadata
 
-A future edit/preview server can mark a supported component with the reserved opt-in attribute:
+An edit/preview server can mark a supported component with the reserved opt-in attribute:
 
 ```html
 <agent-decision
@@ -50,6 +50,36 @@ The generated page also includes:
 
 That meta tag is emitted only when writeback rendering is explicitly enabled.
 
+Generic Markdown task-list checkboxes are mapped automatically in writeback-enabled directory preview renders. For example:
+
+```md
+- [ ] Review launch gates
+  - [X] Confirm smoke output
+- [ ] Review launch gates
+```
+
+Each generated checkbox receives source metadata for its exact marker range rather than its label text:
+
+```json
+{
+  "contractVersion": 1,
+  "sourcePath": "plan.md",
+  "sourceVersion": "sha256-...",
+  "target": {
+    "kind": "markdown-task-checkbox",
+    "tagName": "input",
+    "range": {
+      "start": { "line": 1, "column": 3, "offset": 2 },
+      "end": { "line": 1, "column": 6, "offset": 5 }
+    },
+    "anchor": { "text": "[ ]" }
+  },
+  "operation": { "type": "markdown:set-task-checkbox" }
+}
+```
+
+The operation patches only that marker. Checked writes use `[x]`; unchecked writes use `[ ]`, so an uppercase `[X]` marker is normalized when it is changed.
+
 ## Request shape
 
 A browser client submits a structured request using the metadata plus operation payload:
@@ -85,7 +115,7 @@ The server-side helper in `src/writeback.mjs` enforces:
 3. `sourcePath` resolves under the active root.
 4. `sourceVersion` matches the current file content hash.
 5. `operation.type` is registered in the active edit context.
-6. `target.tagName` is component-scoped (`agent-*`).
+6. `target.tagName` is component-scoped (`agent-*`) or the target is a mapped Markdown task checkbox (`kind: "markdown-task-checkbox"`, `tagName: "input"`).
 7. `target.range.start.offset` and `target.range.end.offset` are valid for the current source.
 8. `target.anchor.text`, when present, exactly matches the current range text.
 9. The registered operation returns a string replacement.
@@ -112,12 +142,13 @@ Failures are structured `WritebackContractError` objects with stable `code` valu
 - `ERR_WRITEBACK_UNSUPPORTED_OPERATION`
 - `ERR_WRITEBACK_MALFORMED_RANGE`
 - `ERR_WRITEBACK_ANCHOR_MISMATCH`
+- `ERR_WRITEBACK_MARKDOWN_CHECKBOX_CONFLICT`
 
 ## Extension pattern
 
-Future component writeback should add a narrow operation type rather than accepting arbitrary text replacement from the browser. Examples:
+Future writeback should add a narrow operation type rather than accepting arbitrary text replacement from the browser. Examples:
 
-- `markdown-task:toggle` for task-list checkbox markers.
+- `markdown:set-task-checkbox` for task-list checkbox markers.
 - `agent-decision:set-verdict` for a constrained verdict token.
 - `agent-status-item:set-status` for a constrained status token.
 

@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { basename, extname, join, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { AgentIslesInputError, renderMarkdownFile, renderMarkdownString, RENDER_MODES } from './render.mjs';
+import { applyWritebackRequest, markdownTaskCheckboxWritebackOperation, WritebackContractError } from './writeback.mjs';
 
 const markdownExtensions = new Set(['.md', '.markdown']);
 const defaultHost = '127.0.0.1';
@@ -318,6 +319,16 @@ async function routePreviewRequest({ request, response, root, options, clients }
     return;
   }
 
+  if (request.method === 'OPTIONS' && pathname === '/__agent-isles/writeback' && options.writeback === true) {
+    sendNoContent(response, 204);
+    return;
+  }
+
+  if (request.method === 'POST' && pathname === '/__agent-isles/writeback' && options.writeback === true) {
+    await handleWritebackRequest({ request, response, root });
+    return;
+  }
+
   if (request.method === 'GET' && pathname === '/favicon.ico') {
     response.writeHead(204);
     response.end();
@@ -356,6 +367,11 @@ async function handleRenderRequest(response, root, requestedPath, options) {
       includeUserPacks: options.includeUserPacks !== false,
       projectDir: root,
       title: `${previewPath} — Agent Isles Preview`,
+      writeback: options.writeback === true ? {
+        enabled: true,
+        rootPath: root,
+        endpoint: '/__agent-isles/writeback',
+      } : undefined,
     });
 
     sendJson(response, 200, {
@@ -370,6 +386,71 @@ async function handleRenderRequest(response, root, requestedPath, options) {
       },
     });
   }
+}
+
+async function handleWritebackRequest({ request, response, root }) {
+  let body;
+  try {
+    body = await readRequestBody(request, 1024 * 1024);
+  } catch (error) {
+    sendJson(response, 413, { ok: false, error: { message: error.message } });
+    return;
+  }
+
+  let payload;
+  try {
+    payload = JSON.parse(body || '{}');
+  } catch {
+    sendJson(response, 400, { ok: false, error: { message: 'Writeback request body must be valid JSON.' } });
+    return;
+  }
+
+  try {
+    const result = applyWritebackRequest(payload, {
+      rootPath: root,
+      editMode: true,
+      localhost: true,
+      operations: {
+        'markdown:set-task-checkbox': markdownTaskCheckboxWritebackOperation,
+      },
+    });
+    sendJson(response, 200, result);
+  } catch (error) {
+    if (error instanceof WritebackContractError) {
+      sendJson(response, writebackStatusCode(error), { ok: false, error: error.toJSON() });
+      return;
+    }
+    throw error;
+  }
+}
+
+function readRequestBody(request, limitBytes) {
+  return new Promise((resolvePromise, reject) => {
+    let body = '';
+    request.setEncoding('utf8');
+    request.on('data', (chunk) => {
+      body += chunk;
+      if (Buffer.byteLength(body, 'utf8') > limitBytes) {
+        reject(new Error('Writeback request body is too large.'));
+        request.destroy();
+      }
+    });
+    request.on('end', () => resolvePromise(body));
+    request.on('error', reject);
+  });
+}
+
+function writebackStatusCode(error) {
+  if (error.code === 'ERR_WRITEBACK_STALE_SOURCE' || error.code === 'ERR_WRITEBACK_ANCHOR_MISMATCH' || error.code === 'ERR_WRITEBACK_MARKDOWN_CHECKBOX_CONFLICT') {
+    return 409;
+  }
+  if (error.code === 'ERR_WRITEBACK_DISABLED' || error.code === 'ERR_WRITEBACK_NON_LOCAL') {
+    return 403;
+  }
+  if (error.code === 'ERR_WRITEBACK_SOURCE_NOT_FOUND') {
+    return 404;
+  }
+  return 400;
 }
 
 function handleEventsRequest(response, clients) {
@@ -607,9 +688,22 @@ function sendHtml(response, html) {
   response.end(html);
 }
 
+function sendNoContent(response, statusCode = 204) {
+  response.writeHead(statusCode, {
+    'Access-Control-Allow-Origin': 'null',
+    'Access-Control-Allow-Headers': 'content-type',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Cache-Control': 'no-store',
+  });
+  response.end();
+}
+
 function sendJson(response, statusCode, payload) {
   response.writeHead(statusCode, {
     'Content-Type': 'application/json; charset=utf-8',
+    'Access-Control-Allow-Origin': 'null',
+    'Access-Control-Allow-Headers': 'content-type',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Cache-Control': 'no-store',
   });
   response.end(`${JSON.stringify(payload)}\n`);
