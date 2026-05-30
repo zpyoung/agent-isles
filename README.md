@@ -186,8 +186,8 @@ The plugin does not auto-install on session start, publish releases, or mutate p
 ## CLI
 
 ```bash
-isles render <file.md> [--out <file.html>] [--mode trusted|sanitized] [--assets cdn|local] [--pack <path>]... [--no-user-packs]
-isles render <file.md> [--out <file.html>] [--safe|--sanitize] [--assets cdn|local] [--pack <path>]... [--no-user-packs]
+isles render <file.md> [--out <file.html>] [--mode trusted|sanitized] [--assets cdn|local|inline] [--pack <path>]... [--no-user-packs]
+isles render <file.md> [--out <file.html>] [--safe|--sanitize] [--assets cdn|local|inline] [--pack <path>]... [--no-user-packs]
 isles packs resolve <file.md> [--pack <path>]... [--no-user-packs]
 isles watch <file.md> [--out <file.html>]
 ```
@@ -349,6 +349,28 @@ Supported islands so far:
 - `<agent-copy-block lang="..." label="...">...</agent-copy-block>`
 - `<agent-tabs>...</agent-tabs>` with `<agent-tab title="...">...</agent-tab>` panels
 - `<agent-timeline label="...">...</agent-timeline>` with `<agent-step status="done|active|pending|failed" label="...">...</agent-step>` entries
+
+### Mermaid diagram support
+
+Agent Isles supports Mermaid fences for Markdown-adjacent diagrams such as flowcharts, sequence diagrams, state diagrams, and architecture sketches:
+
+````md
+```mermaid
+graph TD
+  A[Markdown] --> B[Agent Isles]
+  B --> C[Browser-ready HTML]
+```
+````
+
+Mermaid support intentionally uses a narrow Agent Isles rehype transform plus the upstream `mermaid` browser runtime rather than `rehype-mermaid`. `rehype-mermaid` is a useful prior-art package, but its build-time SVG path adds `mermaid-isomorphic`/headless-rendering weight and hides more of the output strategy than Agent Isles needs right now. Agent Isles keeps the Markdown transform inspectable: `mermaid` fences become `<figure class="agent-mermaid">` blocks, and a small generated script renders them in the browser.
+
+Asset strategy:
+
+- `--assets cdn` loads Mermaid from jsDelivr only when the page contains at least one Mermaid fence.
+- `--assets local` copies `mermaid.min.js` beside the other local runtime assets and references it from the generated HTML.
+- `--assets inline` embeds the Mermaid runtime in the HTML only when Mermaid fences are present, preserving single-file output for diagram documents.
+
+Invalid Mermaid syntax is reported by the generated browser-side renderer as an in-page `Mermaid render failed: ...` diagnostic while leaving the original diagram source visible for debugging. Mermaid diagram source is still authored content: use trusted vs sanitized mode deliberately, and do not treat client-side rendering as a sanitizer for untrusted diagrams.
 
 ### D2 diagram support
 

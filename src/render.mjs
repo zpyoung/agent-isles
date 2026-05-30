@@ -19,6 +19,9 @@ const projectRoot = resolve(moduleDir, '..');
 const themePath = join(projectRoot, 'src', 'theme', 'agent-theme.css');
 const componentBundlePath = join(projectRoot, 'dist', 'agent-components.js');
 const componentScriptName = 'agent-components.js';
+const mermaidRuntimePath = require.resolve('mermaid/dist/mermaid.min.js');
+const mermaidRuntimeName = 'mermaid.min.js';
+const mermaidCdnUrl = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js';
 const markdownExtensions = new Set(['.md', '.markdown']);
 const localAssetDirName = 'assets';
 const packAssetRootPath = `${localAssetDirName}/agent-isles/packs`;
@@ -179,7 +182,7 @@ const coreSanitizedSchema = {
       ...(defaultSchema.attributes?.img || []),
     ],
     code: ['className', ...(defaultSchema.attributes?.code || [])],
-    pre: ['className', ...(defaultSchema.attributes?.pre || [])],
+    pre: ['className', 'data*', ...(defaultSchema.attributes?.pre || [])],
     'agent-decision': ['className', 'title', 'verdict'],
     'agent-risk': ['className', 'title', 'level'],
     'agent-metric': ['className', 'label', 'value', 'unit', 'trend', 'tone'],
@@ -218,7 +221,7 @@ const coreSanitizedSchema = {
     ],
     'agent-action': ['className', 'owner', 'due', 'priority', 'status'],
     // D2 diagram SVG attributes
-    figure: ['className'],
+    figure: ['className', 'data*'],
     svg: [
       'className',
       'xmlns',
@@ -375,6 +378,7 @@ export async function renderMarkdown(markdown, options = {}) {
     .use(remarkParse)
     .use(remarkGfm)
     .use(remarkRehype, { allowDangerousHtml: true })
+    .use(rehypeAgentMermaid)
     .use(rehypeAgentD2)
     .use(rehypeRaw);
 
@@ -428,6 +432,9 @@ export async function renderMarkdownFile(inputPath, options = {}) {
       copyComponentBundle(dirname(outFile));
       if (assetMode === 'local') {
         copyLocalAssets(dirname(outFile));
+        if (hasMermaidDiagrams(html)) {
+          copyMermaidRuntime(dirname(outFile));
+        }
       }
       copyPackAssets(dirname(outFile), packAssetRecords);
       writePackMetadata(dirname(outFile), packAssetRecords);
@@ -435,6 +442,42 @@ export async function renderMarkdownFile(inputPath, options = {}) {
   }
 
   return { html, outFile, resolvedPacks };
+}
+
+function rehypeAgentMermaid() {
+  return (tree) => {
+    transformMermaidCodeBlocks(tree);
+  };
+}
+
+function transformMermaidCodeBlocks(node) {
+  if (!Array.isArray(node.children)) {
+    return;
+  }
+
+  for (let index = 0; index < node.children.length; index += 1) {
+    const child = node.children[index];
+    const mermaidCode = extractLanguageCodeBlock(child, 'mermaid');
+
+    if (mermaidCode) {
+      node.children[index] = {
+        type: 'element',
+        tagName: 'figure',
+        properties: { className: ['agent-mermaid'], dataAgentMermaid: true },
+        children: [
+          {
+            type: 'element',
+            tagName: 'pre',
+            properties: { className: ['mermaid'], dataAgentMermaidSource: true },
+            children: [{ type: 'text', value: mermaidCode.value }],
+          },
+        ],
+      };
+      continue;
+    }
+
+    transformMermaidCodeBlocks(child);
+  }
 }
 
 function rehypeAgentD2() {
@@ -450,7 +493,7 @@ async function transformD2CodeBlocks(node) {
 
   for (let index = 0; index < node.children.length; index += 1) {
     const child = node.children[index];
-    const d2Code = extractD2CodeBlock(child);
+    const d2Code = extractLanguageCodeBlock(child, 'd2');
 
     if (d2Code) {
       const svg = await renderD2Svg(d2Code.value, child.position);
@@ -467,18 +510,19 @@ async function transformD2CodeBlocks(node) {
   }
 }
 
-function extractD2CodeBlock(node) {
+function extractLanguageCodeBlock(node, language) {
   if (node?.type !== 'element' || node.tagName !== 'pre') {
     return null;
   }
 
   const codeNode = node.children?.find((child) => child.type === 'element' && child.tagName === 'code');
   const classNames = codeNode?.properties?.className || [];
-  const hasD2Language = Array.isArray(classNames)
-    ? classNames.includes('language-d2')
-    : String(classNames).split(/\s+/).includes('language-d2');
+  const languageClassName = `language-${language}`;
+  const hasLanguage = Array.isArray(classNames)
+    ? classNames.includes(languageClassName)
+    : String(classNames).split(/\s+/).includes(languageClassName);
 
-  if (!hasD2Language) {
+  if (!hasLanguage) {
     return null;
   }
 
@@ -579,6 +623,7 @@ function buildHtmlPage(body, options = {}) {
   const packStyleLinks = buildPackStyleLinks(packAssetRecords, assetMode);
   const packModuleScripts = buildPackModuleScripts(packAssetRecords, assetMode);
   const componentScript = buildComponentScript(assetMode, missingBundleComment);
+  const mermaidScripts = hasMermaidDiagrams(body) ? buildMermaidScripts(assetMode) : '';
 
   const mainBody = options.showSource ? pageBody : indent(pageBody, 4);
 
@@ -595,9 +640,13 @@ ${packMetadata}${styles}
   <main class="${mainClass}">
 ${mainBody}
   </main>
-${scripts}${componentScript}${packModuleScripts}
+${scripts}${mermaidScripts}${componentScript}${packModuleScripts}
 </body>
 </html>`;
+}
+
+function hasMermaidDiagrams(html) {
+  return String(html).includes('data-agent-mermaid');
 }
 
 function buildSourceComparison(renderedBody, sourceMarkdown) {
@@ -676,6 +725,91 @@ ${bootstrapJs}
   }
 
   return `${bootstrapScript}${missingBundleComment}`;
+}
+
+function buildMermaidScripts(assetMode) {
+  return `\n${buildMermaidRuntimeScript(assetMode)}\n${buildMermaidRendererScript()}`;
+}
+
+function buildMermaidRuntimeScript(assetMode) {
+  if (assetMode === 'inline') {
+    const mermaidRuntime = escapeInlineScript(readFileSync(mermaidRuntimePath, 'utf8'));
+    return `  <script>
+/* Mermaid runtime */
+${mermaidRuntime}
+  </script>`;
+  }
+
+  const src = assetMode === 'local' ? `./${localAssetDirName}/${mermaidRuntimeName}` : mermaidCdnUrl;
+  return `  <script src="${src}"></script>`;
+}
+
+function buildMermaidRendererScript() {
+  return `  <script>
+/* Agent Isles Mermaid renderer */
+(function () {
+  const figures = Array.from(document.querySelectorAll('[data-agent-mermaid]'));
+  if (figures.length === 0) {
+    return;
+  }
+
+  const mermaid = globalThis.mermaid;
+  const showError = (figure, sourceElement, message) => {
+    const errorBlock = document.createElement('pre');
+    errorBlock.className = 'agent-mermaid-error';
+    errorBlock.setAttribute('role', 'alert');
+    errorBlock.textContent = 'Mermaid render failed: ' + message;
+    sourceElement.insertAdjacentElement('afterend', errorBlock);
+    figure.dataset.agentMermaidRendered = 'false';
+  };
+
+  if (!mermaid) {
+    for (const figure of figures) {
+      const sourceElement = figure.querySelector('[data-agent-mermaid-source]');
+      if (sourceElement) {
+        showError(figure, sourceElement, 'Mermaid runtime failed to load.');
+      }
+    }
+    return;
+  }
+
+  mermaid.initialize({
+    startOnLoad: false,
+    securityLevel: 'strict',
+    htmlLabels: false,
+  });
+
+  figures.forEach(async (figure, index) => {
+    const sourceElement = figure.querySelector('[data-agent-mermaid-source]');
+    if (!sourceElement) {
+      return;
+    }
+
+    const source = sourceElement.textContent || '';
+    const output = document.createElement('div');
+    output.className = 'agent-mermaid-rendered';
+    sourceElement.insertAdjacentElement('afterend', output);
+
+    try {
+      if (typeof mermaid.parse === 'function') {
+        await mermaid.parse(source);
+      }
+      const renderResult = await mermaid.render(
+        'agent-mermaid-' + index + '-' + Math.random().toString(36).slice(2),
+        source,
+      );
+      output.innerHTML = renderResult.svg;
+      sourceElement.hidden = true;
+      figure.dataset.agentMermaidRendered = 'true';
+    } catch (error) {
+      output.remove();
+      const message = error && error.message ? error.message : String(error);
+      showError(figure, sourceElement, message);
+      console.warn('Agent Isles Mermaid render failed:', error);
+    }
+  });
+}());
+  </script>`;
 }
 
 function buildComponentScript(assetMode, missingBundleComment) {
@@ -921,6 +1055,16 @@ function copyLocalAssets(outDir) {
     }
     copyFileSync(asset.source, join(assetsDir, asset.fileName));
   }
+}
+
+function copyMermaidRuntime(outDir) {
+  if (!existsSync(mermaidRuntimePath)) {
+    throw new Error(`Mermaid runtime source missing: ${mermaidRuntimePath}`);
+  }
+
+  const assetsDir = join(outDir, localAssetDirName);
+  mkdirSync(assetsDir, { recursive: true });
+  copyFileSync(mermaidRuntimePath, join(assetsDir, mermaidRuntimeName));
 }
 
 function normalizeAssetMode(assetMode = 'cdn') {

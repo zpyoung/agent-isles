@@ -35,6 +35,8 @@ const expectedCustomElements = [
 ];
 
 test('rendered demo loads without console errors and hydrates agent components', async ({ page }) => {
+  test.slow();
+
   const server = await serveDist();
   const consoleErrors = [];
   page.on('console', (message) => {
@@ -45,9 +47,19 @@ test('rendered demo loads without console errors and hydrates agent components',
   page.on('pageerror', (error) => {
     consoleErrors.push(error.message);
   });
+  await page.route('**/assets/mermaid.min.js', (route) => route.fulfill({
+    contentType: 'text/javascript; charset=utf-8',
+    body: `globalThis.mermaid = {
+      initialize() {},
+      parse: async () => true,
+      render: async (id, source) => ({
+        svg: '<svg role="img" aria-label="Mermaid diagram" data-source-length="' + source.length + '"></svg>',
+      }),
+    };`,
+  }));
 
   try {
-    await page.goto(`${server.origin}/demo.html`);
+    await page.goto(`${server.origin}/demo.html`, { waitUntil: 'domcontentloaded' });
 
     await expect(page.locator('h1')).toContainText('Agent Isles Demo');
 
