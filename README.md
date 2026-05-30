@@ -376,7 +376,7 @@ The planned writeback feature is deliberately explicit:
 isles edit report.md
 ```
 
-`isles edit` should start a localhost-only editing server, render the selected Markdown with writeback metadata, and accept authenticated local writeback requests for supported interactions. The first MVP is narrow by design: Markdown task-list checkboxes.
+`isles edit` should start a localhost-only editing server, render the selected Markdown with writeback metadata, and accept authenticated local writeback requests for supported interactions. The shared contract is documented in [`docs/writeback-contract.md`](docs/writeback-contract.md). The first MVP is narrow by design: Markdown task-list checkboxes.
 
 Example source:
 
@@ -400,6 +400,8 @@ Guardrails for this roadmap:
 - only the selected source file may be patched,
 - stale source metadata returns a conflict instead of fuzzy-patching,
 - richer component writeback is future work, not part of the task-list MVP.
+
+Component authors should treat `data-agent-isles-writeback-op` and `data-agent-isles-writeback` as reserved contract attributes. A component opts in only when an edit/preview server renders with `writeback.enabled`; static renders strip the reserved opt-in metadata and expose no endpoint.
 
 The tracking issue is #31.
 

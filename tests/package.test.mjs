@@ -34,6 +34,7 @@ const expectedPublishedFiles = [
   'src/render.mjs',
   'src/theme/agent-theme.css',
   'src/watch.mjs',
+  'src/writeback.mjs',
 ];
 
 function runNpm(args, options = {}) {

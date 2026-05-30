@@ -12,6 +12,7 @@ import rehypeHighlight from 'rehype-highlight';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import rehypeStringify from 'rehype-stringify';
 import { resolvePackInputs } from './pack-resolver.mjs';
+import { createSourceVersion, sourcePathForWriteback, WRITEBACK_CONTRACT_VERSION } from './writeback.mjs';
 
 const require = createRequire(import.meta.url);
 const moduleDir = dirname(fileURLToPath(import.meta.url));
@@ -376,7 +377,11 @@ export async function renderMarkdown(markdown, options = {}) {
     .use(remarkGfm)
     .use(remarkRehype, { allowDangerousHtml: true })
     .use(rehypeAgentD2)
-    .use(rehypeRaw);
+    .use(rehypeRaw)
+    .use(rehypeAgentWritebackMetadata, {
+      ...options,
+      sourceMarkdown,
+    });
 
   if (renderMode === RENDER_MODES.SANITIZED) {
     processor
@@ -552,6 +557,96 @@ function visitChildren(node, visitor) {
   }
 }
 
+function rehypeAgentWritebackMetadata(options = {}) {
+  return (tree) => {
+    const writebackOptions = options.writeback || {};
+    const enabled = writebackOptions.enabled === true;
+    let generatedId = 0;
+
+    visitChildren(tree, (_children, _index, node) => {
+      if (node?.type !== 'element') {
+        return undefined;
+      }
+
+      const operationType = readWritebackOperationType(node.properties);
+      stripWritebackProperties(node.properties);
+
+      if (!enabled || !operationType) {
+        return undefined;
+      }
+
+      if (!isAgentComponentTag(node.tagName) || !node.position?.start || !node.position?.end) {
+        return undefined;
+      }
+
+      generatedId += 1;
+      const componentId = readStringProperty(node.properties, 'id') || `${node.tagName}-${generatedId}`;
+      const sourcePath = sourcePathForWriteback(options.sourcePath, writebackOptions.rootPath);
+      if (!sourcePath) {
+        return undefined;
+      }
+
+      const metadata = {
+        contractVersion: WRITEBACK_CONTRACT_VERSION,
+        sourcePath,
+        sourceVersion: createSourceVersion(options.sourceMarkdown || ''),
+        target: {
+          componentId,
+          tagName: node.tagName,
+          range: {
+            start: copyPositionPoint(node.position.start),
+            end: copyPositionPoint(node.position.end),
+          },
+        },
+        operation: { type: operationType },
+      };
+
+      node.properties['data-agent-isles-writeback'] = JSON.stringify(metadata);
+      return undefined;
+    });
+  };
+}
+
+function readWritebackOperationType(properties = {}) {
+  return readStringProperty(properties, 'data-agent-isles-writeback-op')
+    || readStringProperty(properties, 'dataAgentIslesWritebackOp');
+}
+
+function stripWritebackProperties(properties = {}) {
+  delete properties['data-agent-isles-writeback-op'];
+  delete properties.dataAgentIslesWritebackOp;
+  delete properties['data-agent-isles-writeback'];
+  delete properties.dataAgentIslesWriteback;
+}
+
+function readStringProperty(properties = {}, propertyName) {
+  const value = properties[propertyName];
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (typeof value === 'number') {
+    return String(value);
+  }
+  return null;
+}
+
+function isAgentComponentTag(tagName) {
+  return typeof tagName === 'string' && tagName.startsWith('agent-');
+}
+
+function copyPositionPoint(point) {
+  const copy = {
+    line: point.line,
+    column: point.column,
+  };
+
+  if (Number.isInteger(point.offset)) {
+    copy.offset = point.offset;
+  }
+
+  return copy;
+}
+
 function buildHtmlPage(body, options = {}) {
   const title = options.title || 'Agent Isles Output';
   const assetMode = normalizeAssetMode(options.assetMode);
@@ -567,6 +662,7 @@ function buildHtmlPage(body, options = {}) {
   const styles = buildStyles(assetMode);
   const scripts = buildScripts(assetMode, missingBundleComment);
   const packMetadata = assetMode === 'inline' ? '' : buildPackMetadataTags(packAssetRecords);
+  const writebackMetadata = buildWritebackMetadataTags(options.writeback);
   const packStyleLinks = buildPackStyleLinks(packAssetRecords, assetMode);
   const packModuleScripts = buildPackModuleScripts(packAssetRecords, assetMode);
   const componentScript = buildComponentScript(assetMode, missingBundleComment);
@@ -579,7 +675,7 @@ function buildHtmlPage(body, options = {}) {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${escapeHtml(title)}</title>
-${packMetadata}${styles}
+${packMetadata}${writebackMetadata}${styles}
   <style>${theme}</style>${packStyleLinks}
 </head>
 <body>
@@ -694,6 +790,16 @@ function buildPackMetadataTags(packAssetRecords) {
   const packIds = packAssetRecords.map((record) => record.id).join(',');
   return `  <meta name="agent-isles-packs" content="${escapeHtml(packIds)}" />
   <link rel="agent-isles-packs" href="./${packMetadataPath}" type="application/json" />
+`;
+}
+
+function buildWritebackMetadataTags(writebackOptions = {}) {
+  if (writebackOptions.enabled !== true) {
+    return '';
+  }
+
+  const endpoint = writebackOptions.endpoint || '/__agent-isles/writeback';
+  return `  <meta name="agent-isles-writeback-endpoint" content="${escapeHtml(endpoint)}" />
 `;
 }
 
