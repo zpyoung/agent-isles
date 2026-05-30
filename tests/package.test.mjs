@@ -21,6 +21,7 @@ const expectedPublishedFiles = [
   'src/components/agent-dependency-map.js',
   'src/components/agent-dependency.js',
   'src/components/agent-gantt.js',
+  'src/components/agent-kanban.js',
   'src/components/agent-kpi.js',
   'src/components/agent-metric.js',
   'src/components/agent-risk.js',

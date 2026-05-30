@@ -32,6 +32,9 @@ const expectedCustomElements = [
   'agent-dependency',
   'agent-action-list',
   'agent-action',
+  'agent-kanban',
+  'agent-kanban-lane',
+  'agent-kanban-card',
 ];
 
 test('rendered demo loads without console errors and hydrates agent components', async ({ page }) => {
@@ -64,7 +67,7 @@ test('rendered demo loads without console errors and hydrates agent components',
     await expect(page.locator('h1')).toContainText('Agent Isles Demo');
 
     const galleryExamples = page.locator('.agent-component-example');
-    await expect(galleryExamples).toHaveCount(11);
+    await expect(galleryExamples).toHaveCount(12);
     const firstGallery = galleryExamples.first();
     const renderedPane = firstGallery.locator('.agent-component-rendered');
     const sourcePane = firstGallery.locator('.agent-component-source-card');

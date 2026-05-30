@@ -263,6 +263,72 @@ Custom status labels example:
 </agent-status-board>
 ```
 
+### `<agent-kanban>`, `<agent-kanban-lane>`, and `<agent-kanban-card>`
+
+Use for read-only Kanban/swim-lane reports where lane order, card counts, and card metadata should be derived from explicit nested Markdown source instead of hand-authored Bootstrap grids.
+
+Status: supported.
+
+Authoring guidance:
+
+- Use `<agent-kanban>` for one board, direct `<agent-kanban-lane>` children for source-order lanes, and direct `<agent-kanban-card>` children for cards.
+- Keep nested custom-element children continuous; avoid blank lines between lanes/cards inside the board so CommonMark does not close the raw HTML block and escape later custom tags.
+- Use surrounding Markdown for commentary. The component owns only the board, lanes, cards, counts, and empty states.
+- Do not use this component for drag/drop, writeback, live task sync, search/filter/sort, or persisted UI state.
+
+Attributes:
+
+| Tag | Attribute | Required | Allowed values | Default | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `agent-kanban` | `label` | No | Plain text | `Kanban board` | Visible board heading and accessible label. |
+| `agent-kanban` | `lanes` | No | Comma-separated lane keys | empty | Documentation/source hint; V1 renders explicit child lanes in source order. |
+| `agent-kanban` | `density` | No | `compact` or empty | empty | Attribute-only compact spacing; no persisted state. |
+| `agent-kanban-lane` | `key` | No | Token | empty | Stable source identifier for the lane. |
+| `agent-kanban-lane` | `label` | No | Plain text | `key` or `Lane` | Visible lane heading. |
+| `agent-kanban-lane` | `empty` | No | Plain text | derived from label | Empty-lane message when no direct cards are present. |
+| `agent-kanban-card` | `title` | No | Plain text | `Kanban card` | Visible card title. |
+| `agent-kanban-card` | `owner` | No | Plain text | empty | Accountable person/team rendered as metadata. |
+| `agent-kanban-card` | `meta` | No | Plain text | empty | Short free-form metadata such as `P1`, issue number, or size. |
+| `agent-kanban-card` | `priority` | No | Plain text | empty | Optional priority metadata. |
+| `agent-kanban-card` | `status` | No | Plain text token | empty | Visible status label, not color alone. |
+| `agent-kanban-card` | `tone` | No | `neutral`, `ready`, `active`, `blocked`, `done`, `risk`, `warning`, or any token | `neutral` | Visual accent and fallback visible label when `status` is absent. |
+
+Child content:
+
+- `<agent-kanban>` should contain one or more direct `<agent-kanban-lane>` children.
+- `<agent-kanban-lane>` should contain direct `<agent-kanban-card>` children or be empty.
+- `<agent-kanban-card>` may contain concise body prose, links, lists, or inline evidence that stays readable in source form.
+
+Accessibility notes:
+
+- The board and lanes expose visible headings and derived text counts.
+- Empty lanes render a visible/announced empty state.
+- Status/tone appears as text labels on cards; color is never the only status signal.
+- The responsive layout stacks lanes on narrow screens and avoids custom keyboard interactions.
+
+Trusted/sanitized behavior:
+
+- Trusted mode preserves the tags, attributes, and child HTML.
+- Sanitized mode allows the documented Kanban tags and attributes while stripping event handlers, unsafe URLs, scripts, and unsupported attributes.
+
+Example:
+
+```markdown
+<agent-kanban label="Launch board" lanes="backlog,doing,blocked,done">
+  <agent-kanban-lane key="backlog" label="Backlog">
+    <agent-kanban-card title="Draft release notes" owner="Merlin" meta="P2" tone="neutral">
+      Summarize merged component work and remaining release risks.
+    </agent-kanban-card>
+  </agent-kanban-lane>
+  <agent-kanban-lane key="doing" label="Doing">
+    <agent-kanban-card title="Render smoke" owner="Merlin" meta="P1" status="active" tone="active">
+      Verify the demo after component bundle changes.
+    </agent-kanban-card>
+  </agent-kanban-lane>
+  <agent-kanban-lane key="blocked" label="Blocked" empty="No blocked work"></agent-kanban-lane>
+</agent-kanban>
+```
+
 ### `<agent-dependency-map>` and `<agent-dependency>`
 
 Use for project-management dependency chains where you need to show what blocks what without requiring Mermaid, hand-authored SVG, or bespoke CSS connectors.
