@@ -20,6 +20,8 @@ The renderer has two explicit trust modes:
 - Trusted mode preserves raw HTML islands with `rehype-raw`, copies the built component bundle next to the rendered output, and injects it as `./agent-components.js`. Only render Markdown from trusted repo/workspace sources in this mode.
 - Sanitized mode preserves documented `<agent-*>` tags and documented safe attributes while rejecting executable/event-handler HTML such as `onclick`, arbitrary scripts, unsupported component attributes, and unsafe URL protocols.
 
+Writeback uses reserved contract attributes, not general component API. `data-agent-isles-writeback-op` is an edit/preview opt-in marker and `data-agent-isles-writeback` is generated source metadata. Static renders strip these reserved attributes; edit/preview servers may enable them only through the documented contract in `docs/writeback-contract.md`.
+
 ## Status levels
 
 - **Supported**: implemented in `src/components/` and exported by `src/components/index.js`.
