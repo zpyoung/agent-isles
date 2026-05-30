@@ -9,12 +9,12 @@ import {
   RENDER_MODES,
   validateMarkdownInput,
 } from '../src/render.mjs';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CONFIG_FILE, getUserConfigDir, PackResolutionError, resolvePackInputs } from '../src/pack-resolver.mjs';
 import { watchMarkdownFile } from '../src/watch.mjs';
-import { previewMarkdown } from '../src/preview.mjs';
+import { previewMarkdown, startPreviewServer } from '../src/preview.mjs';
 
 const USAGE = `Agent Isles — Markdown seas, component islands.
 
@@ -24,12 +24,13 @@ Usage:
   isles packs resolve <file.md> [--pack <path>]... [--no-user-packs]
   isles watch <file.md> [--out <file.html>] [--mode trusted|sanitized] [--assets cdn|local|inline] [--show-source] [--pack <path>]... [--no-user-packs]
   isles preview (--stdin | <file.md>) [--open] [--mode trusted|sanitized] [--safe|--sanitize] [--show-source] [--pack <path>]... [--no-user-packs]
+  isles preview <dir> [--port <port>] [--mode trusted|sanitized] [--show-source] [--pack <path>]... [--no-user-packs]
 
 Commands:
   render         Render Markdown to browser-ready HTML
   packs resolve  Print resolved component packs, sources, asset outputs, and sanitizer permissions
   watch          Render immediately and rebuild when the Markdown file changes
-  preview        Render ephemeral Markdown (stdin or a file) to a temp HTML file and print its file:// URL
+  preview        Render ephemeral Markdown to a temp HTML file, or serve a localhost directory preview
 
 Options:
   --assets cdn|local|inline   Use CDN assets (default), copy local offline assets, or inline all assets into single HTML file
@@ -402,6 +403,7 @@ function parsePreviewArgs(args) {
     stdin: false,
     input: undefined,
     open: false,
+    port: 4173,
     renderMode: RENDER_MODES.TRUSTED,
     showSource: false,
     explicitPacks: [],
@@ -418,6 +420,17 @@ function parsePreviewArgs(args) {
 
     if (arg === '--open') {
       parsed.open = true;
+      continue;
+    }
+
+    if (arg === '--port') {
+      const value = args[index + 1];
+      if (!value || value.startsWith('-')) {
+        console.error('Missing value for --port.');
+        process.exit(2);
+      }
+      parsed.port = Number(value);
+      index += 1;
       continue;
     }
 
@@ -488,20 +501,52 @@ async function runPreview(args) {
   const parsed = parsePreviewArgs(args);
 
   if (parsed.stdin && parsed.input) {
-    console.error('Choose one input source: either --stdin or a Markdown file path, not both.\n');
+    console.error('Choose one input source: either --stdin or a path, not both.\n');
     console.error(USAGE);
     process.exit(2);
   }
 
   if (!parsed.stdin && !parsed.input) {
-    console.error('Missing input. Provide --stdin (pipe Markdown) or a Markdown file path.\n');
+    console.error('Missing input. Provide --stdin, a Markdown file path, or a directory path.\n');
     console.error(USAGE);
     process.exit(2);
   }
 
-  let markdown;
-  let projectDir;
   try {
+    if (!parsed.stdin) {
+      const inputPath = resolve(parsed.input);
+      if (existsSync(inputPath) && statSync(inputPath).isDirectory()) {
+        if (parsed.open) {
+          console.error('--open is only supported for ephemeral file/stdin preview, not directory server mode.');
+          process.exit(2);
+        }
+
+        const preview = await startPreviewServer(inputPath, {
+          port: parsed.port,
+          renderMode: parsed.renderMode,
+          showSource: parsed.showSource,
+          explicitPacks: parsed.explicitPacks,
+          includeUserPacks: parsed.includeUserPacks,
+        });
+
+        console.log(`[isles] previewing ${preview.rootDir}`);
+        console.log(`[isles] open ${preview.url}/`);
+
+        function close() {
+          void preview.close().finally(() => {
+            console.log('[isles] stopped');
+            process.exit(0);
+          });
+        }
+
+        process.once('SIGINT', close);
+        process.once('SIGTERM', close);
+        return;
+      }
+    }
+
+    let markdown;
+    let projectDir;
     if (parsed.stdin) {
       markdown = readFileSync(0, 'utf8');
       projectDir = process.cwd();
@@ -531,12 +576,7 @@ async function runPreview(args) {
       }
     }
   } catch (error) {
-    if (error instanceof AgentIslesInputError) {
-      console.error(error.message);
-      process.exit(1);
-    }
-
-    if (error instanceof PackResolutionError || error.name === 'PackLoadError') {
+    if (error instanceof AgentIslesInputError || error instanceof PackResolutionError || error.name === 'PackLoadError') {
       console.error(error.message);
       process.exit(1);
     }

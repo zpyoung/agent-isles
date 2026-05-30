@@ -186,11 +186,30 @@ The plugin does not auto-install on session start, publish releases, or mutate p
 ## CLI
 
 ```bash
-isles render <file.md> [--out <file.html>] [--mode trusted|sanitized] [--assets cdn|local|inline] [--pack <path>]... [--no-user-packs]
-isles render <file.md> [--out <file.html>] [--safe|--sanitize] [--assets cdn|local|inline] [--pack <path>]... [--no-user-packs]
+isles render <file.md> [--out <file.html>] [--mode trusted|sanitized] [--assets cdn|local|inline] [--show-source] [--pack <path>]... [--no-user-packs]
+isles render <file.md> [--out <file.html>] [--safe|--sanitize] [--assets cdn|local|inline] [--show-source] [--pack <path>]... [--no-user-packs]
 isles packs resolve <file.md> [--pack <path>]... [--no-user-packs]
-isles watch <file.md> [--out <file.html>]
+isles watch <file.md> [--out <file.html>] [--mode trusted|sanitized] [--assets cdn|local|inline] [--show-source] [--pack <path>]... [--no-user-packs]
+isles preview (--stdin | <file.md>) [--open] [--mode trusted|sanitized] [--safe|--sanitize] [--show-source] [--pack <path>]... [--no-user-packs]
+isles preview <dir> [--port <port>] [--mode trusted|sanitized] [--show-source] [--pack <path>]... [--no-user-packs]
 ```
+
+Ephemeral preview mode renders one Markdown document from stdin or a file to an inline-asset temp HTML file and prints a `file://` URL:
+
+```bash
+node ./bin/isles.mjs preview README.md --open
+printf '# Hello' | node ./bin/isles.mjs preview --stdin
+```
+
+Directory preview mode serves a localhost-only browser UI for a folder of Markdown artifacts:
+
+```bash
+node ./bin/isles.mjs preview docs --port 4173
+```
+
+The preview UI recursively discovers `.md` and `.markdown` files, shows them in a navigable sidebar, renders the selected file through the normal Agent Isles pipeline, and refreshes the tree/active preview when files are created, updated, renamed, or deleted. Preview rendering uses inline assets internally so each selected document can be shown in the browser pane without managing a generated asset directory.
+
+Path confinement is enforced by the preview server: browser requests can only render supported Markdown files under the selected preview root. Render errors are returned to the preview UI and shown in-page instead of crashing the server.
 
 Planned explicit edit/writeback mode:
 
@@ -307,10 +326,10 @@ Layers:
 
 1. **Source format** — Markdown with explicit HTML islands.
 2. **Component vocabulary** — Bootstrap primitives plus Lit Web Components for agent-specific patterns.
-3. **CLI renderer** — remark/rehype pipeline that injects assets and writes browser-ready HTML.
+3. **CLI renderer and preview server** — remark/rehype pipeline that injects assets and writes browser-ready HTML, plus a localhost-only directory preview server for browsing source trees.
 4. **Local edit/writeback mode** — planned explicit localhost mode for source-backed interactions, starting with Markdown task-list toggles.
 
-Static rendering and source writeback are separate boundaries. `isles render` and `isles watch` should remain inert document-generation tools; `isles edit` should be the only mode that can patch the selected source file.
+Static rendering and source writeback are separate boundaries. `isles render`, `isles watch`, and read-only `isles preview <dir>` should remain inert document-generation/review tools; `isles edit` should be the only mode that can patch the selected source file.
 
 Implementation plans live on the dedicated `plans` branch so planning artifacts remain versioned without shipping on `main`:
 
