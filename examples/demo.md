@@ -587,6 +587,17 @@ const message = greet('Agent Isles');
 console.log(message);
 ```
 
+### Mermaid diagram fences
+
+Mermaid fences stay portable in Markdown and are rendered in the browser by the generated Agent Isles page.
+
+```mermaid
+graph TD
+  markdown[Markdown source] --> renderer[Agent Isles renderer]
+  renderer --> runtime[Mermaid browser runtime]
+  runtime --> html[Rendered diagram]
+```
+
 ### Bundled D2 diagram fences
 
 D2 fences render as SVG diagrams without requiring an external command.

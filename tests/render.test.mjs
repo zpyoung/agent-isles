@@ -564,6 +564,27 @@ test('demo gives every supported component a rendered/source side-by-side pair',
   assert.doesNotMatch(html, /agent-gallery-example title=/);
 });
 
+test('renderMarkdownString renders a string to self-contained inline HTML without a source file', async () => {
+  const { renderMarkdownString } = await import('../src/render.mjs');
+  const projectDir = mkdtempSync(join(tmpdir(), 'agent-isles-preview-core-'));
+
+  const { html, resolvedPacks, packAssetRecords, assetMode } = await renderMarkdownString(
+    '# Hello\n\n<agent-decision verdict="go" title="Proceed">Ship it.</agent-decision>\n',
+    { assetMode: 'inline', projectDir, includeUserPacks: false },
+  );
+
+  assert.equal(assetMode, 'inline');
+  assert.ok(Array.isArray(resolvedPacks.packs));
+  assert.ok(Array.isArray(packAssetRecords));
+  // Rendered content survives.
+  assert.match(html, /<h1>Hello<\/h1>/);
+  assert.match(html, /<agent-decision verdict="go" title="Proceed">/);
+  // Inline mode is self-contained: no external script/style references.
+  assert.doesNotMatch(html, /src="https?:\/\//);
+  assert.doesNotMatch(html, /href="https?:\/\//);
+  assert.doesNotMatch(html, /src="\.\//);
+});
+
 test('demo can render source Markdown beside rendered output', async () => {
   const { renderMarkdownFile } = await import('../src/render.mjs');
 

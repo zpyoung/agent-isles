@@ -42,9 +42,47 @@ agent-status-item,
 agent-dependency-map,
 agent-dependency,
 agent-action-list,
-agent-action {
+agent-action,
+.agent-mermaid {
   display: block;
   margin: 1rem 0;
+}
+
+.agent-mermaid {
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid var(--agent-isles-border);
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+  padding: 1rem;
+}
+
+.agent-mermaid-rendered svg {
+  display: block;
+  height: auto;
+  max-width: 100%;
+}
+
+.agent-mermaid .mermaid {
+  background: #0f172a;
+  border-radius: 0.75rem;
+  color: #dbeafe;
+  margin: 0;
+  padding: 0.85rem;
+  white-space: pre-wrap;
+}
+
+.agent-mermaid .mermaid[hidden] {
+  display: none;
+}
+
+.agent-mermaid-error {
+  background: #450a0a;
+  border-radius: 0.75rem;
+  color: #fee2e2;
+  margin: 0.75rem 0 0;
+  padding: 0.85rem;
+  white-space: pre-wrap;
 }
 
 .agent-isles-page--source-view {

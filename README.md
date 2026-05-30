@@ -190,7 +190,15 @@ isles render <file.md> [--out <file.html>] [--mode trusted|sanitized] [--assets 
 isles render <file.md> [--out <file.html>] [--safe|--sanitize] [--assets cdn|local|inline] [--show-source] [--pack <path>]... [--no-user-packs]
 isles packs resolve <file.md> [--pack <path>]... [--no-user-packs]
 isles watch <file.md> [--out <file.html>] [--mode trusted|sanitized] [--assets cdn|local|inline] [--show-source] [--pack <path>]... [--no-user-packs]
+isles preview (--stdin | <file.md>) [--open] [--mode trusted|sanitized] [--safe|--sanitize] [--show-source] [--pack <path>]... [--no-user-packs]
 isles preview <dir> [--port <port>] [--mode trusted|sanitized] [--show-source] [--pack <path>]... [--no-user-packs]
+```
+
+Ephemeral preview mode renders one Markdown document from stdin or a file to an inline-asset temp HTML file and prints a `file://` URL:
+
+```bash
+node ./bin/isles.mjs preview README.md --open
+printf '# Hello' | node ./bin/isles.mjs preview --stdin
 ```
 
 Directory preview mode serves a localhost-only browser UI for a folder of Markdown artifacts:
@@ -248,6 +256,40 @@ node ./bin/isles.mjs render examples/demo.md --out dist/demo.html --assets inlin
 **Security boundary**: Inline mode only inlines trusted, locally resolvable assets — the built-in runtime and component-pack `style`/`module` files declared in a pack manifest that point at files inside the pack directory. It never fetches remote pack assets and never executes arbitrary user-authored JavaScript beyond the existing trusted/raw-HTML model: producing a single portable file does **not** make untrusted Markdown safe to render in `trusted` mode, and the raw-HTML and component-pack boundaries remain security-sensitive regardless of asset mode. If a declared pack asset cannot be resolved locally, inline rendering **fails fast** with an error naming the pack and asset path rather than silently emitting incomplete HTML — fix the asset or fall back to `--assets local`/`--assets cdn`.
 
 `isles watch` renders immediately and rebuilds when the Markdown source changes, and accepts the same `--mode`, `--assets` (including `inline`), `--show-source`, and `--pack` options as `isles render`, so watch rebuilds can also produce single-file inline output. It remains source-driven: browser interactions in the generated HTML do not write back to the Markdown file.
+
+## Ephemeral previews (`isles preview`)
+
+Render agent-authored Markdown to a throwaway HTML preview without saving the source into your repo. Pipe Markdown over stdin and hand the printed `file://` URL to a browser tool:
+
+```bash
+printf '%s' "$markdown" | isles preview --stdin
+# file:///var/folders/.../agent-isles-preview/isles-preview-1748540000000-<uuid>.html
+# /var/folders/.../agent-isles-preview/isles-preview-1748540000000-<uuid>.html
+```
+
+Add `--open` to also launch your default browser (best-effort, fire-and-forget):
+
+```bash
+printf '%s' "$markdown" | isles preview --stdin --open
+```
+
+You can also point it at an already-temporary Markdown file. The file is only read — it is never written back or copied into the repo:
+
+```bash
+isles preview /tmp/scratch.md --open
+```
+
+`preview` accepts the same rendering flags as `render` (`--mode trusted|sanitized`, `--safe`/`--sanitize`, `--show-source`, `--pack <path>`, `--no-user-packs`). It does **not** accept `--assets` or `--out`: previews are always rendered as a single self-contained HTML file (inline assets, no sibling files). For persistent output or `cdn`/`local` asset modes, use `isles render`.
+
+### Where previews go and how they're cleaned up
+
+- Previews are written to `os.tmpdir()/agent-isles-preview/` (e.g. `/var/folders/...` on macOS, `/tmp/...` on Linux). They never land in your project, so `git status --short` stays clean.
+- On each run, `preview` prunes files in that directory older than 24 hours, then writes the new one. The fresh preview is kept long enough for the browser to read it. Override the retention window with `ISLES_PREVIEW_TTL_MS` (milliseconds); set `ISLES_PREVIEW_TTL_MS=0` to prune everything but the current preview.
+- Override the launch command for `--open` with `ISLES_PREVIEW_OPEN_CMD` (invoked as `<cmd> <file>`; it must be a bare executable name or absolute path — embedded arguments like `open -a Firefox` are not supported). By default `preview` uses `open` (macOS), `xdg-open` (Linux), or `cmd /c start` (Windows).
+
+### Security boundary
+
+Ephemeral does **not** mean trusted. `preview` applies the same raw-HTML policy as `render`: `--mode trusted` (default) embeds raw HTML and the Agent Isles runtime; `--mode sanitized` strips unsafe markup. Inline runtime support means "the Agent Isles component runtime is embedded in the file," not "arbitrary author-supplied JavaScript is now allowed." Treat preview Markdown from untrusted sources with `--mode sanitized`, exactly as you would a file-based render.
 
 ## Component Packs V1
 
@@ -326,6 +368,28 @@ Supported islands so far:
 - `<agent-copy-block lang="..." label="...">...</agent-copy-block>`
 - `<agent-tabs>...</agent-tabs>` with `<agent-tab title="...">...</agent-tab>` panels
 - `<agent-timeline label="...">...</agent-timeline>` with `<agent-step status="done|active|pending|failed" label="...">...</agent-step>` entries
+
+### Mermaid diagram support
+
+Agent Isles supports Mermaid fences for Markdown-adjacent diagrams such as flowcharts, sequence diagrams, state diagrams, and architecture sketches:
+
+````md
+```mermaid
+graph TD
+  A[Markdown] --> B[Agent Isles]
+  B --> C[Browser-ready HTML]
+```
+````
+
+Mermaid support intentionally uses a narrow Agent Isles rehype transform plus the upstream `mermaid` browser runtime rather than `rehype-mermaid`. `rehype-mermaid` is a useful prior-art package, but its build-time SVG path adds `mermaid-isomorphic`/headless-rendering weight and hides more of the output strategy than Agent Isles needs right now. Agent Isles keeps the Markdown transform inspectable: `mermaid` fences become `<figure class="agent-mermaid">` blocks, and a small generated script renders them in the browser.
+
+Asset strategy:
+
+- `--assets cdn` loads Mermaid from jsDelivr only when the page contains at least one Mermaid fence.
+- `--assets local` copies `mermaid.min.js` beside the other local runtime assets and references it from the generated HTML.
+- `--assets inline` embeds the Mermaid runtime in the HTML only when Mermaid fences are present, preserving single-file output for diagram documents.
+
+Invalid Mermaid syntax is reported by the generated browser-side renderer as an in-page `Mermaid render failed: ...` diagnostic while leaving the original diagram source visible for debugging. Mermaid diagram source is still authored content: use trusted vs sanitized mode deliberately, and do not treat client-side rendering as a sanitizer for untrusted diagrams.
 
 ### D2 diagram support
 
