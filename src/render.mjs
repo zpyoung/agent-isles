@@ -381,11 +381,12 @@ export async function renderMarkdown(markdown, options = {}) {
   const renderMode = normalizeRenderMode(options.renderMode);
   const assetMode = normalizeAssetMode(options.assetMode);
   const sourceMarkdown = typeof options.sourceMarkdown === 'string' ? options.sourceMarkdown : markdown;
-  const markdownTaskMarkers = buildMarkdownTaskMarkerRecords(sourceMarkdown);
+  const markdownTaskMarkers = [];
   const toc = [];
   const processor = unified()
     .use(remarkParse)
     .use(remarkGfm)
+    .use(remarkCollectMarkdownTaskMarkers, { records: markdownTaskMarkers, sourceMarkdown })
     .use(remarkRehype, { allowDangerousHtml: true })
     .use(rehypeAgentMermaid)
     .use(rehypeAgentD2)
@@ -799,52 +800,88 @@ function hasClassName(properties = {}, className) {
   return false;
 }
 
-function buildMarkdownTaskMarkerRecords(markdown) {
-  const records = [];
-  const source = String(markdown || '');
-  const linePattern = /.*(?:\r\n|\n|\r|$)/g;
-  let match;
+function remarkCollectMarkdownTaskMarkers({ records, sourceMarkdown } = {}) {
+  const targetRecords = Array.isArray(records) ? records : [];
+  const source = String(sourceMarkdown || '');
 
-  while ((match = linePattern.exec(source)) !== null) {
-    const lineWithEnding = match[0];
-    if (lineWithEnding === '') {
-      break;
-    }
+  return (tree) => {
+    visitMarkdownListItems(tree, (node) => {
+      if (typeof node.checked !== 'boolean') {
+        return;
+      }
 
-    const lineOffset = match.index;
-    const lineNumber = recordsLineNumber(source, lineOffset);
-    const lineWithoutEnding = lineWithEnding.replace(/\r\n|\n|\r$/, '');
-    const taskMatch = lineWithoutEnding.match(/^([ \t]*(?:[-+*]|\d+[.)])[ \t]+)(\[[ xX]\])(?=\s|$)/);
-    if (taskMatch) {
-      const markerOffset = lineOffset + taskMatch[1].length;
-      const markerColumn = taskMatch[1].length + 1;
-      const marker = taskMatch[2];
-      records.push({
-        marker,
-        checked: marker === '[x]' || marker === '[X]',
-        range: {
-          start: { line: lineNumber, column: markerColumn, offset: markerOffset },
-          end: { line: lineNumber, column: markerColumn + marker.length, offset: markerOffset + marker.length },
-        },
-      });
-    }
-
-    if (linePattern.lastIndex >= source.length) {
-      break;
-    }
-  }
-
-  return records;
+      const record = markerRecordForListItem(node, source);
+      if (record) {
+        targetRecords.push(record);
+      }
+    });
+  };
 }
 
-function recordsLineNumber(source, offset) {
-  let line = 1;
-  for (let index = 0; index < offset; index += 1) {
-    if (source[index] === '\n') {
-      line += 1;
+function visitMarkdownListItems(node, visitor) {
+  if (!node || typeof node !== 'object') {
+    return;
+  }
+
+  if (node.type === 'listItem') {
+    visitor(node);
+  }
+
+  if (!Array.isArray(node.children)) {
+    return;
+  }
+
+  for (const child of node.children) {
+    visitMarkdownListItems(child, visitor);
+  }
+}
+
+function markerRecordForListItem(node, source) {
+  const itemStart = node.position?.start;
+  if (!Number.isInteger(itemStart?.offset)) {
+    return null;
+  }
+
+  const lineEnd = findLineEnd(source, itemStart.offset);
+  const firstChildOffset = firstChildStartOffset(node);
+  const searchEnd = Number.isInteger(firstChildOffset) ? Math.min(firstChildOffset, lineEnd) : lineEnd;
+  const prefix = source.slice(itemStart.offset, searchEnd);
+  const taskMatch = prefix.match(/^([ \t]*(?:[-+*]|\d+[.)])[ \t]+)(\[[ xX]\])(?=\s|$)/);
+  if (!taskMatch) {
+    return null;
+  }
+
+  const marker = taskMatch[2];
+  const markerOffset = itemStart.offset + taskMatch[1].length;
+  const markerColumn = itemStart.column + taskMatch[1].length;
+  return {
+    marker,
+    checked: node.checked,
+    range: {
+      start: { line: itemStart.line, column: markerColumn, offset: markerOffset },
+      end: { line: itemStart.line, column: markerColumn + marker.length, offset: markerOffset + marker.length },
+    },
+  };
+}
+
+function firstChildStartOffset(node) {
+  if (!Array.isArray(node.children)) {
+    return null;
+  }
+
+  for (const child of node.children) {
+    const offset = child?.position?.start?.offset;
+    if (Number.isInteger(offset)) {
+      return offset;
     }
   }
-  return line;
+
+  return null;
+}
+
+function findLineEnd(source, startOffset) {
+  const newlineOffset = source.slice(startOffset).search(/[\r\n]/);
+  return newlineOffset === -1 ? source.length : startOffset + newlineOffset;
 }
 
 function readWritebackOperationType(properties = {}) {
