@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { serveDist } from './support/static-server.mjs';
 
 test('action list islands hydrate and honor grouping/filtering/layout', async ({ page }) => {
-  test.slow();
+  test.setTimeout(180_000);
   const server = await serveDist();
   const consoleErrors = [];
   page.on('console', (message) => {

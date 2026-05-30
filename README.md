@@ -155,7 +155,9 @@ MD
 ./node_modules/.bin/isles render ./report.md --out ./report.html --assets local --no-user-packs
 ```
 
-Only after those checks pass and the maintainer explicitly approves publication should the release command be run:
+Only after those checks pass and the maintainer explicitly approves publication, create a GitHub Release whose tag matches the package version, for example `v0.1.0-alpha.N`. The release workflow publishes prereleases to the npm `next` dist-tag and stable releases to `latest` using the repository `NPM_TOKEN` secret.
+
+Maintainers can still reproduce the underlying publish command locally when diagnosing a release, but routine publication should happen through the GitHub Release workflow:
 
 ```bash
 npm publish --tag next
