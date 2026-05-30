@@ -13,6 +13,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CONFIG_FILE, getUserConfigDir, PackResolutionError, resolvePackInputs } from '../src/pack-resolver.mjs';
+import { startPreviewServer } from '../src/preview.mjs';
 import { watchMarkdownFile } from '../src/watch.mjs';
 
 const USAGE = `Agent Isles — Markdown seas, component islands.
@@ -22,11 +23,13 @@ Usage:
   isles render <file.md> [--out <file.html>] [--safe|--sanitize] [--assets cdn|local|inline] [--show-source] [--pack <path>]... [--no-user-packs]
   isles packs resolve <file.md> [--pack <path>]... [--no-user-packs]
   isles watch <file.md> [--out <file.html>] [--mode trusted|sanitized] [--assets cdn|local|inline] [--show-source] [--pack <path>]... [--no-user-packs]
+  isles preview <dir> [--port <port>] [--mode trusted|sanitized] [--show-source] [--pack <path>]... [--no-user-packs]
 
 Commands:
   render         Render Markdown to browser-ready HTML
   packs resolve  Print resolved component packs, sources, asset outputs, and sanitizer permissions
   watch          Render immediately and rebuild when the Markdown file changes
+  preview        Serve a localhost Markdown directory preview with a live file tree
 
 Options:
   --assets cdn|local|inline   Use CDN assets (default), copy local offline assets, or inline all assets into single HTML file
@@ -54,6 +57,8 @@ if (command === 'render') {
   await runPacks(args);
 } else if (command === 'watch') {
   await runWatch(args);
+} else if (command === 'preview') {
+  await runPreview(args);
 } else {
   console.error(`Unknown command: ${command}\n`);
   console.error(USAGE);
@@ -390,4 +395,128 @@ async function runWatch(args) {
     projectDir: dirname(resolve(input)),
     exitOnSignal: true,
   });
+}
+
+async function runPreview(args) {
+  const parsed = parsePreviewArgs(args);
+
+  if (!parsed.input) {
+    console.error('Missing directory for preview.\n');
+    console.error(USAGE);
+    process.exit(2);
+  }
+
+  let preview;
+  try {
+    preview = await startPreviewServer(parsed.input, {
+      port: parsed.port,
+      renderMode: parsed.renderMode,
+      showSource: parsed.showSource,
+      explicitPacks: parsed.explicitPacks,
+      includeUserPacks: parsed.includeUserPacks,
+    });
+  } catch (error) {
+    if (error instanceof AgentIslesInputError || error instanceof PackResolutionError || error.name === 'PackLoadError') {
+      console.error(error.message);
+      process.exit(1);
+    }
+    throw error;
+  }
+
+  console.log(`[isles] previewing ${preview.rootDir}`);
+  console.log(`[isles] open ${preview.url}/`);
+
+  function close() {
+    void preview.close().finally(() => {
+      console.log('[isles] stopped');
+      process.exit(0);
+    });
+  }
+
+  process.once('SIGINT', close);
+  process.once('SIGTERM', close);
+}
+
+function parsePreviewArgs(args) {
+  const parsed = {
+    input: undefined,
+    port: 4173,
+    renderMode: RENDER_MODES.TRUSTED,
+    showSource: false,
+    explicitPacks: [],
+    includeUserPacks: true,
+  };
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+
+    if (arg === '--port') {
+      const value = args[index + 1];
+      if (!value || value.startsWith('-')) {
+        console.error('Missing value for --port.');
+        process.exit(2);
+      }
+      parsed.port = Number(value);
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--mode') {
+      const value = args[index + 1];
+      if (!value || value.startsWith('-')) {
+        console.error('Missing value for --mode. Use trusted or sanitized.');
+        process.exit(2);
+      }
+
+      try {
+        parsed.renderMode = normalizeRenderMode(value);
+      } catch (error) {
+        console.error(error.message);
+        process.exit(2);
+      }
+
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--pack') {
+      const value = args[index + 1];
+      if (!value || value.startsWith('-')) {
+        console.error('Missing value for --pack. Provide a pack directory path.');
+        process.exit(2);
+      }
+      parsed.explicitPacks.push(value);
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--no-user-packs') {
+      parsed.includeUserPacks = false;
+      continue;
+    }
+
+    if (arg === '--safe' || arg === '--sanitize') {
+      parsed.renderMode = RENDER_MODES.SANITIZED;
+      continue;
+    }
+
+    if (arg === '--show-source') {
+      parsed.showSource = true;
+      continue;
+    }
+
+    if (arg.startsWith('-')) {
+      console.error(`Unknown preview option: ${arg}`);
+      process.exit(2);
+    }
+
+    if (parsed.input) {
+      console.error(`Unexpected extra argument: ${arg}`);
+      process.exit(2);
+    }
+
+    parsed.input = arg;
+  }
+
+  return parsed;
 }
