@@ -75,3 +75,34 @@ test('directory preview UI selects and renders multiple Markdown files', async (
     await preview.close();
   }
 });
+
+test('directory preview provides reading controls and rendered table of contents', async ({ page }) => {
+  const root = mkdtempSync(join(tmpdir(), 'agent-isles-preview-reading-'));
+  writeFileSync(join(root, 'guide.md'), '# Guide\n\n## Readable Width\n\nBody.\n\n### Font Scale\n\nMore body.\n', 'utf8');
+
+  const preview = await startPreviewServer(root, {
+    port: 0,
+    watchIntervalMs: 60_000,
+    includeUserPacks: false,
+  });
+
+  try {
+    await page.goto(preview.url);
+    const previewFrame = page.frameLocator('iframe[title="Rendered Markdown preview"]');
+
+    await expect(page.getByRole('group', { name: 'Reading controls' })).toBeVisible();
+    await expect(previewFrame.getByRole('navigation', { name: 'Table of contents' })).toBeVisible();
+    await expect(previewFrame.getByRole('link', { name: 'Readable Width' })).toHaveAttribute('href', '#readable-width');
+
+    const pageMetrics = previewFrame.locator('.agent-isles-page');
+    await expect(pageMetrics).toHaveCSS('max-width', '960px');
+
+    await page.getByRole('button', { name: 'Wide width' }).click();
+    await expect(pageMetrics).toHaveCSS('max-width', '1200px');
+
+    await page.getByRole('button', { name: 'Large text' }).click();
+    await expect(pageMetrics).toHaveCSS('font-size', '18px');
+  } finally {
+    await preview.close();
+  }
+});

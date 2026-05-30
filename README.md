@@ -224,6 +224,8 @@ In writeback mode, clicking a rendered task checkbox posts a localhost-only stru
 
 The preview UI recursively discovers `.md` and `.markdown` files, shows them in a navigable sidebar, renders the selected file through the normal Agent Isles pipeline, and refreshes the tree/active preview when files are created, updated, renamed, or deleted. Preview rendering uses inline assets internally so each selected document can be shown in the browser pane without managing a generated asset directory.
 
+Directory preview also optimizes for reading ergonomics: the shell exposes width and text-size controls, while rendered documents generate an in-page table of contents from level-2 and level-3 headings. These controls do not modify Markdown source; they only adjust the current preview rendering.
+
 Path confinement is enforced by the preview server: browser requests can only render supported Markdown files under the selected preview root. Render and writeback errors are returned to the preview UI and shown in-page instead of crashing the server.
 
 Future explicit edit mode may wrap the same local writeback contract in a dedicated command:

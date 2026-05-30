@@ -226,6 +226,21 @@ test('preview server returns render errors as in-page data without crashing', as
   }
 });
 
+test('rendered preview pages include heading anchors and a table of contents', async () => {
+  const { renderMarkdownString } = await import('../src/render.mjs');
+
+  const { html } = await renderMarkdownString('# Preview Guide\n\n## Readable Width\n\nBody.\n\n### Font Scale\n\nMore body.\n', {
+    assetMode: 'inline',
+    includeUserPacks: false,
+  });
+
+  assert.match(html, /<nav class="agent-isles-toc" aria-label="Table of contents">/);
+  assert.match(html, /<a href="#readable-width">Readable Width<\/a>/);
+  assert.match(html, /<a href="#font-scale">Font Scale<\/a>/);
+  assert.match(html, /<span id="readable-width" class="agent-isles-heading-anchor" aria-hidden="true"><\/span><h2>Readable Width<\/h2>/);
+  assert.match(html, /<span id="font-scale" class="agent-isles-heading-anchor" aria-hidden="true"><\/span><h3>Font Scale<\/h3>/);
+});
+
 test('isles preview starts a localhost directory server and exits cleanly on SIGINT', async () => {
   const root = mkdtempSync(join(tmpdir(), 'agent-isles-preview-cli-'));
   writeFileSync(join(root, 'one.md'), '# CLI Preview\n', 'utf8');
