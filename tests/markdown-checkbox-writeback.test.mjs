@@ -216,6 +216,37 @@ test('writeback-enabled render ignores raw HTML checkboxes while mapping Markdow
   });
 });
 
+test('writeback-enabled render maps only parser-recognized Markdown task checkboxes', async () => {
+  await withTempWorkspace(async (root) => {
+    const sourcePath = join(root, 'plan.md');
+    const markdown = [
+      '```',
+      '- [ ] sample in code',
+      '```',
+      '    - [ ] indented code',
+      '- [ ] real task',
+      '- [ ] another task',
+      '',
+    ].join('\n');
+    writeFileSync(sourcePath, markdown, 'utf8');
+
+    const { html } = await renderMarkdownFile(sourcePath, {
+      writeback: {
+        enabled: true,
+        rootPath: root,
+        endpoint: '/__agent-isles/writeback',
+      },
+    });
+
+    const metadata = readAllWritebackMetadata(html);
+    assert.equal(metadata.length, 2);
+    assert.deepEqual(metadata.map((item) => item.target.range), [
+      markerRange(markdown, '[ ]', 2),
+      markerRange(markdown, '[ ]', 3),
+    ]);
+  });
+});
+
 test('static and non-writeback renders keep markdown task checkboxes inert', async () => {
   const markdown = '- [ ] task\n';
   const html = await renderMarkdown(markdown);
