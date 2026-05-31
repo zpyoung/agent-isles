@@ -129,6 +129,20 @@ export class AgentDependencyMap extends LitElement {
       font-weight: 900;
       margin: 0 0 0.35rem;
     }
+
+    :host([data-bs-theme="dark"]) .map,
+    :host([data-bs-theme="dark"]) .legend,
+    :host([data-bs-theme="dark"]) .warning {
+      background: var(--agent-isles-surface, #0f172a);
+      border-color: var(--agent-isles-border, #334155);
+      color: var(--agent-isles-text, #cbd5e1);
+    }
+    :host([data-bs-theme="dark"]) .title { color: var(--agent-isles-heading, #f8fafc); }
+    :host([data-bs-theme="dark"]) .legend-ready,
+    :host([data-bs-theme="dark"]) .legend-done { background: rgba(34, 197, 94, 0.18); border-color: rgba(34, 197, 94, 0.5); color: #bbf7d0; }
+    :host([data-bs-theme="dark"]) .legend-active { background: rgba(56, 189, 248, 0.18); border-color: rgba(56, 189, 248, 0.5); color: #bae6fd; }
+    :host([data-bs-theme="dark"]) .legend-blocked { background: rgba(245, 158, 11, 0.18); border-color: rgba(245, 158, 11, 0.5); color: #fde68a; }
+    :host([data-bs-theme="dark"]) .legend-risk { background: rgba(239, 68, 68, 0.18); border-color: rgba(239, 68, 68, 0.5); color: #fecaca; }
   `;
 
   constructor() {
@@ -364,7 +378,8 @@ export class AgentDependencyMap extends LitElement {
           <slot @slotchange=${this.handleSlotChange}></slot>
         </div>
       </div>
-    `;
+
+  `;
   }
 }
 

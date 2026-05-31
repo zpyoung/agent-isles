@@ -47,6 +47,12 @@ Behavior:
 - Toggles `document.documentElement.dataset.bsTheme` between `light` and `dark`, aligning with Bootstrap 5.3 color-mode conventions.
 - Persists the selected theme in `localStorage` when storage is available.
 - Initializes from persisted preference, then the document `data-bs-theme`, then `prefers-color-scheme`.
+- Works with the built-in component library's dark-mode audit: core Agent Isles islands provide dark surfaces, borders, text, badges/status chips, timelines, Gantt/board/card layouts, and focus states when the document is in dark mode.
+
+Limitations:
+
+- Third-party component packs can inherit the page theme tokens, but pack-specific dark-mode styling is the pack author's responsibility.
+- The toggle changes the generated document in-browser; renderer-level default theme selection can be added separately if a workflow needs a preselected static mode.
 
 Accessibility notes:
 

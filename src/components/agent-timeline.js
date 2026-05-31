@@ -83,6 +83,15 @@ export class AgentStep extends LitElement {
       font-size: 0.92rem;
       margin-top: 0.2rem;
     }
+
+    :host([data-bs-theme="dark"]) .timeline { border-color: var(--agent-isles-border, #334155); }
+    :host([data-bs-theme="dark"]) .title { color: var(--agent-isles-heading, #f8fafc); }
+    :host([data-bs-theme="dark"]) .meta,
+    :host([data-bs-theme="dark"]) .content { color: var(--agent-isles-muted, #94a3b8); }
+    :host([data-bs-theme="dark"]) .done { background: rgba(34, 197, 94, 0.18); color: #bbf7d0; }
+    :host([data-bs-theme="dark"]) .active { background: rgba(56, 189, 248, 0.18); color: #bae6fd; }
+    :host([data-bs-theme="dark"]) .pending { background: rgba(148, 163, 184, 0.18); border-color: rgba(148, 163, 184, 0.42); color: #cbd5e1; }
+    :host([data-bs-theme="dark"]) .blocked { background: rgba(239, 68, 68, 0.18); color: #fecaca; }
   `;
 
   connectedCallback() {
@@ -140,6 +149,31 @@ export class AgentTimeline extends LitElement {
     ::slotted(agent-step) {
       margin-left: -1.82rem;
     }
+
+    :host([data-bs-theme="dark"]) section,
+    :host([data-bs-theme="dark"]) article,
+    :host([data-bs-theme="dark"]) .tabs,
+    :host([data-bs-theme="dark"]) .timeline,
+    :host([data-bs-theme="dark"]) .gantt,
+    :host([data-bs-theme="dark"]) .board,
+    :host([data-bs-theme="dark"]) .action-list,
+    :host([data-bs-theme="dark"]) .kanban {
+      background: var(--agent-isles-surface, #0f172a);
+      border-color: var(--agent-isles-border, #334155);
+      color: var(--agent-isles-text, #cbd5e1);
+    }
+    :host([data-bs-theme="dark"]) h2,
+    :host([data-bs-theme="dark"]) h3,
+    :host([data-bs-theme="dark"]) .title,
+    :host([data-bs-theme="dark"]) .label {
+      color: var(--agent-isles-heading, #f8fafc);
+    }
+    :host([data-bs-theme="dark"]) .meta,
+    :host([data-bs-theme="dark"]) .content,
+    :host([data-bs-theme="dark"]) .empty,
+    :host([data-bs-theme="dark"]) .summary {
+      color: var(--agent-isles-muted, #94a3b8);
+    }
   `;
 
   render() {
@@ -147,7 +181,8 @@ export class AgentTimeline extends LitElement {
       <section class="timeline" role="list" aria-label=${this.label || 'Timeline'}>
         <slot></slot>
       </section>
-    `;
+
+  `;
   }
 }
 

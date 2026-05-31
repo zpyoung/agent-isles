@@ -50,6 +50,19 @@ export class AgentDecision extends LitElement {
     .warning { background: #ca8a04; }
     .primary { background: #2563eb; }
     .content { color: #334155; }
+
+    :host([data-bs-theme="dark"]) .decision {
+      background: var(--agent-isles-surface, #0f172a);
+      border-color: var(--agent-isles-border, #334155);
+      border-left-color: var(--agent-isles-primary, #38bdf8);
+      box-shadow: 0 1px 2px rgba(2, 6, 23, 0.45);
+    }
+    :host([data-bs-theme="dark"]) .title {
+      color: var(--agent-isles-heading, #f8fafc);
+    }
+    :host([data-bs-theme="dark"]) .content {
+      color: var(--agent-isles-text, #cbd5e1);
+    }
   `;
 
   render() {
@@ -64,7 +77,8 @@ export class AgentDecision extends LitElement {
         </div>
         <div class="content"><slot></slot></div>
       </section>
-    `;
+
+  `;
   }
 }
 

@@ -183,6 +183,21 @@ export class AgentDependency extends LitElement {
       --agent-dependency-badge-border: #fca5a5;
       --agent-dependency-badge-text: #991b1b;
     }
+
+    :host([data-bs-theme="dark"]) .dependency {
+      background: linear-gradient(180deg, #0f172a 0%, #111827 100%);
+      border-color: var(--agent-dependency-border, #334155);
+      box-shadow: 0 1px 2px rgba(2, 6, 23, 0.45);
+      color: var(--agent-isles-text, #cbd5e1);
+    }
+    :host([data-bs-theme="dark"]) .title { color: var(--agent-isles-heading, #f8fafc); }
+    :host([data-bs-theme="dark"]) .meta,
+    :host([data-bs-theme="dark"]) .blockers,
+    :host([data-bs-theme="dark"]) .owner { color: var(--agent-isles-muted, #94a3b8); }
+    :host([data-bs-theme="dark"]) .ready { --agent-dependency-border: rgba(34, 197, 94, 0.45); --agent-dependency-badge-bg: rgba(34, 197, 94, 0.18); --agent-dependency-badge-border: rgba(34, 197, 94, 0.5); --agent-dependency-badge-text: #bbf7d0; }
+    :host([data-bs-theme="dark"]) .active { --agent-dependency-border: rgba(56, 189, 248, 0.45); --agent-dependency-badge-bg: rgba(56, 189, 248, 0.18); --agent-dependency-badge-border: rgba(56, 189, 248, 0.5); --agent-dependency-badge-text: #bae6fd; }
+    :host([data-bs-theme="dark"]) .blocked { --agent-dependency-border: rgba(245, 158, 11, 0.55); --agent-dependency-badge-bg: rgba(245, 158, 11, 0.18); --agent-dependency-badge-border: rgba(245, 158, 11, 0.5); --agent-dependency-badge-text: #fde68a; }
+    :host([data-bs-theme="dark"]) .risk { --agent-dependency-border: rgba(239, 68, 68, 0.55); --agent-dependency-badge-bg: rgba(239, 68, 68, 0.18); --agent-dependency-badge-border: rgba(239, 68, 68, 0.5); --agent-dependency-badge-text: #fecaca; }
   `;
 
   updated() {
@@ -250,7 +265,8 @@ export class AgentDependency extends LitElement {
           ? html`<div class="warnings" role="note">${warnings.join(' ')}</div>`
           : null}
       </article>
-    `;
+
+  `;
   }
 }
 

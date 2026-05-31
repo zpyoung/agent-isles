@@ -87,6 +87,22 @@ export class AgentMetric extends LitElement {
       color: #475569;
       margin-top: 0.65rem;
     }
+
+    :host([data-bs-theme="dark"]) .metric {
+      --metric-bg: linear-gradient(180deg, #0f172a 0%, #111827 100%);
+      --metric-border: var(--agent-isles-border, #334155);
+      --metric-color: var(--agent-isles-heading, #f8fafc);
+      box-shadow: 0 1px 2px rgba(2, 6, 23, 0.45);
+    }
+    :host([data-bs-theme="dark"]) .metric.success { --metric-bg: linear-gradient(180deg, rgba(34, 197, 94, 0.16), #0f172a); --metric-border: rgba(34, 197, 94, 0.45); --metric-color: #bbf7d0; }
+    :host([data-bs-theme="dark"]) .metric.warning { --metric-bg: linear-gradient(180deg, rgba(245, 158, 11, 0.16), #0f172a); --metric-border: rgba(245, 158, 11, 0.5); --metric-color: #fde68a; }
+    :host([data-bs-theme="dark"]) .metric.danger { --metric-bg: linear-gradient(180deg, rgba(239, 68, 68, 0.16), #0f172a); --metric-border: rgba(239, 68, 68, 0.5); --metric-color: #fecaca; }
+    :host([data-bs-theme="dark"]) .label,
+    :host([data-bs-theme="dark"]) .unit,
+    :host([data-bs-theme="dark"]) .caption { color: var(--agent-isles-muted, #94a3b8); }
+    :host([data-bs-theme="dark"]) .trend.positive { background: rgba(34, 197, 94, 0.18); color: #bbf7d0; }
+    :host([data-bs-theme="dark"]) .trend.negative { background: rgba(239, 68, 68, 0.18); color: #fecaca; }
+    :host([data-bs-theme="dark"]) .trend.neutral { background: rgba(148, 163, 184, 0.18); color: #cbd5e1; }
   `;
 
   accessibleLabel(trend) {
@@ -117,7 +133,8 @@ export class AgentMetric extends LitElement {
         ` : null}
         <div class="note"><slot></slot></div>
       </section>
-    `;
+
+  `;
   }
 }
 

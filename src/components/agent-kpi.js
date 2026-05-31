@@ -69,6 +69,26 @@ export class AgentKpi extends LitElement {
     .warning { --tone-bg: #fef3c7; --tone-border: #fde68a; --tone-text: #92400e; }
     .danger { --tone-bg: #fee2e2; --tone-border: #fecaca; --tone-text: #991b1b; }
     .neutral { --tone-bg: #e2e8f0; --tone-border: #cbd5e1; --tone-text: #334155; }
+
+    :host([data-bs-theme="dark"]) .kpi {
+      background: linear-gradient(180deg, #0f172a 0%, #111827 100%);
+      border-color: var(--tone-border, #334155);
+      box-shadow: 0 1px 2px rgba(2, 6, 23, 0.45);
+      color: var(--agent-isles-text, #cbd5e1);
+    }
+    :host([data-bs-theme="dark"]) .label,
+    :host([data-bs-theme="dark"]) .meta,
+    :host([data-bs-theme="dark"]) .delta {
+      color: var(--agent-isles-muted, #94a3b8);
+    }
+    :host([data-bs-theme="dark"]) .value {
+      color: var(--agent-isles-heading, #f8fafc);
+    }
+    :host([data-bs-theme="dark"]) .primary { --tone-bg: rgba(56, 189, 248, 0.16); --tone-border: rgba(56, 189, 248, 0.45); --tone-text: #bae6fd; }
+    :host([data-bs-theme="dark"]) .success { --tone-bg: rgba(34, 197, 94, 0.16); --tone-border: rgba(34, 197, 94, 0.45); --tone-text: #bbf7d0; }
+    :host([data-bs-theme="dark"]) .warning { --tone-bg: rgba(245, 158, 11, 0.16); --tone-border: rgba(245, 158, 11, 0.5); --tone-text: #fde68a; }
+    :host([data-bs-theme="dark"]) .danger { --tone-bg: rgba(239, 68, 68, 0.16); --tone-border: rgba(239, 68, 68, 0.5); --tone-text: #fecaca; }
+    :host([data-bs-theme="dark"]) .neutral { --tone-bg: rgba(148, 163, 184, 0.16); --tone-border: rgba(148, 163, 184, 0.42); --tone-text: #cbd5e1; }
   `;
 
   updated() {
@@ -89,7 +109,8 @@ export class AgentKpi extends LitElement {
         ${this.delta ? html`<div class="delta">${this.delta}</div>` : null}
         <div class="detail"><slot></slot></div>
       </article>
-    `;
+
+  `;
   }
 }
 

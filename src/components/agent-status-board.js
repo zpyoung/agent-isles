@@ -250,6 +250,25 @@ export class AgentStatusItem extends LitElement {
       padding: 0 0.28rem;
       text-transform: uppercase;
     }
+
+    :host([data-bs-theme="dark"]) .board,
+    :host([data-bs-theme="dark"]) .group,
+    :host([data-bs-theme="dark"]) .item {
+      background: var(--agent-isles-surface, #0f172a);
+      border-color: var(--agent-isles-border, #334155);
+      box-shadow: 0 1px 2px rgba(2, 6, 23, 0.45);
+      color: var(--agent-isles-text, #cbd5e1);
+    }
+    :host([data-bs-theme="dark"]) .title,
+    :host([data-bs-theme="dark"]) .label { color: var(--agent-isles-heading, #f8fafc); }
+    :host([data-bs-theme="dark"]) .meta,
+    :host([data-bs-theme="dark"]) .summary,
+    :host([data-bs-theme="dark"]) .empty { color: var(--agent-isles-muted, #94a3b8); }
+    :host([data-bs-theme="dark"]) .status-badge { background: var(--status-background); border-color: var(--status-border); color: var(--status-text); }
+    :host([data-bs-theme="dark"]) .critical { --status-background: rgba(239, 68, 68, 0.18); --status-border: rgba(239, 68, 68, 0.5); --status-text: #fecaca; }
+    :host([data-bs-theme="dark"]) .warning { --status-background: rgba(245, 158, 11, 0.18); --status-border: rgba(245, 158, 11, 0.5); --status-text: #fde68a; }
+    :host([data-bs-theme="dark"]) .healthy { --status-background: rgba(34, 197, 94, 0.18); --status-border: rgba(34, 197, 94, 0.5); --status-text: #bbf7d0; }
+    :host([data-bs-theme="dark"]) .unknown { --status-background: rgba(148, 163, 184, 0.18); --status-border: rgba(148, 163, 184, 0.42); --status-text: #cbd5e1; }
   `;
 
   updated() {
@@ -526,6 +545,31 @@ export class AgentStatusBoard extends LitElement {
       font-size: 0.9rem;
       padding: 1rem;
     }
+
+    :host([data-bs-theme="dark"]) section,
+    :host([data-bs-theme="dark"]) article,
+    :host([data-bs-theme="dark"]) .tabs,
+    :host([data-bs-theme="dark"]) .timeline,
+    :host([data-bs-theme="dark"]) .gantt,
+    :host([data-bs-theme="dark"]) .board,
+    :host([data-bs-theme="dark"]) .action-list,
+    :host([data-bs-theme="dark"]) .kanban {
+      background: var(--agent-isles-surface, #0f172a);
+      border-color: var(--agent-isles-border, #334155);
+      color: var(--agent-isles-text, #cbd5e1);
+    }
+    :host([data-bs-theme="dark"]) h2,
+    :host([data-bs-theme="dark"]) h3,
+    :host([data-bs-theme="dark"]) .title,
+    :host([data-bs-theme="dark"]) .label {
+      color: var(--agent-isles-heading, #f8fafc);
+    }
+    :host([data-bs-theme="dark"]) .meta,
+    :host([data-bs-theme="dark"]) .content,
+    :host([data-bs-theme="dark"]) .empty,
+    :host([data-bs-theme="dark"]) .summary {
+      color: var(--agent-isles-muted, #94a3b8);
+    }
   `;
 
   constructor() {
@@ -711,7 +755,8 @@ export class AgentStatusBoard extends LitElement {
         ${this.renderSummary(counts, total)}
         ${total ? (this.isGrouped() ? this.renderGrouped(counts) : this.renderUngrouped()) : html`<div class="empty">No status items yet.</div>`}
       </section>
-    `;
+
+  `;
   }
 }
 
