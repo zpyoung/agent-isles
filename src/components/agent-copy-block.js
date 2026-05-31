@@ -80,6 +80,16 @@ export class AgentCopyBlock extends LitElement {
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
       font-size: 0.9rem;
     }
+
+    :host([data-bs-theme="dark"]) .copy-block {
+      border-color: var(--agent-isles-border, #334155);
+      background: #020617;
+      box-shadow: 0 1px 2px rgba(2, 6, 23, 0.55);
+    }
+    :host([data-bs-theme="dark"]) .header {
+      background: #0f172a;
+      border-color: var(--agent-isles-border, #334155);
+    }
   `;
 
   render() {
@@ -96,7 +106,8 @@ export class AgentCopyBlock extends LitElement {
         </div>
         <pre><code><slot></slot></code></pre>
       </section>
-    `;
+
+  `;
   }
 
   async copyContent() {

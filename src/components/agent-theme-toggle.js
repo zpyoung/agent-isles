@@ -62,6 +62,18 @@ export class AgentThemeToggle extends LitElement {
       transform: translateY(-1px);
     }
 
+    :host([data-bs-theme="dark"]) button {
+      background: var(--agent-isles-surface, #0f172a);
+      border-color: var(--agent-isles-border, #334155);
+      color: var(--agent-isles-heading, #f8fafc);
+      box-shadow: 0 1px 2px rgba(2, 6, 23, 0.45);
+    }
+
+    :host([data-bs-theme="dark"]) button:hover {
+      background: var(--agent-isles-surface-muted, #1e293b);
+      border-color: var(--agent-isles-primary, #38bdf8);
+    }
+
     button:focus-visible {
       outline: 3px solid var(--agent-isles-focus, #93c5fd);
       outline-offset: 2px;
@@ -171,6 +183,12 @@ function writeStoredTheme(storageKey, theme) {
 function applyDocumentTheme(theme) {
   document.documentElement.setAttribute('data-bs-theme', theme);
   document.documentElement.style.colorScheme = theme;
+
+  for (const element of document.querySelectorAll(
+    'agent-decision, agent-risk, agent-metric, agent-delta, agent-copy-block, agent-theme-toggle, agent-dependency-map, agent-dependency, agent-tabs, agent-timeline, agent-gantt, agent-kpi, agent-status-board, agent-action-list, agent-kanban',
+  )) {
+    element.setAttribute('data-bs-theme', theme);
+  }
 }
 
 function capitalizeTheme(theme) {

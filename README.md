@@ -80,6 +80,12 @@ dist/demo.html
 
 The renderer turns the Markdown source into a browser-ready HTML report, injects Bootstrap and the Agent Isles theme, and copies the component bundle next to the generated page. This makes the workflow reviewable in pull requests while still producing a credible artifact for humans.
 
+### Light and dark themes
+
+Agent Isles follows Bootstrap 5.3 color-mode conventions. Add `<agent-theme-toggle></agent-theme-toggle>` to a report to let readers switch `document.documentElement.dataset.bsTheme` between `light` and `dark`; the selected mode is persisted in `localStorage` when browser storage is available.
+
+The built-in component library is audited against the demo/gallery path for dark mode. Core surfaces, borders, muted text, badges/status chips, progress states, timelines, Gantt/board/card layouts, and focus states use Agent Isles theme tokens or component-level dark-mode overrides so generated reports remain readable in either mode. Third-party component packs can inherit the page tokens, but pack-specific dark-mode support remains the pack author's responsibility.
+
 ## Current status
 
 The first renderer slice exists:

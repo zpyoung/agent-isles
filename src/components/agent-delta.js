@@ -115,6 +115,19 @@ export class AgentDelta extends LitElement {
     .summary {
       color: #334155;
     }
+
+    :host([data-bs-theme="dark"]) .delta {
+      --delta-bg: #0f172a;
+      --delta-border: var(--agent-isles-border, #334155);
+      --delta-accent: var(--agent-isles-primary, #38bdf8);
+      color: var(--agent-isles-heading, #f8fafc);
+    }
+    :host([data-bs-theme="dark"]) .positive { --delta-bg: rgba(34, 197, 94, 0.14); --delta-border: rgba(34, 197, 94, 0.45); --delta-accent: #22c55e; }
+    :host([data-bs-theme="dark"]) .neutral { --delta-bg: rgba(245, 158, 11, 0.14); --delta-border: rgba(245, 158, 11, 0.5); --delta-accent: #fbbf24; }
+    :host([data-bs-theme="dark"]) .negative { --delta-bg: rgba(239, 68, 68, 0.14); --delta-border: rgba(239, 68, 68, 0.5); --delta-accent: #f87171; }
+    :host([data-bs-theme="dark"]) .label,
+    :host([data-bs-theme="dark"]) .unit,
+    :host([data-bs-theme="dark"]) .caption { color: var(--agent-isles-muted, #94a3b8); }
   `;
 
   hostAccessibleLabel() {
@@ -153,7 +166,8 @@ export class AgentDelta extends LitElement {
         </div>
         <div class="summary"><slot></slot></div>
       </section>
-    `;
+
+  `;
   }
 }
 

@@ -158,6 +158,27 @@ export class AgentAction extends LitElement {
       font-size: 0.86rem;
       margin-top: 0.3rem;
     }
+
+    :host([data-bs-theme="dark"]) .action-list,
+    :host([data-bs-theme="dark"]) .lane,
+    :host([data-bs-theme="dark"]) .action {
+      background: var(--agent-isles-surface, #0f172a);
+      border-color: var(--agent-isles-border, #334155);
+      box-shadow: 0 1px 2px rgba(2, 6, 23, 0.45);
+      color: var(--agent-isles-text, #cbd5e1);
+    }
+    :host([data-bs-theme="dark"]) .title,
+    :host([data-bs-theme="dark"]) .action-title { color: var(--agent-isles-heading, #f8fafc); }
+    :host([data-bs-theme="dark"]) .meta,
+    :host([data-bs-theme="dark"]) .empty,
+    :host([data-bs-theme="dark"]) .count { color: var(--agent-isles-muted, #94a3b8); }
+    :host([data-bs-theme="dark"]) .badge,
+    :host([data-bs-theme="dark"]) .pill { background: rgba(148, 163, 184, 0.18); border-color: rgba(148, 163, 184, 0.42); color: #cbd5e1; }
+    :host([data-bs-theme="dark"]) .priority-high,
+    :host([data-bs-theme="dark"]) .status-blocked { background: rgba(239, 68, 68, 0.18); border-color: rgba(239, 68, 68, 0.5); color: #fecaca; }
+    :host([data-bs-theme="dark"]) .priority-medium,
+    :host([data-bs-theme="dark"]) .status-in-progress { background: rgba(245, 158, 11, 0.18); border-color: rgba(245, 158, 11, 0.5); color: #fde68a; }
+    :host([data-bs-theme="dark"]) .status-done { background: rgba(34, 197, 94, 0.18); border-color: rgba(34, 197, 94, 0.5); color: #bbf7d0; }
   `;
 
   render() {
@@ -559,6 +580,31 @@ export class AgentActionList extends LitElement {
       white-space: nowrap;
       border: 0;
     }
+
+    :host([data-bs-theme="dark"]) section,
+    :host([data-bs-theme="dark"]) article,
+    :host([data-bs-theme="dark"]) .tabs,
+    :host([data-bs-theme="dark"]) .timeline,
+    :host([data-bs-theme="dark"]) .gantt,
+    :host([data-bs-theme="dark"]) .board,
+    :host([data-bs-theme="dark"]) .action-list,
+    :host([data-bs-theme="dark"]) .kanban {
+      background: var(--agent-isles-surface, #0f172a);
+      border-color: var(--agent-isles-border, #334155);
+      color: var(--agent-isles-text, #cbd5e1);
+    }
+    :host([data-bs-theme="dark"]) h2,
+    :host([data-bs-theme="dark"]) h3,
+    :host([data-bs-theme="dark"]) .title,
+    :host([data-bs-theme="dark"]) .label {
+      color: var(--agent-isles-heading, #f8fafc);
+    }
+    :host([data-bs-theme="dark"]) .meta,
+    :host([data-bs-theme="dark"]) .content,
+    :host([data-bs-theme="dark"]) .empty,
+    :host([data-bs-theme="dark"]) .summary {
+      color: var(--agent-isles-muted, #94a3b8);
+    }
   `;
 
   constructor() {
@@ -875,7 +921,8 @@ export class AgentActionList extends LitElement {
         </div>
         <slot class="slot" @slotchange=${() => this.refreshActions()}></slot>
       </section>
-    `;
+
+  `;
   }
 }
 

@@ -21,6 +21,30 @@ export class AgentTab extends LitElement {
     .panel {
       color: #334155;
     }
+
+    :host([data-bs-theme="dark"]) .tabs {
+      color: var(--agent-isles-text, #cbd5e1);
+    }
+    :host([data-bs-theme="dark"]) .tab-list {
+      background: rgba(15, 23, 42, 0.88);
+      border-color: var(--agent-isles-border, #334155);
+      box-shadow: 0 1px 2px rgba(2, 6, 23, 0.45);
+    }
+    :host([data-bs-theme="dark"]) .tab-list::part(base),
+    :host([data-bs-theme="dark"]) .panel,
+    :host([data-bs-theme="dark"]) [role="tabpanel"] {
+      background: var(--agent-isles-surface, #0f172a);
+      border-color: var(--agent-isles-border, #334155);
+      color: var(--agent-isles-text, #cbd5e1);
+    }
+    :host([data-bs-theme="dark"]) button {
+      color: var(--agent-isles-muted, #94a3b8);
+    }
+    :host([data-bs-theme="dark"]) button[aria-selected="true"] {
+      background: var(--agent-isles-surface, #0f172a);
+      border-color: var(--agent-isles-primary, #38bdf8);
+      color: var(--agent-isles-heading, #f8fafc);
+    }
   `;
 
   render() {
@@ -89,6 +113,31 @@ export class AgentTabs extends LitElement {
 
     .panels {
       padding: 0 1rem 0.25rem;
+    }
+
+    :host([data-bs-theme="dark"]) section,
+    :host([data-bs-theme="dark"]) article,
+    :host([data-bs-theme="dark"]) .tabs,
+    :host([data-bs-theme="dark"]) .timeline,
+    :host([data-bs-theme="dark"]) .gantt,
+    :host([data-bs-theme="dark"]) .board,
+    :host([data-bs-theme="dark"]) .action-list,
+    :host([data-bs-theme="dark"]) .kanban {
+      background: var(--agent-isles-surface, #0f172a);
+      border-color: var(--agent-isles-border, #334155);
+      color: var(--agent-isles-text, #cbd5e1);
+    }
+    :host([data-bs-theme="dark"]) h2,
+    :host([data-bs-theme="dark"]) h3,
+    :host([data-bs-theme="dark"]) .title,
+    :host([data-bs-theme="dark"]) .label {
+      color: var(--agent-isles-heading, #f8fafc);
+    }
+    :host([data-bs-theme="dark"]) .meta,
+    :host([data-bs-theme="dark"]) .content,
+    :host([data-bs-theme="dark"]) .empty,
+    :host([data-bs-theme="dark"]) .summary {
+      color: var(--agent-isles-muted, #94a3b8);
     }
   `;
 
@@ -209,7 +258,8 @@ export class AgentTabs extends LitElement {
           <slot @slotchange=${() => this.refreshTabs()}></slot>
         </div>
       </section>
-    `;
+
+  `;
   }
 }
 

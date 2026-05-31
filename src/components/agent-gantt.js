@@ -149,6 +149,23 @@ export class AgentGanttTask extends LitElement {
       letter-spacing: 0.03em;
       text-transform: uppercase;
     }
+
+    :host([data-bs-theme="dark"]) .gantt,
+    :host([data-bs-theme="dark"]) .chart,
+    :host([data-bs-theme="dark"]) .task,
+    :host([data-bs-theme="dark"]) .legend-item,
+    :host([data-bs-theme="dark"]) .phase {
+      background: var(--agent-isles-surface, #0f172a);
+      border-color: var(--agent-isles-border, #334155);
+      color: var(--agent-isles-text, #cbd5e1);
+      box-shadow: 0 1px 2px rgba(2, 6, 23, 0.45);
+    }
+    :host([data-bs-theme="dark"]) .title,
+    :host([data-bs-theme="dark"]) .task-title { color: var(--agent-isles-heading, #f8fafc); }
+    :host([data-bs-theme="dark"]) .meta,
+    :host([data-bs-theme="dark"]) .detail,
+    :host([data-bs-theme="dark"]) .axis { color: var(--agent-isles-muted, #94a3b8); }
+    :host([data-bs-theme="dark"]) .grid { background: linear-gradient(90deg, rgba(148, 163, 184, 0.24) 1px, transparent 1px), linear-gradient(180deg, rgba(15, 23, 42, 0.88), rgba(17, 24, 39, 0.82)); border-color: var(--agent-isles-border, #334155); }
   `;
 
   updated() {
@@ -447,6 +464,31 @@ export class AgentGantt extends LitElement {
         grid-template-columns: 1fr;
       }
     }
+
+    :host([data-bs-theme="dark"]) section,
+    :host([data-bs-theme="dark"]) article,
+    :host([data-bs-theme="dark"]) .tabs,
+    :host([data-bs-theme="dark"]) .timeline,
+    :host([data-bs-theme="dark"]) .gantt,
+    :host([data-bs-theme="dark"]) .board,
+    :host([data-bs-theme="dark"]) .action-list,
+    :host([data-bs-theme="dark"]) .kanban {
+      background: var(--agent-isles-surface, #0f172a);
+      border-color: var(--agent-isles-border, #334155);
+      color: var(--agent-isles-text, #cbd5e1);
+    }
+    :host([data-bs-theme="dark"]) h2,
+    :host([data-bs-theme="dark"]) h3,
+    :host([data-bs-theme="dark"]) .title,
+    :host([data-bs-theme="dark"]) .label {
+      color: var(--agent-isles-heading, #f8fafc);
+    }
+    :host([data-bs-theme="dark"]) .meta,
+    :host([data-bs-theme="dark"]) .content,
+    :host([data-bs-theme="dark"]) .empty,
+    :host([data-bs-theme="dark"]) .summary {
+      color: var(--agent-isles-muted, #94a3b8);
+    }
   `;
 
   constructor() {
@@ -554,7 +596,8 @@ export class AgentGantt extends LitElement {
           ` : null}
         </div>
       </section>
-    `;
+
+  `;
   }
 }
 
