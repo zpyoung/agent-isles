@@ -76,6 +76,51 @@ test('directory preview UI selects and renders multiple Markdown files', async (
   }
 });
 
+test('directory preview upgrades custom elements from selected file nested pack config', async ({ page }) => {
+  const root = mkdtempSync(join(tmpdir(), 'agent-isles-preview-nested-pack-browser-'));
+  mkdirSync(join(root, 'nested'), { recursive: true });
+  mkdirSync(join(root, 'widget-pack'), { recursive: true });
+  writeFileSync(join(root, 'nested', 'doc.md'), '# Nested Pack\n\n<nested-widget label="from-pack">Fallback</nested-widget>\n', 'utf8');
+  writeFileSync(join(root, 'nested', 'isles.config.json'), JSON.stringify({ packs: ['../widget-pack'] }, null, 2));
+  writeFileSync(join(root, 'widget-pack', 'agent-isles.pack.json'), JSON.stringify({
+    agentIslesPackVersion: 1,
+    name: 'nested-pack',
+    version: '1.0.0',
+    tags: [{ name: 'nested-widget', attributes: ['label'] }],
+    assets: [{ type: 'module', path: 'nested-widget.js' }],
+  }, null, 2));
+  writeFileSync(
+    join(root, 'widget-pack', 'nested-widget.js'),
+    [
+      'customElements.define("nested-widget", class extends HTMLElement {',
+      '  connectedCallback() {',
+      '    this.setAttribute("data-upgraded", "yes");',
+      '    this.textContent = `UPGRADED ${this.getAttribute("label")}`;',
+      '  }',
+      '});',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+
+  const preview = await startPreviewServer(root, {
+    port: 0,
+    watchIntervalMs: 60_000,
+    includeUserPacks: false,
+  });
+
+  try {
+    await page.goto(preview.url);
+    await page.getByRole('button', { name: 'nested/doc.md' }).click();
+
+    const previewFrame = page.frameLocator('iframe[title="Rendered Markdown preview"]');
+    await expect(previewFrame.locator('nested-widget')).toHaveAttribute('data-upgraded', 'yes');
+    await expect(previewFrame.locator('nested-widget')).toContainText('UPGRADED from-pack');
+  } finally {
+    await preview.close();
+  }
+});
+
 test('directory preview provides reading controls and rendered table of contents', async ({ page }) => {
   const root = mkdtempSync(join(tmpdir(), 'agent-isles-preview-reading-'));
   writeFileSync(join(root, 'guide.md'), '# Guide\n\n## Readable Width\n\nBody.\n\n### Font Scale\n\nMore body.\n', 'utf8');
