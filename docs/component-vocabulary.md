@@ -29,6 +29,41 @@ Writeback uses reserved contract attributes, not general component API. `data-ag
 
 ## Supported components
 
+### `<agent-theme-toggle>`
+
+Use for generated reports that should let readers switch between light and dark color modes without hand-editing the HTML artifact.
+
+Status: supported.
+
+Attributes:
+
+| Attribute | Required | Allowed values | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `label` | No | Plain text | `Theme` | Visible button label before the current mode text. |
+| `storage-key` | No | Plain text localStorage key | `agent-isles-theme` | Use a custom key only when a report must not share the default preference. |
+
+Behavior:
+
+- Toggles `document.documentElement.dataset.bsTheme` between `light` and `dark`, aligning with Bootstrap 5.3 color-mode conventions.
+- Persists the selected theme in `localStorage` when storage is available.
+- Initializes from persisted preference, then the document `data-bs-theme`, then `prefers-color-scheme`.
+
+Accessibility notes:
+
+- Renders a native button with `aria-pressed` and an action label such as `Switch to Dark theme`.
+- The visible text includes the current mode, so the control is understandable without relying on the icon.
+
+Trusted/sanitized behavior:
+
+- Trusted mode preserves the tag and attributes.
+- Sanitized mode should allow only `label` and `storage-key` on this tag while stripping event handlers.
+
+Example:
+
+```markdown
+<agent-theme-toggle label="Theme"></agent-theme-toggle>
+```
+
 ### `<agent-decision>`
 
 Use for architectural, product, implementation, or operational decisions where the outcome should be visually scannable.

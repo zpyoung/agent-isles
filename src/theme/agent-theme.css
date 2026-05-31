@@ -5,15 +5,34 @@
   --agent-isles-page-font-size: 16px;
   --agent-isles-page-line-height: 1.7;
   --agent-isles-bg: #f8fafc;
+  --agent-isles-surface: #ffffff;
+  --agent-isles-surface-muted: #eff6ff;
   --agent-isles-border: #dbeafe;
   --agent-isles-heading: #0f172a;
+  --agent-isles-text: #1e293b;
+  --agent-isles-muted: #475569;
+  --agent-isles-primary: #2563eb;
+  --agent-isles-focus: #93c5fd;
+}
+
+[data-bs-theme="dark"] {
+  color-scheme: dark;
+  --agent-isles-bg: #020617;
+  --agent-isles-surface: #0f172a;
+  --agent-isles-surface-muted: #1e293b;
+  --agent-isles-border: #334155;
+  --agent-isles-heading: #f8fafc;
+  --agent-isles-text: #cbd5e1;
+  --agent-isles-muted: #94a3b8;
+  --agent-isles-primary: #38bdf8;
+  --agent-isles-focus: #7dd3fc;
 }
 
 body {
   background:
     radial-gradient(circle at top left, rgba(14, 165, 233, 0.12), transparent 28rem),
     var(--agent-isles-bg);
-  color: #1e293b;
+  color: var(--agent-isles-text);
 }
 
 .agent-isles-page {
@@ -84,6 +103,7 @@ agent-risk,
 agent-metric,
 agent-delta,
 agent-copy-block,
+agent-theme-toggle,
 agent-tabs,
 agent-timeline,
 agent-gantt,

@@ -3,6 +3,7 @@ export * from './agent-risk.js';
 export * from './agent-metric.js';
 export * from './agent-delta.js';
 export * from './agent-copy-block.js';
+export * from './agent-theme-toggle.js';
 export * from './agent-dependency.js';
 export * from './agent-dependency-map.js';
 export * from './agent-tabs.js';
