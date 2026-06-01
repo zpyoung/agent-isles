@@ -263,6 +263,27 @@ export class AgentKanbanLane extends LitElement {
       padding: 0.85rem;
       text-align: center;
     }
+
+    :host([data-bs-theme="dark"]) .lane {
+      background: rgba(15, 23, 42, 0.78);
+      border-color: var(--agent-isles-border, #334155);
+      box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.12);
+      color: var(--agent-isles-text, #cbd5e1);
+    }
+
+    :host([data-bs-theme="dark"]) .lane-heading {
+      color: var(--agent-isles-heading, #f8fafc);
+    }
+
+    :host([data-bs-theme="dark"]) .lane-count,
+    :host([data-bs-theme="dark"]) .empty-state {
+      color: var(--agent-isles-muted, #94a3b8);
+    }
+
+    :host([data-bs-theme="dark"]) .empty-state {
+      background: var(--agent-isles-surface, #0f172a);
+      border-color: var(--agent-isles-border, #334155);
+    }
   `;
 
   constructor() {
