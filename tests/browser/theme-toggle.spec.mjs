@@ -46,36 +46,67 @@ test('theme toggle hydrates and switches Bootstrap color mode', async ({ page })
         'agent-dependency-map',
         'agent-dependency',
         'agent-tabs',
+        'agent-tab',
         'agent-timeline',
+        'agent-step',
         'agent-gantt',
+        'agent-gantt-phase',
+        'agent-gantt-task',
         'agent-kpi',
         'agent-status-board',
+        'agent-status-item',
         'agent-action-list',
+        'agent-action',
         'agent-kanban',
+        'agent-kanban-lane',
+        'agent-kanban-card',
       ];
 
       return coreTags.map((tag) => {
         const element = document.querySelector(tag);
-        const adoptedCssText = [...(element?.shadowRoot?.adoptedStyleSheets || [])]
-          .flatMap((sheet) => [...sheet.cssRules].map((rule) => rule.cssText))
-          .join('\n');
-        const styleTagCssText = [...(element?.shadowRoot?.querySelectorAll('style') || [])]
-          .map((style) => style.textContent || '')
-          .join('\n');
-        const cssText = `${adoptedCssText}\n${styleTagCssText}`;
-        const hasDarkRule = cssText.includes('[data-bs-theme="dark"]');
-        const background = element?.shadowRoot
-          ? getComputedStyle(element.shadowRoot.querySelector('section, article, button, .decision, .risk, .metric, .delta, .copy-block, .map, .tabs, .timeline, .gantt, .kpi, .board, .action-list, .kanban') || element).backgroundColor
-          : '';
-        return { tag, present: Boolean(element), hasDarkRule, background };
+        return {
+          tag,
+          present: Boolean(element),
+          hostTheme: element?.getAttribute('data-bs-theme') || '',
+        };
       });
     });
 
     expect(darkAudit).toEqual(
       expect.arrayContaining(
-        darkAudit.map(({ tag }) => expect.objectContaining({ tag, present: true, hasDarkRule: true })),
+        darkAudit.map(({ tag }) => expect.objectContaining({
+          tag,
+          present: true,
+          hostTheme: 'dark',
+        })),
       ),
     );
+
+    const componentSurfaceAudit = await page.evaluate(() => ({
+      pageTheme: document.documentElement.getAttribute('data-bs-theme'),
+      ganttLane: getComputedStyle(document.querySelector('agent-gantt-phase')?.shadowRoot?.querySelector('.lane')).backgroundImage,
+      kanbanLane: getComputedStyle(document.querySelector('agent-kanban-lane')?.shadowRoot?.querySelector('.lane')).backgroundColor,
+      kanbanHeading: getComputedStyle(document.querySelector('agent-kanban-lane')?.shadowRoot?.querySelector('.lane-heading')).color,
+    }));
+    expect(componentSurfaceAudit).toEqual(expect.objectContaining({
+      pageTheme: 'dark',
+      kanbanLane: 'rgba(15, 23, 42, 0.78)',
+      kanbanHeading: 'rgb(248, 250, 252)',
+    }));
+    expect(componentSurfaceAudit.ganttLane).toContain('rgba(15, 23, 42, 0.88)');
+
+    await page.evaluate(() => {
+      const lateMetric = document.createElement('agent-metric');
+      lateMetric.setAttribute('label', 'Late-loaded metric');
+      lateMetric.setAttribute('value', '42');
+      lateMetric.setAttribute('delta', '+4%');
+      lateMetric.setAttribute('id', 'late-theme-metric');
+      document.querySelector('main')?.append(lateMetric);
+    });
+    await page.waitForFunction(() => {
+      const element = document.querySelector('#late-theme-metric');
+      return element?.getAttribute('data-bs-theme') === 'dark' && Boolean(element.shadowRoot);
+    });
 
     expect(consoleErrors).toEqual([]);
   } finally {

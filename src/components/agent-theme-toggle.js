@@ -2,6 +2,34 @@ import { LitElement, css, html } from 'lit';
 
 const THEME_STORAGE_KEY = 'agent-isles-theme';
 const THEMES = new Set(['light', 'dark']);
+const AGENT_COMPONENT_TAGS = [
+  'agent-decision',
+  'agent-risk',
+  'agent-metric',
+  'agent-delta',
+  'agent-copy-block',
+  'agent-theme-toggle',
+  'agent-dependency-map',
+  'agent-dependency',
+  'agent-tabs',
+  'agent-tab',
+  'agent-timeline',
+  'agent-step',
+  'agent-gantt',
+  'agent-gantt-phase',
+  'agent-gantt-task',
+  'agent-kpi',
+  'agent-status-board',
+  'agent-status-item',
+  'agent-action-list',
+  'agent-action',
+  'agent-kanban',
+  'agent-kanban-lane',
+  'agent-kanban-card',
+];
+const AGENT_COMPONENT_SELECTOR = AGENT_COMPONENT_TAGS.join(', ');
+let currentTheme = 'light';
+let themeObserver;
 
 export class AgentThemeToggle extends LitElement {
   static properties = {
@@ -181,14 +209,43 @@ function writeStoredTheme(storageKey, theme) {
 }
 
 function applyDocumentTheme(theme) {
+  currentTheme = theme;
   document.documentElement.setAttribute('data-bs-theme', theme);
   document.documentElement.style.colorScheme = theme;
 
-  for (const element of document.querySelectorAll(
-    'agent-decision, agent-risk, agent-metric, agent-delta, agent-copy-block, agent-theme-toggle, agent-dependency-map, agent-dependency, agent-tabs, agent-timeline, agent-gantt, agent-kpi, agent-status-board, agent-action-list, agent-kanban',
-  )) {
+  applyThemeToAgentComponents(document, theme);
+  ensureThemeObserver();
+}
+
+function applyThemeToAgentComponents(root, theme) {
+  if (!root?.querySelectorAll) {
+    return;
+  }
+
+  if (root.matches?.(AGENT_COMPONENT_SELECTOR)) {
+    root.setAttribute('data-bs-theme', theme);
+  }
+
+  for (const element of root.querySelectorAll(AGENT_COMPONENT_SELECTOR)) {
     element.setAttribute('data-bs-theme', theme);
   }
+}
+
+function ensureThemeObserver() {
+  if (themeObserver || !document.body) {
+    return;
+  }
+
+  themeObserver = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      for (const node of mutation.addedNodes) {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          applyThemeToAgentComponents(node, currentTheme);
+        }
+      }
+    }
+  });
+  themeObserver.observe(document.body, { childList: true, subtree: true });
 }
 
 function capitalizeTheme(theme) {

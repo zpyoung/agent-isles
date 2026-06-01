@@ -28,7 +28,7 @@
 
 ### Theme toggle
 
-Use `<agent-theme-toggle>` to let readers switch a rendered report between light and dark Bootstrap color modes.
+Use `<agent-theme-toggle>` to let readers switch the entire rendered report between light and dark Bootstrap color modes. The toggle updates the document theme and propagates it to every built-in `<agent-*>` island, including nested tabs, timeline steps, Gantt phases/tasks, status items, actions, and Kanban lanes/cards.
 
 <div class="agent-component-example my-4" data-agent-components="agent-theme-toggle">
   <h4 class="h5 mb-3">Theme toggle</h4>

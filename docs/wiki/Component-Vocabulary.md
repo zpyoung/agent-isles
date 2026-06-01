@@ -31,7 +31,7 @@ Writeback uses reserved contract attributes, not general component API. `data-ag
 
 ### `<agent-theme-toggle>`
 
-Use for generated reports that should let readers switch between light and dark color modes without hand-editing the HTML artifact.
+Use for generated reports that should let readers switch the whole rendered artifact between light and dark color modes without hand-editing the HTML artifact.
 
 Status: supported.
 
@@ -45,6 +45,7 @@ Attributes:
 Behavior:
 
 - Toggles `document.documentElement.dataset.bsTheme` between `light` and `dark`, aligning with Bootstrap 5.3 color-mode conventions.
+- Applies the selected theme to every built-in `<agent-*>` host on the page, including nested component hosts and components added after the toggle initializes, so shadow-DOM styles can react to the same page-level mode.
 - Persists the selected theme in `localStorage` when storage is available.
 - Initializes from persisted preference, then the document `data-bs-theme`, then `prefers-color-scheme`.
 - Works with the built-in component library's dark-mode audit: core Agent Isles islands provide dark surfaces, borders, text, badges/status chips, timelines, Gantt/board/card layouts, and focus states when the document is in dark mode.

@@ -286,6 +286,25 @@ export class AgentGanttPhase extends LitElement {
       z-index: 0;
     }
 
+    :host([data-bs-theme="dark"]) .phase {
+      border-color: var(--agent-isles-border, #334155);
+    }
+
+    :host([data-bs-theme="dark"]) .phase-label {
+      color: var(--agent-isles-heading, #f8fafc);
+    }
+
+    :host([data-bs-theme="dark"]) .lane {
+      background:
+        linear-gradient(90deg, rgba(148, 163, 184, 0.24) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(15, 23, 42, 0.88), rgba(17, 24, 39, 0.82));
+      border-color: var(--agent-isles-border, #334155);
+    }
+
+    :host([data-bs-theme="dark"]) .milestone-line {
+      background: rgba(56, 189, 248, 0.68);
+    }
+
     @media (max-width: 720px) {
       .phase {
         grid-template-columns: 1fr;
