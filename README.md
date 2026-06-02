@@ -235,6 +235,8 @@ The preview UI recursively discovers `.md` and `.markdown` files, shows them in 
 
 Directory preview also optimizes for reading ergonomics: the shell exposes width and text-size controls, while rendered documents generate an in-page table of contents from level-2 and level-3 headings. These controls do not modify Markdown source; they only adjust the current preview rendering.
 
+Directory preview includes agent-review tools for full renderer workflows: select rendered content to produce a copyable `path.md#heading` reference with the selected quote, add local preview comments against that reference, and copy all comments as Markdown for an AI-agent handoff. These notes live only in the browser session; they do not mutate source files or render outputs.
+
 Path confinement is enforced by the preview server: browser requests can only render supported Markdown files under the selected preview root. Render and writeback errors are returned to the preview UI and shown in-page instead of crashing the server.
 
 Future explicit edit mode may wrap the same local writeback contract in a dedicated command:
@@ -306,6 +308,8 @@ isles preview /tmp/scratch.md --open
 ```
 
 `preview` accepts the same rendering flags as `render` (`--mode trusted|sanitized`, `--safe`/`--sanitize`, `--show-source`, `--pack <path>`, `--no-user-packs`). It does **not** accept `--assets` or `--out`: previews are always rendered as a single self-contained HTML file (inline assets, no sibling files). For persistent output or `cdn`/`local` asset modes, use `isles render`.
+
+When previewing a directory, use the browser shell as a renderer review surface: select text in the rendered iframe, click **Copy reference** for a precise file/heading/quote reference, or add comments in the sidebar and copy the collected comments for an agent conversation.
 
 ### Where previews go and how they're cleaned up
 
