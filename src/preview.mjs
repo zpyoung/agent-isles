@@ -501,10 +501,11 @@ function buildPreviewShell(root) {
     .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.8rem 1rem; background: var(--isles-panel); border-bottom: 1px solid var(--isles-border); flex-wrap: wrap; }
     .toolbar strong { overflow-wrap: anywhere; }
     .status { color: var(--isles-muted); font-size: 0.9rem; }
-    .reading-controls { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 0.35rem; }
+    .reading-controls, .reference-tools { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 0.35rem; }
     .reading-controls span { color: var(--isles-muted); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
     .control-button { border: 1px solid var(--isles-border); border-radius: 999px; background: #fff; color: inherit; cursor: pointer; font: inherit; font-size: 0.82rem; padding: 0.32rem 0.62rem; }
     .control-button[aria-pressed="true"] { background: var(--isles-blue); border-color: var(--isles-blue); color: #fff; }
+    .control-button:disabled { cursor: not-allowed; opacity: 0.55; }
     .file-list { display: grid; gap: 0.25rem; }
     .file-button { width: 100%; border: 0; border-radius: 0.55rem; background: transparent; color: inherit; cursor: pointer; display: block; font: inherit; padding: 0.45rem 0.55rem; text-align: left; overflow-wrap: anywhere; }
     .file-button:hover, .file-button:focus { background: #eef2ff; outline: 2px solid transparent; }
@@ -512,6 +513,16 @@ function buildPreviewShell(root) {
     .preview-frame { width: 100%; height: 100%; border: 0; background: #fff; }
     .empty, .error { margin: 1rem; padding: 1rem; border: 1px solid var(--isles-border); border-radius: 0.75rem; background: var(--isles-panel); }
     .error { color: #8a1f11; border-color: #f3b8ad; white-space: pre-wrap; }
+    .comment-panel { margin-top: 1rem; border-top: 1px solid var(--isles-border); padding-top: 1rem; }
+    .comment-panel h2 { font-size: 0.95rem; margin: 0 0 0.5rem; }
+    .selected-reference { color: var(--isles-muted); font-size: 0.82rem; min-height: 1.5rem; overflow-wrap: anywhere; }
+    .comment-panel label { display: block; font-size: 0.82rem; font-weight: 700; margin: 0.75rem 0 0.35rem; }
+    .comment-panel textarea { width: 100%; min-height: 5rem; resize: vertical; border: 1px solid var(--isles-border); border-radius: 0.55rem; font: inherit; padding: 0.55rem; }
+    .comment-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
+    .comment-list { display: grid; gap: 0.45rem; margin-top: 0.75rem; }
+    .comment-card { border: 1px solid var(--isles-border); border-radius: 0.55rem; background: #fbfcff; padding: 0.55rem; }
+    .comment-card strong { display: block; font-size: 0.78rem; overflow-wrap: anywhere; }
+    .comment-card p { margin: 0.35rem 0 0; white-space: pre-wrap; }
     [hidden] { display: none !important; }
     @media (max-width: 800px) { body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; } aside { max-height: 42vh; border-right: 0; border-bottom: 1px solid var(--isles-border); } }
   </style>
@@ -521,6 +532,17 @@ function buildPreviewShell(root) {
     <h1>Agent Isles Preview</h1>
     <p class="root">${rootLabel}</p>
     <nav id="file-list" class="file-list" aria-label="Markdown files"></nav>
+    <section class="comment-panel" aria-labelledby="preview-comments-heading">
+      <h2 id="preview-comments-heading">Preview comments</h2>
+      <p id="selected-reference" class="selected-reference">Select rendered text to create a precise reference.</p>
+      <label for="comment-input">Comment on selected reference</label>
+      <textarea id="comment-input" placeholder="Add a note for your agent…"></textarea>
+      <div class="comment-actions">
+        <button type="button" id="add-comment" class="control-button">Add comment</button>
+        <button type="button" id="copy-comments" class="control-button">Copy comments for agent</button>
+      </div>
+      <div id="comment-list" class="comment-list" aria-live="polite"></div>
+    </section>
   </aside>
   <main>
     <div class="toolbar">
@@ -535,6 +557,9 @@ function buildPreviewShell(root) {
         <button type="button" class="control-button" data-font-size="16px" data-line-height="1.7" aria-pressed="true">Regular text</button>
         <button type="button" class="control-button" data-font-size="18px" data-line-height="1.75" aria-pressed="false">Large text</button>
       </div>
+      <div class="reference-tools" role="group" aria-label="Reference tools">
+        <button type="button" id="copy-reference" class="control-button" disabled>Copy reference</button>
+      </div>
       <span id="status" class="status">Loading…</span>
     </div>
     <section id="empty" class="empty">No Markdown files found under this preview root yet.</section>
@@ -548,8 +573,16 @@ function buildPreviewShell(root) {
     const frame = document.querySelector('#preview-frame');
     const errorPanel = document.querySelector('#error');
     const emptyPanel = document.querySelector('#empty');
-    const readerControls = Array.from(document.querySelectorAll('.control-button'));
+    const readerControls = Array.from(document.querySelectorAll('.control-button[data-width], .control-button[data-font-size]'));
+    const copyReferenceButton = document.querySelector('#copy-reference');
+    const selectedReferenceLabel = document.querySelector('#selected-reference');
+    const commentInput = document.querySelector('#comment-input');
+    const addCommentButton = document.querySelector('#add-comment');
+    const copyCommentsButton = document.querySelector('#copy-comments');
+    const commentList = document.querySelector('#comment-list');
     const readerSettings = { width: '960px', fontSize: '16px', lineHeight: '1.7' };
+    const comments = [];
+    let currentReference = null;
     let files = [];
     let selectedPath = null;
 
@@ -601,6 +634,8 @@ function buildPreviewShell(root) {
         return;
       }
       activeFile.textContent = selectedPath;
+      currentReference = makeReference({ path: selectedPath, text: '', anchor: '' });
+      updateReferenceTools();
       status.textContent = 'Rendering…';
       emptyPanel.hidden = true;
       const response = await fetch('/api/render?path=' + encodeURIComponent(selectedPath));
@@ -620,10 +655,11 @@ function buildPreviewShell(root) {
 
     function decoratePreviewHtml(html) {
       const style = '<style id="agent-isles-preview-reading-settings">:root{--agent-isles-page-max-width:' + readerSettings.width + ';--agent-isles-page-font-size:' + readerSettings.fontSize + ';--agent-isles-page-line-height:' + readerSettings.lineHeight + ';}</style>';
+      const selectionBridge = "<script id=agent-isles-selection-bridge>(function(){function headingId(heading){if(!heading)return '';if(heading.id)return heading.id;var prev=heading.previousElementSibling;return prev&&prev.classList&&prev.classList.contains('agent-isles-heading-anchor')?prev.id:'';}function nearestHeadingId(element){for(var node=element;node&&node!==document.body;node=node.parentElement){for(var cursor=node;cursor;cursor=cursor.previousElementSibling){if(cursor.matches&&cursor.matches('h1,h2,h3,h4,h5,h6')){var id=headingId(cursor);if(id)return id;}}}return '';}function reportSelection(){var selection=window.getSelection&&window.getSelection();var text=selection?selection.toString().trim().replace(/\\s+/g,' '):'';var element=selection&&selection.anchorNode?(selection.anchorNode.nodeType===1?selection.anchorNode:selection.anchorNode.parentElement):null;window.parent.postMessage({type:'agent-isles:selection',text:text,anchor:nearestHeadingId(element)},'*');}document.addEventListener('selectionchange',reportSelection);document.addEventListener('mouseup',reportSelection);document.addEventListener('keyup',reportSelection);})();<\\/script>";
       if (String(html).includes('</head>')) {
-        return String(html).replace('</head>', style + '</head>');
+        return String(html).replace('</head>', style + selectionBridge + '</head>');
       }
-      return style + String(html);
+      return style + selectionBridge + String(html);
     }
 
     function updateReaderControlState(changedButton) {
@@ -650,6 +686,104 @@ function buildPreviewShell(root) {
         }
       });
     }
+
+    function makeReference({ path, text, anchor }) {
+      const reference = path + (anchor ? '#' + anchor : '');
+      return { path, text: text || '', anchor: anchor || '', reference };
+    }
+
+    function updateReferenceTools() {
+      if (!currentReference) {
+        selectedReferenceLabel.textContent = 'Select rendered text to create a precise reference.';
+        copyReferenceButton.disabled = true;
+        return;
+      }
+      copyReferenceButton.disabled = false;
+      selectedReferenceLabel.textContent = currentReference.text
+        ? currentReference.reference + ' — “' + currentReference.text + '”'
+        : currentReference.reference;
+    }
+
+    async function copyText(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        return;
+      }
+      const field = document.createElement('textarea');
+      field.value = text;
+      field.setAttribute('readonly', '');
+      field.style.position = 'fixed';
+      field.style.opacity = '0';
+      document.body.append(field);
+      field.select();
+      document.execCommand('copy');
+      field.remove();
+    }
+
+    function formatReference(reference) {
+      return reference.text ? reference.reference + '\\n> ' + reference.text : reference.reference;
+    }
+
+    function renderComments() {
+      commentList.textContent = '';
+      for (const comment of comments) {
+        const card = document.createElement('article');
+        card.className = 'comment-card';
+        const ref = document.createElement('strong');
+        ref.textContent = comment.reference.reference;
+        const body = document.createElement('p');
+        body.textContent = comment.body;
+        card.append(ref, body);
+        commentList.append(card);
+      }
+    }
+
+    function commentsAsMarkdown() {
+      if (comments.length === 0) {
+        return 'No Agent Isles preview comments yet.';
+      }
+      return comments.map((comment, index) => [
+        index + 1 + '. ' + comment.reference.reference,
+        comment.reference.text ? '   > ' + comment.reference.text : '',
+        '   ' + comment.body,
+      ].filter(Boolean).join('\\n')).join('\\n\\n');
+    }
+
+    copyReferenceButton.addEventListener('click', async () => {
+      if (currentReference) {
+        await copyText(formatReference(currentReference));
+        status.textContent = 'Reference copied';
+      }
+    });
+
+    addCommentButton.addEventListener('click', () => {
+      const body = commentInput.value.trim();
+      if (!body || !currentReference) {
+        return;
+      }
+      comments.push({ reference: { ...currentReference }, body });
+      commentInput.value = '';
+      renderComments();
+      status.textContent = 'Comment added';
+    });
+
+    copyCommentsButton.addEventListener('click', async () => {
+      await copyText(commentsAsMarkdown());
+      status.textContent = comments.length === 0 ? 'No comments to copy' : 'Comments copied';
+    });
+
+    window.addEventListener('message', (event) => {
+      const data = event.data || {};
+      if (data.type !== 'agent-isles:selection' || !selectedPath) {
+        return;
+      }
+      currentReference = makeReference({
+        path: selectedPath,
+        text: data.text || '',
+        anchor: data.anchor || '',
+      });
+      updateReferenceTools();
+    });
 
     const events = new EventSource('/events');
     events.addEventListener('preview:update', async () => {

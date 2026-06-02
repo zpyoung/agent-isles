@@ -151,3 +151,47 @@ test('directory preview provides reading controls and rendered table of contents
     await preview.close();
   }
 });
+
+test('directory preview supports copyable selection references and review comments', async ({ page, context }) => {
+  const root = mkdtempSync(join(tmpdir(), 'agent-isles-preview-annotations-'));
+  writeFileSync(join(root, 'guide.md'), '# Guide\n\n## Milestone One\n\nSelect this sentence for the agent.\n', 'utf8');
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+
+  const preview = await startPreviewServer(root, {
+    port: 0,
+    watchIntervalMs: 60_000,
+    includeUserPacks: false,
+  });
+
+  try {
+    await page.goto(preview.url);
+    const frameHandle = await page.locator('iframe[title="Rendered Markdown preview"]').elementHandle();
+    const frame = await frameHandle.contentFrame();
+
+    await frame.locator('p', { hasText: 'Select this sentence for the agent.' }).evaluate((paragraph) => {
+      const range = document.createRange();
+      range.selectNodeContents(paragraph);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      document.dispatchEvent(new Event('selectionchange'));
+    });
+
+    await expect(page.getByRole('button', { name: 'Copy reference' })).toBeEnabled();
+    await page.getByRole('button', { name: 'Copy reference' }).click();
+    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain('guide.md#milestone-one');
+    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain('Select');
+    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain('agent.');
+
+    await page.getByLabel('Comment on selected reference').fill('Tighten this milestone wording.');
+    await page.getByRole('button', { name: 'Add comment' }).click();
+    await expect(page.getByText('Tighten this milestone wording.')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Copy comments for agent' }).click();
+    const commentsText = await page.evaluate(() => navigator.clipboard.readText());
+    expect(commentsText).toContain('guide.md#milestone-one');
+    expect(commentsText).toContain('Tighten this milestone wording.');
+  } finally {
+    await preview.close();
+  }
+});
