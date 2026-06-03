@@ -43,6 +43,76 @@ export function rehypeAgentD2() {
   };
 }
 
+export function rehypeAgentFlow() {
+  return (tree) => {
+    transformAgentFlowCodeBlocks(tree);
+  };
+}
+
+function transformAgentFlowCodeBlocks(node) {
+  if (!Array.isArray(node.children)) {
+    return;
+  }
+
+  for (let index = 0; index < node.children.length; index += 1) {
+    const child = node.children[index];
+    const flowCode = extractLanguageCodeBlock(child, 'agent-flow');
+
+    if (flowCode) {
+      const { attributes, documentSource } = parseAgentFlowCodeBlock(flowCode.value);
+      node.children[index] = {
+        type: 'element',
+        tagName: 'agent-flow',
+        properties: attributes,
+        children: [{ type: 'text', value: documentSource }],
+      };
+      continue;
+    }
+
+    transformAgentFlowCodeBlocks(child);
+  }
+}
+
+function parseAgentFlowCodeBlock(source) {
+  const lines = String(source || '').replace(/\r\n?/g, '\n').split('\n');
+  const separatorIndex = lines.findIndex((line) => line.trim() === '---');
+  const attributes = {};
+  let bodyLines = lines;
+
+  if (separatorIndex >= 0) {
+    for (const line of lines.slice(0, separatorIndex)) {
+      const match = /^\s*([A-Za-z][A-Za-z0-9_-]*)\s*:\s*(.*?)\s*$/.exec(line);
+      if (!match) {
+        continue;
+      }
+      const key = match[1].toLowerCase();
+      const value = match[2];
+      if (['kind', 'title', 'mode', 'view'].includes(key) && value) {
+        attributes[key] = value;
+      }
+    }
+    bodyLines = lines.slice(separatorIndex + 1);
+  }
+
+  const documentSource = bodyLines.join('\n').trim();
+  if (!attributes.kind) {
+    const documentKind = readAgentFlowDocumentKind(documentSource);
+    if (documentKind) attributes.kind = documentKind;
+  }
+  if (!attributes.mode) attributes.mode = 'viewer';
+
+  return { attributes, documentSource };
+}
+
+function readAgentFlowDocumentKind(documentSource) {
+  try {
+    const document = JSON.parse(documentSource);
+    return typeof document.kind === 'string' && document.kind.trim() ? document.kind.trim() : '';
+  } catch {
+    return '';
+  }
+}
+
 async function transformD2CodeBlocks(node) {
   if (!Array.isArray(node.children)) {
     return;

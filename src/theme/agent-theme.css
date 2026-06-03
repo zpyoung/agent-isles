@@ -117,6 +117,7 @@ agent-action,
 agent-kanban,
 agent-kanban-lane,
 agent-kanban-card,
+agent-flow,
 .agent-mermaid {
   display: block;
   margin: 1rem 0;
