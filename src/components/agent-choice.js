@@ -2,7 +2,6 @@ import { LitElement, css, html } from 'lit';
 
 export class AgentChoice extends LitElement {
   static properties = {
-    id: { type: String },
     title: { type: String },
     selected: { type: Boolean, reflect: true },
   };

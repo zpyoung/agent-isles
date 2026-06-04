@@ -2,7 +2,7 @@ import { LitElement, html } from 'lit';
 
 export class AgentOptionSet extends LitElement {
   static properties = {
-    multiselect: { type: Boolean },
+    multiselect: { type: Boolean, attribute: 'data-multiselect' },
   };
 
   constructor() {
@@ -12,7 +12,6 @@ export class AgentOptionSet extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    if (this.hasAttribute('data-multiselect')) this.multiselect = true;
     this.addEventListener('agent-isles:choice-click', this._onChoiceClick);
   }
 
@@ -26,7 +25,9 @@ export class AgentOptionSet extends LitElement {
   }
 
   _onChoiceClick = (event) => {
-    const target = event.target.closest('agent-choice');
+    const target = event.composedPath().find(
+      (el) => el && el.tagName === 'AGENT-CHOICE'
+    );
     if (!target) return;
     if (this.multiselect) {
       target.selected = !target.selected;
