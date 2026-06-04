@@ -13,3 +13,5 @@ export * from './agent-kpi.js';
 export * from './agent-status-board.js';
 export * from './agent-action-list.js';
 export * from './agent-kanban.js';
+export * from './agent-option-set.js';
+export * from './agent-choice.js';
