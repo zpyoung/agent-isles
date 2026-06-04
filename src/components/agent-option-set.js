@@ -21,14 +21,15 @@ export class AgentOptionSet extends LitElement {
   }
 
   _choices() {
-    return Array.from(this.querySelectorAll('agent-choice'));
+    return Array.from(this.querySelectorAll('agent-choice'))
+      .filter((c) => c.closest('agent-option-set') === this);
   }
 
   _onChoiceClick = (event) => {
     const target = event.composedPath().find(
       (el) => el && el.tagName === 'AGENT-CHOICE'
     );
-    if (!target) return;
+    if (!target || target.closest('agent-option-set') !== this) return;
     if (this.multiselect) {
       target.selected = !target.selected;
     } else {
