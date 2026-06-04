@@ -24,10 +24,14 @@ test('clicking an agent-choice records a JSONL click event', async ({ page }) =>
     await page.goto(server.url + '/');
     const choice = await waitForChoiceUpgrade(page, 'a');
     await choice.click();
-    await expect.poll(() => existsSync(join(dir, 'state', 'events'))).toBe(true);
-    const line = JSON.parse(readFileSync(join(dir, 'state', 'events'), 'utf8').trim().split('\n')[0]);
-    expect(line.type).toBe('click');
-    expect(line.choice).toBe('a');
+    await expect.poll(() => {
+      try {
+        const p = join(dir, 'state', 'events');
+        if (!existsSync(p)) return null;
+        const first = readFileSync(p, 'utf8').trim().split('\n')[0];
+        return first ? JSON.parse(first) : null;
+      } catch { return null; }
+    }).toMatchObject({ type: 'click', choice: 'a' });
   } finally {
     await server.close();
   }
@@ -45,14 +49,14 @@ test('multi-select records selected ids', async ({ page }) => {
     await choiceA.click();
     await choiceB.click();
     await expect.poll(() => {
-      if (!existsSync(join(dir, 'state', 'events'))) return 0;
-      return readFileSync(join(dir, 'state', 'events'), 'utf8').trim().split('\n').length;
-    }).toBeGreaterThanOrEqual(2);
-    const lines = readFileSync(join(dir, 'state', 'events'), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
-    const last = lines[lines.length - 1];
-    expect(Array.isArray(last.selected)).toBe(true);
-    expect(last.selected).toContain('a');
-    expect(last.selected).toContain('b');
+      try {
+        const p = join(dir, 'state', 'events');
+        if (!existsSync(p)) return null;
+        const lines = readFileSync(p, 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
+        const last = lines[lines.length - 1];
+        return last && Array.isArray(last.selected) ? [...last.selected].sort() : null;
+      } catch { return null; }
+    }).toEqual(['a', 'b']);
   } finally {
     await server.close();
   }
