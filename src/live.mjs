@@ -259,7 +259,8 @@ export async function startLiveServer(dir, options = {}) {
 
 export async function runLiveForeground(dir, options = {}) {
   const server = await startLiveServer(dir, { ...options, watch: true });
-  const onTerm = () => { server.close('signal').then(() => process.exit(0)); };
+  let terminating = false;
+  const onTerm = () => { if (terminating) return; terminating = true; server.close('signal').then(() => process.exit(0)); };
   process.once('SIGTERM', onTerm);
   process.once('SIGINT', onTerm);
   return server;
@@ -272,5 +273,8 @@ export function stopLive(dir) {
     const info = JSON.parse(readFileSync(infoPath, 'utf8'));
     if (info.pid) process.kill(info.pid, 'SIGTERM');
     return true;
-  } catch { return false; }
+  } catch (e) {
+    if (e && e.code === 'ESRCH') { try { unlinkSync(infoPath); } catch {} }
+    return false;
+  }
 }
