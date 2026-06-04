@@ -1,6 +1,7 @@
 import http from 'node:http';
 import {
   appendFileSync,
+  existsSync,
   mkdirSync,
   readdirSync,
   readFileSync,
@@ -254,4 +255,22 @@ export async function startLiveServer(dir, options = {}) {
   lifecycle.unref?.();
 
   return { url, port, host, dir, server, broadcast, close, clearEvents, _clients: clients };
+}
+
+export async function runLiveForeground(dir, options = {}) {
+  const server = await startLiveServer(dir, { ...options, watch: true });
+  const onTerm = () => { server.close('signal').then(() => process.exit(0)); };
+  process.once('SIGTERM', onTerm);
+  process.once('SIGINT', onTerm);
+  return server;
+}
+
+export function stopLive(dir) {
+  const infoPath = join(dir, 'state', 'server-info');
+  if (!existsSync(infoPath)) return false;
+  try {
+    const info = JSON.parse(readFileSync(infoPath, 'utf8'));
+    if (info.pid) process.kill(info.pid, 'SIGTERM');
+    return true;
+  } catch { return false; }
 }

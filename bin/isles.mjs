@@ -9,12 +9,14 @@ import {
   RENDER_MODES,
   validateMarkdownInput,
 } from '../src/render.mjs';
+import { spawn } from 'node:child_process';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CONFIG_FILE, getUserConfigDir, PackResolutionError, resolvePackInputs } from '../src/pack-resolver.mjs';
 import { watchMarkdownFile } from '../src/watch.mjs';
 import { previewMarkdown, startPreviewServer } from '../src/preview.mjs';
+import { runLiveForeground, stopLive } from '../src/live.mjs';
 
 const USAGE = `Agent Isles — Markdown seas, component islands.
 
@@ -25,12 +27,15 @@ Usage:
   isles watch <file.md> [--out <file.html>] [--mode trusted|sanitized] [--assets cdn|local|inline] [--show-source] [--pack <path>]... [--no-user-packs]
   isles preview (--stdin | <file.md>) [--open] [--mode trusted|sanitized] [--safe|--sanitize] [--show-source] [--pack <path>]... [--no-user-packs]
   isles preview <dir> [--port <port>] [--writeback] [--mode trusted|sanitized] [--show-source] [--pack <path>]... [--no-user-packs]
+  isles live <dir> [--port <port>] [--host <host>] [--url-host <host>] [--idle-timeout <min>] [--owner-pid <pid>]
+  isles live <dir> --stop
 
 Commands:
   render         Render Markdown to browser-ready HTML
   packs resolve  Print resolved component packs, sources, asset outputs, and sanitizer permissions
   watch          Render immediately and rebuild when the Markdown file changes
   preview        Render ephemeral Markdown to a temp HTML file, or serve a localhost directory preview
+  live           Serve live agent screens in the background, or stop a live server
 
 Options:
   --assets cdn|local|inline   Use CDN assets (default), copy local offline assets, or inline all assets into single HTML file
@@ -60,10 +65,60 @@ if (command === 'render') {
   await runWatch(args);
 } else if (command === 'preview') {
   await runPreview(args);
+} else if (command === 'live') {
+  await runLive(args);
 } else {
   console.error(`Unknown command: ${command}\n`);
   console.error(USAGE);
   process.exit(2);
+}
+
+async function runLive(args) {
+  const parsed = { dir: undefined, port: undefined, host: undefined, urlHost: undefined,
+    idleTimeoutMinutes: undefined, ownerPid: undefined, stop: false, serve: false };
+  for (let i = 0; i < args.length; i += 1) {
+    const a = args[i];
+    if (a === '--port') { parsed.port = Number(args[++i]); continue; }
+    if (a === '--host') { parsed.host = args[++i]; continue; }
+    if (a === '--url-host') { parsed.urlHost = args[++i]; continue; }
+    if (a === '--idle-timeout') { parsed.idleTimeoutMinutes = Number(args[++i]); continue; }
+    if (a === '--owner-pid') { parsed.ownerPid = Number(args[++i]); continue; }
+    if (a === '--stop') { parsed.stop = true; continue; }
+    if (a === '--__serve') { parsed.serve = true; continue; }
+    if (a.startsWith('-')) { console.error(`Unknown live option: ${a}`); process.exit(2); }
+    if (!parsed.dir) { parsed.dir = a; continue; }
+    console.error(`Unexpected extra argument: ${a}`); process.exit(2);
+  }
+  if (!parsed.dir) { console.error('Missing <dir> for live.\n'); console.error(USAGE); process.exit(2); }
+  const dir = resolve(parsed.dir);
+
+  if (parsed.stop) { stopLive(dir); process.exit(0); }
+
+  if (parsed.serve) {
+    // Daemon child: run the server in the foreground; process stays alive until shutdown.
+    await runLiveForeground(dir, {
+      port: parsed.port, host: parsed.host, urlHost: parsed.urlHost,
+      idleTimeoutMinutes: parsed.idleTimeoutMinutes, ownerPid: parsed.ownerPid,
+    });
+    return;
+  }
+
+  // Parent: re-spawn self DETACHED, wait for server-info, print it, exit.
+  const childArgs = [fileURLToPath(import.meta.url), 'live', dir, '--__serve'];
+  if (parsed.port !== undefined) childArgs.push('--port', String(parsed.port));
+  if (parsed.host) childArgs.push('--host', parsed.host);
+  if (parsed.urlHost) childArgs.push('--url-host', parsed.urlHost);
+  if (parsed.idleTimeoutMinutes !== undefined) childArgs.push('--idle-timeout', String(parsed.idleTimeoutMinutes));
+  if (parsed.ownerPid !== undefined) childArgs.push('--owner-pid', String(parsed.ownerPid));
+  const child = spawn(process.execPath, childArgs, { detached: true, stdio: 'ignore' });
+  child.unref();
+
+  const infoPath = join(dir, 'state', 'server-info');
+  for (let i = 0; i < 50; i += 1) {
+    if (existsSync(infoPath)) { console.log(readFileSync(infoPath, 'utf8').trim()); process.exit(0); }
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  console.error('isles live: server did not report ready within 5s'); process.exit(1);
 }
 
 async function runRender(args) {
