@@ -4,6 +4,7 @@ import { existsSync, mkdtempSync, readFileSync, writeFileSync, utimesSync } from
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
+import { setTimeout as sleep } from 'node:timers/promises';
 import { startLiveServer, resolveNewestScreen, eventsFile } from '../src/live.mjs';
 
 function get(url) {
@@ -119,4 +120,33 @@ test('clearEvents removes the events file', async () => {
     server.clearEvents();
     assert.ok(!existsSync(join(dir, 'state', 'events')));
   } finally { await server.close(); }
+});
+
+test('writing a new screen clears prior events and broadcasts; server-info is written', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-live-watch-'));
+  writeFileSync(join(dir, 'screen-1.md'), '# One');
+  const server = await startLiveServer(dir, { port: 0, watch: true });
+  try {
+    const info = JSON.parse(readFileSync(join(dir, 'state', 'server-info'), 'utf8'));
+    assert.equal(info.type, 'server-started');
+    assert.equal(typeof info.url, 'string');
+    assert.equal(info.screen_dir, dir);
+    assert.equal(info.state_dir, join(dir, 'state'));
+
+    await postJson(server.url + '/__agent-isles/signal', { choice: 'a', text: 'A' });
+    assert.ok(existsSync(join(dir, 'state', 'events')));
+
+    writeFileSync(join(dir, 'screen-2.md'), '# Two'); // newer screen
+    await sleep(500); // allow debounce + watch
+    assert.ok(!existsSync(join(dir, 'state', 'events')), 'events cleared when newest screen changed');
+  } finally { await server.close(); }
+});
+
+test('close writes server-stopped and removes server-info', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-live-stop-'));
+  writeFileSync(join(dir, 'screen-1.md'), '# One');
+  const server = await startLiveServer(dir, { port: 0, watch: true });
+  await server.close();
+  assert.ok(!existsSync(join(dir, 'state', 'server-info')));
+  assert.ok(existsSync(join(dir, 'state', 'server-stopped')));
 });

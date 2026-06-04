@@ -1,5 +1,15 @@
 import http from 'node:http';
-import { appendFileSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
+import {
+  appendFileSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  unlinkSync,
+  watch as fsWatch,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { renderMarkdownString } from './render.mjs';
 import { LIVE_CLIENT } from './live-client.js';
@@ -147,19 +157,67 @@ export async function startLiveServer(dir, options = {}) {
   const urlHost = options.urlHost || (host === '127.0.0.1' ? 'localhost' : host);
   const url = `http://${urlHost}:${port}`;
 
+  const infoPayload = {
+    type: 'server-started', pid: process.pid, port, host, url,
+    screen_dir: dir, state_dir: stateDir(dir),
+  };
+  writeFileSync(join(stateDir(dir), 'server-info'), JSON.stringify(infoPayload) + '\n');
+
   function broadcast(event) {
     for (const c of clients) c.write(`event: ${event}\ndata: {}\n\n`);
-  }
-
-  async function close() {
-    for (const c of clients) c.end();
-    clients.clear();
-    await new Promise((r) => server.close(() => r()));
   }
 
   function clearEvents() {
     rmSync(eventsFile(dir), { force: true });
   }
+
+  let lastScreen = resolveNewestScreen(dir);
+  let watcher = null;
+  let debounceTimer = null;
+  if (options.watch === true) {
+    watcher = fsWatch(dir, (_evt, filename) => {
+      if (!filename || !String(filename).endsWith('.md')) return;
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        const next = resolveNewestScreen(dir);
+        if (next && next !== lastScreen) {
+          lastScreen = next;
+          clearEvents(); // new screen → unambiguous feedback
+        }
+        broadcast('live:reload'); // re-render on new file OR edit of current
+      }, 120);
+    });
+    watcher.on('error', () => {});
+  }
+
+  let lifecycle;
+  async function close(reason = 'closed') {
+    clearInterval(lifecycle);
+    clearTimeout(debounceTimer);
+    if (watcher) watcher.close();
+    for (const c of clients) c.end();
+    clients.clear();
+    try { unlinkSync(join(stateDir(dir), 'server-info')); } catch {}
+    try {
+      writeFileSync(join(stateDir(dir), 'server-stopped'),
+        JSON.stringify({ reason, timestamp: Date.now() }) + '\n');
+    } catch {}
+    await new Promise((r) => server.close(() => r()));
+  }
+
+  let lastActivity = Date.now();
+  server.on('request', () => { lastActivity = Date.now(); });
+  const idleMs = (options.idleTimeoutMinutes ?? 30) * 60 * 1000;
+  const ownerPid = options.ownerPid || null;
+  function shutdown(reason) { void close(reason); }
+  lifecycle = setInterval(() => {
+    if (ownerPid) {
+      try { process.kill(ownerPid, 0); }
+      catch (e) { if (e.code !== 'EPERM') { shutdown('owner exited'); return; } }
+    }
+    if (Date.now() - lastActivity > idleMs) shutdown('idle timeout');
+  }, 60 * 1000);
+  lifecycle.unref?.();
 
   return { url, port, host, dir, server, broadcast, close, clearEvents, _clients: clients };
 }
