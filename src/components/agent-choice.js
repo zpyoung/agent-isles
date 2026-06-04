@@ -25,6 +25,7 @@ export class AgentChoice extends LitElement {
     .desc { color: #666; font-size: 0.9rem; }
     @media (prefers-color-scheme: dark) {
       .choice { border-color: #424245; background: #2d2d2f; color: #f5f5f7; }
+      .key { background: #3a3a3c; color: #e5e5e7; }
       .desc { color: #aaa; }
     }
   `;
@@ -35,7 +36,8 @@ export class AgentChoice extends LitElement {
   }
 
   get choiceId() {
-    return (this.id || '').replace(/^user-content-/, '');
+    const raw = (this.id || '').replace(/^user-content-/, '');
+    return raw === '' ? null : raw;
   }
 
   _onClick() {

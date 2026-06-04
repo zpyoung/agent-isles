@@ -146,7 +146,7 @@ export async function startLiveServer(dir, options = {}) {
         } catch { detail = {}; }
         const record = {
           type: 'click',
-          choice: detail.choice ?? null,
+          choice: typeof detail.choice === 'string' ? detail.choice : null,
           text: typeof detail.text === 'string' ? detail.text : '',
           timestamp: Date.now(),
         };

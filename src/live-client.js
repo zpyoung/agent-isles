@@ -1,5 +1,5 @@
 // Served as a string, injected into the live shell. Reloads on SSE 'live:reload';
-// forwards selection signals to the POST endpoint (endpoint handled in a later task).
+// forwards selection signals to the POST endpoint.
 export const LIVE_CLIENT = `
 (function () {
   var es = new EventSource('/events');
