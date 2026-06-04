@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdirSync, mkdtempSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync, existsSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -35,6 +35,44 @@ async function waitFor(fn, timeoutMs = 5000, stepMs = 100) {
   }
   return false;
 }
+
+test('isles live --stop refuses to signal server-info pid without matching screen_dir', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-live-cli-stop-guard-'));
+  const state = join(dir, 'state');
+  const infoPath = join(state, 'server-info');
+  mkdirSync(state, { recursive: true });
+  let sentinel;
+
+  try {
+    sentinel = spawn(process.execPath, ['-e', 'setTimeout(()=>{},5000)'], { stdio: 'ignore' });
+    assert.ok(Number.isInteger(sentinel.pid) && sentinel.pid > 0, 'sentinel started');
+    assert.ok(pidAlive(sentinel.pid), 'sentinel pid is alive before --stop');
+
+    writeFileSync(infoPath, JSON.stringify({
+      type: 'server-started',
+      pid: sentinel.pid,
+      port: 65535,
+      host: '127.0.0.1',
+      url: 'http://localhost:65535',
+      state_dir: state,
+    }) + '\n');
+
+    const stop = await runCli(['live', dir, '--stop']);
+    assert.equal(stop.code, 0, `--stop failed: ${stop.stderr}`);
+    await sleep(150);
+    assert.ok(pidAlive(sentinel.pid), 'sentinel pid remains alive when screen_dir is missing');
+    assert.equal(sentinel.exitCode, null, 'sentinel process was not terminated');
+    assert.equal(sentinel.signalCode, null, 'sentinel process was not signaled');
+  } finally {
+    if (sentinel) {
+      if (pidAlive(sentinel.pid)) sentinel.kill('SIGTERM');
+      await waitFor(() => !pidAlive(sentinel.pid), 1000, 25);
+      if (pidAlive(sentinel.pid)) sentinel.kill('SIGKILL');
+      await waitFor(() => !pidAlive(sentinel.pid), 1000, 25);
+    }
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
 
 test('isles live self-backgrounds, writes fresh server-info, and --stop stops it', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'isles-live-cli-'));

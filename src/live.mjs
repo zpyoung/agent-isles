@@ -284,7 +284,7 @@ export function stopLive(dir) {
   let info;
   try { info = JSON.parse(readFileSync(infoPath, 'utf8')); } catch { return false; }
   if (!info || !Number.isInteger(info.pid) || info.pid <= 0) return false;
-  if (info.screen_dir && info.screen_dir !== dir) return false;
+  if (typeof info.screen_dir !== 'string' || info.screen_dir !== dir) return false;
   try { process.kill(info.pid, 'SIGTERM'); return true; }
   catch (e) { if (e && e.code === 'ESRCH') { try { unlinkSync(infoPath); } catch {} } return false; }
 }
