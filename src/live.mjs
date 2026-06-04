@@ -1,10 +1,23 @@
 import http from 'node:http';
-import { readdirSync, statSync, readFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { renderMarkdownString } from './render.mjs';
 import { LIVE_CLIENT } from './live-client.js';
 
 const defaultHost = '127.0.0.1';
+
+function stateDir(dir) { return join(dir, 'state'); }
+export function eventsFile(dir) { return join(stateDir(dir), 'events'); }
+
+function readBody(req, limit = 1024 * 1024) {
+  return new Promise((resolvePromise, reject) => {
+    let body = '';
+    req.setEncoding('utf8');
+    req.on('data', (c) => { body += c; if (body.length > limit) { reject(new Error('too large')); req.destroy(); } });
+    req.on('end', () => resolvePromise(body));
+    req.on('error', reject);
+  });
+}
 
 export function resolveNewestScreen(dir) {
   let names;
@@ -78,6 +91,7 @@ async function renderNewest(dir) {
 export async function startLiveServer(dir, options = {}) {
   const host = options.host || defaultHost;
   const clients = new Set();
+  mkdirSync(stateDir(dir), { recursive: true });
 
   const server = http.createServer(async (req, res) => {
     try {
@@ -95,6 +109,22 @@ export async function startLiveServer(dir, options = {}) {
         res.write('retry: 500\nevent: live:ready\ndata: {}\n\n');
         clients.add(res);
         req.on('close', () => clients.delete(res));
+        return;
+      }
+      if (req.method === 'POST' && req.url === '/__agent-isles/signal') {
+        const raw = await readBody(req);
+        let detail = {};
+        try { detail = JSON.parse(raw || '{}'); } catch { detail = {}; }
+        const record = {
+          type: 'click',
+          choice: detail.choice ?? null,
+          text: typeof detail.text === 'string' ? detail.text : '',
+          timestamp: Date.now(),
+        };
+        if (Array.isArray(detail.selected)) record.selected = detail.selected;
+        appendFileSync(eventsFile(dir), JSON.stringify(record) + '\n');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end('{"ok":true}');
         return;
       }
       res.writeHead(404); res.end('Not found');
@@ -123,5 +153,9 @@ export async function startLiveServer(dir, options = {}) {
     await new Promise((r) => server.close(() => r()));
   }
 
-  return { url, port, host, dir, server, broadcast, close, _clients: clients };
+  function clearEvents() {
+    rmSync(eventsFile(dir), { force: true });
+  }
+
+  return { url, port, host, dir, server, broadcast, close, clearEvents, _clients: clients };
 }
