@@ -4,7 +4,7 @@ import { existsSync, mkdtempSync, readFileSync, writeFileSync, utimesSync } from
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { startLiveServer, resolveNewestScreen } from '../src/live.mjs';
+import { startLiveServer, resolveNewestScreen, eventsFile } from '../src/live.mjs';
 
 function get(url) {
   return new Promise((resolvePromise, reject) => {
@@ -86,6 +86,26 @@ test('POST /__agent-isles/signal appends one JSONL line per selection', async ()
     assert.equal(parsed.choice, 'a');
     assert.equal(parsed.text, 'Option A');
     assert.equal(typeof parsed.timestamp, 'number');
+  } finally { await server.close(); }
+});
+
+test('signal record honors the JSONL contract edges', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-live-contract-'));
+  writeFileSync(join(dir, 's.md'), '# x');
+  const server = await startLiveServer(dir, { port: 0 });
+  try {
+    assert.equal(eventsFile(dir), join(dir, 'state', 'events'));
+    const r1 = await postJson(server.url + '/__agent-isles/signal', { text: 123, selected: ['a', 'b'] });
+    assert.deepEqual(JSON.parse(r1.body), { ok: true });
+    const r2 = await postJson(server.url + '/__agent-isles/signal', { choice: 'c', selected: 'nope' });
+    assert.deepEqual(JSON.parse(r2.body), { ok: true });
+    const lines = readFileSync(eventsFile(dir), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+    assert.equal(lines[0].choice, null);
+    assert.equal(lines[0].text, '');
+    assert.deepEqual(lines[0].selected, ['a', 'b']);
+    assert.equal(lines[1].choice, 'c');
+    assert.equal(lines[1].text, '');
+    assert.ok(!('selected' in lines[1]));
   } finally { await server.close(); }
 });
 

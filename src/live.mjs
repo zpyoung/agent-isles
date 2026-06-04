@@ -114,7 +114,10 @@ export async function startLiveServer(dir, options = {}) {
       if (req.method === 'POST' && req.url === '/__agent-isles/signal') {
         const raw = await readBody(req);
         let detail = {};
-        try { detail = JSON.parse(raw || '{}'); } catch { detail = {}; }
+        try {
+          const parsed = JSON.parse(raw || '{}');
+          if (parsed && typeof parsed === 'object') detail = parsed;
+        } catch { detail = {}; }
         const record = {
           type: 'click',
           choice: detail.choice ?? null,
@@ -122,6 +125,7 @@ export async function startLiveServer(dir, options = {}) {
           timestamp: Date.now(),
         };
         if (Array.isArray(detail.selected)) record.selected = detail.selected;
+        mkdirSync(stateDir(dir), { recursive: true });
         appendFileSync(eventsFile(dir), JSON.stringify(record) + '\n');
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end('{"ok":true}');
