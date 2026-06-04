@@ -71,6 +71,56 @@ Example:
 <agent-theme-toggle label="Theme"></agent-theme-toggle>
 ```
 
+### `<agent-option-set>` and `<agent-choice>`
+
+Use for lightweight interactive option pickers in rendered reports and live screens. Authors place one or more `<agent-choice>` rows inside an `<agent-option-set>`; the component toggles selected state in the browser DOM without invoking writeback.
+
+Status: supported.
+
+Authoring guidance:
+
+- Use single-select option sets by default when the reader should pick one path.
+- Add `data-multiselect` on `<agent-option-set>` when several choices can remain selected.
+- Put the stable choice identifier on `id`; the component mirrors it into `data-choice` when absent so live-mode click capture can read a durable value later.
+- Keep the visible explanation in the choice body. Use `title` for the short choice label.
+- Do not use these components for durable source edits; interactive choices are ephemeral signals, not writeback operations.
+
+Attributes:
+
+| Tag | Attribute | Required | Allowed values | Default | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `agent-option-set` | `title` | No | Plain text | `Option set` | Visible heading for the group. |
+| `agent-option-set` | `data-multiselect` | No | Boolean attribute | absent | Allows multiple selected child choices. |
+| `agent-choice` | `id` | Recommended | HTML id token | empty | Stable choice id; later live-mode events use this as the choice value when `data-choice` is absent. |
+| `agent-choice` | `title` | No | Plain text | body text | Visible choice label. |
+| `agent-choice` | `data-choice` | No | Plain text token | `id` when present | Explicit value for future live-mode click capture. |
+
+Behavior:
+
+- Clicking a choice toggles its `selected` attribute and `data-selected` value in the component DOM.
+- In single-select sets, selecting one choice deselects sibling choices. Clicking the selected choice toggles it off.
+- In multi-select sets, each choice toggles independently.
+- The component dispatches DOM events for future live-mode capture, but this vocabulary slice does not write files, mutate Markdown, or append JSONL events.
+
+Trusted/sanitized behavior:
+
+- Trusted mode preserves the tags, attributes, and child HTML.
+- Sanitized mode allows `title` and `data-multiselect` on `<agent-option-set>` and `id`, `title`, `data-choice`, and `selected` on `<agent-choice>` while stripping event handlers and unsupported attributes.
+
+Example:
+
+```markdown
+<agent-option-set title="Which layout?">
+  <agent-choice id="single-column" title="Single column">Focused reading experience</agent-choice>
+  <agent-choice id="two-column" title="Two column">Sidebar + main content</agent-choice>
+</agent-option-set>
+
+<agent-option-set title="Include sections" data-multiselect>
+  <agent-choice id="risks" title="Risks">Show risk callouts</agent-choice>
+  <agent-choice id="timeline" title="Timeline">Show timeline context</agent-choice>
+</agent-option-set>
+```
+
 ### `<agent-decision>`
 
 Use for architectural, product, implementation, or operational decisions where the outcome should be visually scannable.

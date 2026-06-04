@@ -76,6 +76,36 @@ test('component bundle registers dependency DAG islands', () => {
   }
 });
 
+test('component bundle registers option-set choice islands', () => {
+  const bundle = readFileSync(componentBundle, 'utf8');
+
+  for (const tagName of ['agent-option-set', 'agent-choice']) {
+    assertCustomElementDefinition(bundle, tagName);
+  }
+});
+
+test('sanitized render mode preserves safe option-set choice markup', async () => {
+  const { renderMarkdown } = await import('../src/render.mjs');
+
+  const html = await renderMarkdown(`
+# Which layout?
+
+<agent-option-set title="Layout choices" data-multiselect onclick="steal()">
+  <agent-choice id="a" title="Single column" data-choice="layout-a" onclick="steal()">Focused reading</agent-choice>
+  <agent-choice id="b" title="Two column" style="display:none">Sidebar + main</agent-choice>
+</agent-option-set>
+`, { renderMode: 'sanitized' });
+
+  assert.match(html, /<agent-option-set title="Layout choices" data-multiselect(?:="")?>/);
+  assert.match(
+    html,
+    /<agent-choice id="(?:user-content-)?a" title="Single column" data-choice="layout-a">Focused reading<\/agent-choice>/,
+  );
+  assert.match(html, /<agent-choice id="(?:user-content-)?b" title="Two column">Sidebar \+ main<\/agent-choice>/);
+  assert.doesNotMatch(html, /onclick=/i);
+  assert.doesNotMatch(html, /style=/i);
+});
+
 test('sanitized render mode removes active HTML while preserving safe islands', async () => {
   const { renderMarkdown } = await import('../src/render.mjs');
 
@@ -531,6 +561,8 @@ test('demo gives every supported component a rendered/source side-by-side pair',
     'agent-delta',
     'agent-kpi',
     'agent-copy-block',
+    'agent-option-set',
+    'agent-choice',
     'agent-status-board',
     'agent-status-item',
     'agent-dependency-map',

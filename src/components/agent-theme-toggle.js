@@ -9,6 +9,8 @@ const AGENT_COMPONENT_TAGS = [
   'agent-delta',
   'agent-copy-block',
   'agent-theme-toggle',
+  'agent-option-set',
+  'agent-choice',
   'agent-dependency-map',
   'agent-dependency',
   'agent-tabs',
