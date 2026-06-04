@@ -1,60 +1,78 @@
 import http from 'node:http';
 import { readdirSync, statSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { renderMarkdownString } from './render.mjs';
 import { LIVE_CLIENT } from './live-client.js';
 
 const defaultHost = '127.0.0.1';
-const BUNDLE_PATH = fileURLToPath(new URL('../dist/agent-components.js', import.meta.url));
 
 export function resolveNewestScreen(dir) {
+  let names;
+  try {
+    names = readdirSync(dir);
+  } catch {
+    return null;
+  }
   let newest = null;
   let newestMtime = -1;
-  for (const name of readdirSync(dir)) {
+  for (const name of names) {
     if (!name.endsWith('.md')) continue;
     const full = join(dir, name);
-    const st = statSync(full);
+    let st;
+    try {
+      st = statSync(full);
+    } catch {
+      continue; // deleted between readdir and stat
+    }
     if (!st.isFile()) continue;
     if (st.mtimeMs > newestMtime) { newestMtime = st.mtimeMs; newest = full; }
   }
   return newest;
 }
 
-const WAITING = '<p style="color:#888">Waiting for the agent to push a screen…</p>';
+function injectLiveFrame(pageHtml) {
+  const overlayStyle = `<style>
+    body{padding-top:2.2rem;padding-bottom:2.2rem}
+    #isles-header{position:fixed;top:0;left:0;right:0;height:2.2rem;display:flex;align-items:center;padding:0 1.5rem;font:500 .8rem system-ui,sans-serif;color:#888;background:rgba(127,127,127,.07);border-bottom:1px solid rgba(127,127,127,.25);z-index:99999}
+    #isles-bar{position:fixed;bottom:0;left:0;right:0;padding:.45rem 1.5rem;text-align:center;font:.78rem system-ui,sans-serif;color:#888;background:rgba(127,127,127,.07);border-top:1px solid rgba(127,127,127,.25);z-index:99999}
+  </style>`;
+  const headerHtml = `<div id="isles-header">Quirk Brainstorming</div>`;
+  const barHtml = `<div id="isles-bar"><span id="isles-indicator">Click an option above, then return to the terminal</span></div>`;
+  const clientHtml = `<script>${LIVE_CLIENT}</script>`;
+  let out = pageHtml;
+  out = /<\/head>/i.test(out) ? out.replace(/<\/head>/i, `${overlayStyle}</head>`) : `${overlayStyle}${out}`;
+  out = /<body[^>]*>/i.test(out) ? out.replace(/(<body[^>]*>)/i, `$1${headerHtml}`) : `${headerHtml}${out}`;
+  out = /<\/body>/i.test(out) ? out.replace(/<\/body>/i, `${barHtml}${clientHtml}</body>`) : `${out}${barHtml}${clientHtml}`;
+  return out;
+}
 
-function liveShell(bodyHtml) {
-  return `<!doctype html><html><head><meta charset="utf-8">
-<title>Quirk Brainstorming</title>
-<style>
-  body{margin:0;font-family:system-ui,sans-serif;display:flex;flex-direction:column;min-height:100vh}
-  .isles-header{padding:.5rem 1.5rem;border-bottom:1px solid #d1d1d6;font-size:.85rem;color:#888}
-  .isles-main{flex:1;padding:2rem;overflow-y:auto}
-  .isles-bar{padding:.5rem 1.5rem;border-top:1px solid #d1d1d6;text-align:center;font-size:.78rem;color:#888}
-  @media (prefers-color-scheme: dark){body{background:#1d1d1f;color:#f5f5f7}.isles-header,.isles-bar{border-color:#424245}}
-</style></head>
-<body>
-  <div class="isles-header">Quirk Brainstorming</div>
-  <div class="isles-main">${bodyHtml}</div>
-  <div class="isles-bar"><span id="isles-indicator">Click an option above, then return to the terminal</span></div>
-  <script type="module" src="/__agent-isles/agent-components.js"></script>
-  <script>${LIVE_CLIENT}</script>
-</body></html>`;
+function waitingPage() {
+  return injectLiveFrame(
+    '<!doctype html><html><head><meta charset="utf-8"><title>Quirk Brainstorming</title></head>' +
+    '<body><p style="padding:2rem;color:#888;font-family:system-ui,sans-serif">Waiting for the agent to push a screen…</p></body></html>'
+  );
 }
 
 async function renderNewest(dir) {
-  const screen = resolveNewestScreen(dir);
-  if (!screen) return liveShell(WAITING);
-  const markdown = readFileSync(screen, 'utf8');
+  let screen;
+  try {
+    screen = resolveNewestScreen(dir);
+  } catch {
+    return waitingPage();
+  }
+  if (!screen) return waitingPage();
+  let markdown;
+  try {
+    markdown = readFileSync(screen, 'utf8');
+  } catch {
+    return waitingPage(); // file vanished between resolve and read (delete race)
+  }
   const { html } = await renderMarkdownString(markdown, {
     assetMode: 'inline',
     includeUserPacks: false,
     projectDir: dir,
   });
-  // renderMarkdownString returns a full page; extract its <body> inner to wrap in the live shell.
-  const match = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-  const body = match ? match[1] : html;
-  return liveShell(body);
+  return injectLiveFrame(html);
 }
 
 export async function startLiveServer(dir, options = {}) {
@@ -77,11 +95,6 @@ export async function startLiveServer(dir, options = {}) {
         res.write('retry: 500\nevent: live:ready\ndata: {}\n\n');
         clients.add(res);
         req.on('close', () => clients.delete(res));
-        return;
-      }
-      if (req.method === 'GET' && req.url === '/__agent-isles/agent-components.js') {
-        res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8' });
-        res.end(readFileSync(BUNDLE_PATH, 'utf8'));
         return;
       }
       res.writeHead(404); res.end('Not found');
