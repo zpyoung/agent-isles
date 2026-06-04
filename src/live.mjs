@@ -4,6 +4,7 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  renameSync,
   rmSync,
   statSync,
   unlinkSync,
@@ -161,7 +162,11 @@ export async function startLiveServer(dir, options = {}) {
     type: 'server-started', pid: process.pid, port, host, url,
     screen_dir: dir, state_dir: stateDir(dir),
   };
-  writeFileSync(join(stateDir(dir), 'server-info'), JSON.stringify(infoPayload) + '\n');
+  try {
+    const infoTmp = join(stateDir(dir), 'server-info.tmp');
+    writeFileSync(infoTmp, JSON.stringify(infoPayload) + '\n');
+    renameSync(infoTmp, join(stateDir(dir), 'server-info'));
+  } catch {}
 
   function broadcast(event) {
     for (const c of clients) c.write(`event: ${event}\ndata: {}\n\n`);
@@ -176,7 +181,7 @@ export async function startLiveServer(dir, options = {}) {
   let debounceTimer = null;
   if (options.watch === true) {
     watcher = fsWatch(dir, (_evt, filename) => {
-      if (!filename || !String(filename).endsWith('.md')) return;
+      if (filename && !String(filename).endsWith('.md')) return;
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         const next = resolveNewestScreen(dir);
@@ -191,7 +196,10 @@ export async function startLiveServer(dir, options = {}) {
   }
 
   let lifecycle;
+  let closed = false;
   async function close(reason = 'closed') {
+    if (closed) return;
+    closed = true;
     clearInterval(lifecycle);
     clearTimeout(debounceTimer);
     if (watcher) watcher.close();
@@ -215,7 +223,7 @@ export async function startLiveServer(dir, options = {}) {
       try { process.kill(ownerPid, 0); }
       catch (e) { if (e.code !== 'EPERM') { shutdown('owner exited'); return; } }
     }
-    if (Date.now() - lastActivity > idleMs) shutdown('idle timeout');
+    if (clients.size === 0 && Date.now() - lastActivity > idleMs) shutdown('idle timeout');
   }, 60 * 1000);
   lifecycle.unref?.();
 

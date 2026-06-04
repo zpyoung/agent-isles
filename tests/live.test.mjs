@@ -7,6 +7,12 @@ import test from 'node:test';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { startLiveServer, resolveNewestScreen, eventsFile } from '../src/live.mjs';
 
+async function waitFor(fn, timeoutMs = 4000, stepMs = 50) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) { if (await fn()) return true; await sleep(stepMs); }
+  return false;
+}
+
 function get(url) {
   return new Promise((resolvePromise, reject) => {
     http.get(url, (res) => {
@@ -137,8 +143,7 @@ test('writing a new screen clears prior events and broadcasts; server-info is wr
     assert.ok(existsSync(join(dir, 'state', 'events')));
 
     writeFileSync(join(dir, 'screen-2.md'), '# Two'); // newer screen
-    await sleep(500); // allow debounce + watch
-    assert.ok(!existsSync(join(dir, 'state', 'events')), 'events cleared when newest screen changed');
+    assert.ok(await waitFor(() => !existsSync(join(dir, 'state', 'events'))), 'events cleared when newest screen changed');
   } finally { await server.close(); }
 });
 
