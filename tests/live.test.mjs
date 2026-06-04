@@ -96,6 +96,31 @@ test('POST /__agent-isles/signal appends one JSONL line per selection', async ()
   } finally { await server.close(); }
 });
 
+test('POST /__agent-isles/signal does not trigger a spurious live reload while watching', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-live-signal-watch-'));
+  writeFileSync(join(dir, 'screen-1.md'), '# Pick');
+  const server = await startLiveServer(dir, { port: 0, watch: true });
+  const eventsReq = http.get(server.url + '/events');
+  let stream = '';
+  eventsReq.on('response', (res) => {
+    res.setEncoding('utf8');
+    res.on('data', (c) => { stream += c; });
+  });
+  eventsReq.on('error', () => {});
+  try {
+    assert.ok(await waitFor(() => stream.includes('event: live:ready')));
+    const r = await postJson(server.url + '/__agent-isles/signal', { choice: 'a', text: 'Option A' });
+    assert.equal(r.status, 200);
+    const before = readFileSync(eventsFile(dir), 'utf8');
+    await sleep(350);
+    assert.equal(readFileSync(eventsFile(dir), 'utf8'), before);
+    assert.doesNotMatch(stream, /event: live:reload/);
+  } finally {
+    eventsReq.destroy();
+    await server.close();
+  }
+});
+
 test('signal record honors the JSONL contract edges', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'isles-live-contract-'));
   writeFileSync(join(dir, 's.md'), '# x');

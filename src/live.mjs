@@ -54,6 +54,20 @@ export function resolveNewestScreen(dir) {
   return newest;
 }
 
+function screenSnapshot(dir) {
+  let names;
+  try { names = readdirSync(dir); } catch { return ''; }
+  const parts = [];
+  for (const name of names) {
+    if (!name.endsWith('.md')) continue;
+    try {
+      const s = statSync(join(dir, name));
+      if (s.isFile()) parts.push(`${name}:${s.mtimeMs}:${s.size}`);
+    } catch { /* deleted mid-scan */ }
+  }
+  return parts.sort().join('|');
+}
+
 function injectLiveFrame(pageHtml) {
   const overlayStyle = `<style>
     body{padding-top:2.2rem;padding-bottom:2.2rem}
@@ -164,8 +178,13 @@ export async function startLiveServer(dir, options = {}) {
   };
   try {
     const infoTmp = join(stateDir(dir), 'server-info.tmp');
-    writeFileSync(infoTmp, JSON.stringify(infoPayload) + '\n');
-    renameSync(infoTmp, join(stateDir(dir), 'server-info'));
+    try {
+      writeFileSync(infoTmp, JSON.stringify(infoPayload) + '\n');
+      renameSync(infoTmp, join(stateDir(dir), 'server-info'));
+    } catch (e) {
+      try { unlinkSync(infoTmp); } catch {}
+      throw e;
+    }
   } catch {}
 
   function broadcast(event) {
@@ -177,40 +196,47 @@ export async function startLiveServer(dir, options = {}) {
   }
 
   let lastScreen = resolveNewestScreen(dir);
+  let lastSnapshot = screenSnapshot(dir);
   let watcher = null;
   let debounceTimer = null;
-  if (options.watch === true) {
-    watcher = fsWatch(dir, (_evt, filename) => {
-      if (filename && !String(filename).endsWith('.md')) return;
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
-        const next = resolveNewestScreen(dir);
-        if (next && next !== lastScreen) {
-          lastScreen = next;
-          clearEvents(); // new screen → unambiguous feedback
-        }
-        broadcast('live:reload'); // re-render on new file OR edit of current
-      }, 120);
-    });
-    watcher.on('error', () => {});
+  if (options.watch) {
+    try {
+      watcher = fsWatch(dir, (_evt, filename) => {
+        if (filename && !String(filename).endsWith('.md')) return;
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          const snap = screenSnapshot(dir);
+          if (snap === lastSnapshot) return; // ignore state/ churn + non-.md + no-op events
+          lastSnapshot = snap;
+          const next = resolveNewestScreen(dir);
+          if (next !== lastScreen) { // includes screen -> none and none -> screen
+            lastScreen = next;
+            clearEvents();
+          }
+          broadcast('live:reload');
+        }, 120);
+      });
+      watcher.on('error', () => {});
+    } catch {
+      watcher = null; // degrade: serve without live reload rather than leak/throw
+    }
   }
 
   let lifecycle;
-  let closed = false;
-  async function close(reason = 'closed') {
-    if (closed) return;
-    closed = true;
-    clearInterval(lifecycle);
-    clearTimeout(debounceTimer);
-    if (watcher) watcher.close();
-    for (const c of clients) c.end();
-    clients.clear();
-    try { unlinkSync(join(stateDir(dir), 'server-info')); } catch {}
-    try {
-      writeFileSync(join(stateDir(dir), 'server-stopped'),
-        JSON.stringify({ reason, timestamp: Date.now() }) + '\n');
-    } catch {}
-    await new Promise((r) => server.close(() => r()));
+  let closePromise = null;
+  function close(reason = 'closed') {
+    if (closePromise) return closePromise;
+    closePromise = (async () => {
+      clearInterval(lifecycle);
+      clearTimeout(debounceTimer);
+      if (watcher) watcher.close();
+      for (const c of clients) c.end();
+      clients.clear();
+      try { unlinkSync(join(stateDir(dir), 'server-info')); } catch {}
+      try { writeFileSync(join(stateDir(dir), 'server-stopped'), JSON.stringify({ reason, timestamp: Date.now() }) + '\n'); } catch {}
+      await new Promise((r) => server.close(() => r()));
+    })();
+    return closePromise;
   }
 
   let lastActivity = Date.now();
