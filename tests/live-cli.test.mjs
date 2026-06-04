@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdirSync, mkdtempSync, writeFileSync, existsSync, readFileSync, rmSync } from 'node:fs';
+import http from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import test from 'node:test';
+
+import { startPreviewServer } from '../src/preview.mjs';
 
 const cli = 'bin/isles.mjs';
 
@@ -35,6 +38,26 @@ async function waitFor(fn, timeoutMs = 5000, stepMs = 100) {
   }
   return false;
 }
+
+test('isles preview still serves its directory shell (no live regression)', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-preview-regress-'));
+  writeFileSync(join(dir, 'a.md'), '# A');
+  const server = await startPreviewServer(dir, { port: 0, includeUserPacks: false });
+  try {
+    const body = await new Promise((resolvePromise, reject) => {
+      const u = new URL(server.url);
+      http.get({ hostname: u.hostname, port: u.port, path: '/' }, (res) => {
+        res.setEncoding('utf8');
+        let b = '';
+        res.on('data', (c) => { b += c; });
+        res.on('end', () => resolvePromise(b));
+      }).on('error', reject);
+    });
+    assert.match(body, /Agent Isles Preview/);
+  } finally {
+    await server.close();
+  }
+});
 
 test('isles live --stop refuses to signal server-info pid without matching screen_dir', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'isles-live-cli-stop-guard-'));
