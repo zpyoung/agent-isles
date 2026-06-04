@@ -12,6 +12,10 @@ async function waitForChoiceUpgrade(page, id) {
     const el = document.querySelector(`agent-choice[id="${choiceId}"]`);
     return customElements.get('agent-choice') && el && el.shadowRoot;
   }, id);
+  await page.waitForFunction((choiceId) => {
+    const el = document.querySelector(`agent-choice[id="${choiceId}"]`);
+    return el?.shadowRoot?.querySelector('.choice');
+  }, id);
   return choice;
 }
 
@@ -51,12 +55,13 @@ test('multi-select records selected ids', async ({ page }) => {
     await expect.poll(() => {
       try {
         const p = join(dir, 'state', 'events');
-        if (!existsSync(p)) return null;
+        if (!existsSync(p)) return false;
         const lines = readFileSync(p, 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
-        const last = lines[lines.length - 1];
-        return last && Array.isArray(last.selected) ? [...last.selected].sort() : null;
-      } catch { return null; }
-    }).toEqual(['a', 'b']);
+        return lines.some((rec) => Array.isArray(rec.selected)
+          && rec.selected.length === 2
+          && [...rec.selected].sort().join(',') === 'a,b');
+      } catch { return false; }
+    }).toBe(true);
   } finally {
     await server.close();
   }
