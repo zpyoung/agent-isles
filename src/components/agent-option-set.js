@@ -40,7 +40,7 @@ export class AgentOptionSet extends LitElement {
       detail: {
         choice: event.detail.choice,
         text: event.detail.text,
-        selected: selected.map((c) => c.id),
+        selected: selected.map((c) => c.choiceId),
         multiselect: this.multiselect,
       },
       bubbles: true, composed: true,

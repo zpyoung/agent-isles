@@ -34,9 +34,13 @@ export class AgentChoice extends LitElement {
     this.selected = false;
   }
 
+  get choiceId() {
+    return (this.id || '').replace(/^user-content-/, '');
+  }
+
   _onClick() {
     this.dispatchEvent(new CustomEvent('agent-isles:choice-click', {
-      detail: { choice: this.id, text: (this.title || this.textContent || '').trim() },
+      detail: { choice: this.choiceId, text: (this.title || this.textContent || '').trim() },
       bubbles: true, composed: true,
     }));
   }
@@ -44,7 +48,7 @@ export class AgentChoice extends LitElement {
   render() {
     return html`
       <div class="choice" @click=${this._onClick}>
-        <div class="key">${(this.id || '?').toUpperCase()}</div>
+        <div class="key">${(this.choiceId || '?').toUpperCase()}</div>
         <div>
           <div class="title">${this.title || ''}</div>
           <div class="desc"><slot></slot></div>
