@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { CONFIG_FILE, getUserConfigDir, PackResolutionError, resolvePackInputs } from '../src/pack-resolver.mjs';
 import { watchMarkdownFile } from '../src/watch.mjs';
 import { previewMarkdown, startPreviewServer } from '../src/preview.mjs';
+import { launchLiveServer, LiveServerError, minutesToMs, startLiveServer } from '../src/live.mjs';
 
 const USAGE = `Agent Isles — Markdown seas, component islands.
 
@@ -25,12 +26,14 @@ Usage:
   isles watch <file.md> [--out <file.html>] [--mode trusted|sanitized] [--assets cdn|local|inline] [--show-source] [--pack <path>]... [--no-user-packs]
   isles preview (--stdin | <file.md>) [--open] [--mode trusted|sanitized] [--safe|--sanitize] [--show-source] [--pack <path>]... [--no-user-packs]
   isles preview <dir> [--port <port>] [--writeback] [--mode trusted|sanitized] [--show-source] [--pack <path>]... [--no-user-packs]
+  isles live <dir> [--port <port>] [--host <host>] [--url-host <host>] [--idle-timeout <minutes>] [--owner-pid <pid>] [--no-user-packs]
 
 Commands:
   render         Render Markdown to browser-ready HTML
   packs resolve  Print resolved component packs, sources, asset outputs, and sanitizer permissions
   watch          Render immediately and rebuild when the Markdown file changes
   preview        Render ephemeral Markdown to a temp HTML file, or serve a localhost directory preview
+  live           Start a detached localhost live-mode server for an external agent loop
 
 Options:
   --assets cdn|local|inline   Use CDN assets (default), copy local offline assets, or inline all assets into single HTML file
@@ -60,6 +63,8 @@ if (command === 'render') {
   await runWatch(args);
 } else if (command === 'preview') {
   await runPreview(args);
+} else if (command === 'live') {
+  await runLive(args);
 } else {
   console.error(`Unknown command: ${command}\n`);
   console.error(USAGE);
@@ -592,6 +597,157 @@ async function runPreview(args) {
       process.exit(1);
     }
 
+    throw error;
+  }
+}
+
+function parseLiveArgs(args) {
+  const parsed = {
+    input: undefined,
+    port: undefined,
+    explicitPort: false,
+    host: '127.0.0.1',
+    urlHost: undefined,
+    idleTimeoutMinutes: 30,
+    ownerPid: undefined,
+    includeUserPacks: true,
+  };
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+
+    if (arg === '--port') {
+      const value = args[index + 1];
+      if (!value || value.startsWith('-')) {
+        console.error('Missing value for --port.');
+        process.exit(2);
+      }
+      parsed.port = Number(value);
+      parsed.explicitPort = true;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--host') {
+      const value = args[index + 1];
+      if (!value || value.startsWith('-')) {
+        console.error('Missing value for --host.');
+        process.exit(2);
+      }
+      parsed.host = value;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--url-host') {
+      const value = args[index + 1];
+      if (!value || value.startsWith('-')) {
+        console.error('Missing value for --url-host.');
+        process.exit(2);
+      }
+      parsed.urlHost = value;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--idle-timeout') {
+      const value = args[index + 1];
+      if (!value || value.startsWith('-')) {
+        console.error('Missing value for --idle-timeout.');
+        process.exit(2);
+      }
+      parsed.idleTimeoutMinutes = Number(value);
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--owner-pid') {
+      const value = args[index + 1];
+      if (!value || value.startsWith('-')) {
+        console.error('Missing value for --owner-pid.');
+        process.exit(2);
+      }
+      parsed.ownerPid = Number(value);
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--no-user-packs') {
+      parsed.includeUserPacks = false;
+      continue;
+    }
+
+    if (arg.startsWith('-')) {
+      console.error(`Unknown live option: ${arg}`);
+      process.exit(2);
+    }
+
+    if (parsed.input) {
+      console.error(`Unexpected extra argument: ${arg}`);
+      process.exit(2);
+    }
+
+    parsed.input = arg;
+  }
+
+  return parsed;
+}
+
+async function runLive(args) {
+  const parsed = parseLiveArgs(args);
+  if (!parsed.input) {
+    console.error('Missing directory for live mode.\n');
+    console.error(USAGE);
+    process.exit(2);
+  }
+
+  const options = {
+    port: parsed.port,
+    explicitPort: parsed.explicitPort,
+    host: parsed.host,
+    urlHost: parsed.urlHost,
+    idleTimeoutMs: minutesToMs(parsed.idleTimeoutMinutes),
+    ownerPid: parsed.ownerPid,
+    includeUserPacks: parsed.includeUserPacks,
+  };
+
+  if (process.env.ISLES_LIVE_CHILD === '1') {
+    let live;
+    try {
+      live = await startLiveServer(parsed.input, options);
+    } catch (error) {
+      console.error(error?.message || String(error));
+      process.exit(1);
+    }
+
+    async function close(reason) {
+      try {
+        await live.close(reason);
+        process.exit(0);
+      } catch (error) {
+        console.error(error?.message || String(error));
+        process.exit(1);
+      }
+    }
+
+    process.once('SIGINT', () => { void close('signal'); });
+    process.once('SIGTERM', () => { void close('signal'); });
+    return;
+  }
+
+  try {
+    const childArgs = [fileURLToPath(import.meta.url), 'live', ...args];
+    const launched = await launchLiveServer(parsed.input, {
+      childArgs,
+      cwd: process.cwd(),
+      env: { ISLES_LIVE_CHILD: '1' },
+    });
+    console.log(`[isles] live server started: ${launched.info.url}`);
+  } catch (error) {
+    if (error instanceof LiveServerError) {
+      console.error(error.message);
+      process.exit(1);
+    }
     throw error;
   }
 }

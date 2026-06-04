@@ -31,6 +31,7 @@ const expectedPublishedFiles = [
   'src/components/agent-timeline.js',
   'src/components/dependency-graph.js',
   'src/components/index.js',
+  'src/live.mjs',
   'src/pack-loader.mjs',
   'src/pack-resolver.mjs',
   'src/preview.mjs',
