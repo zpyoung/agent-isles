@@ -259,6 +259,18 @@ export async function startLiveServer(dir, options = {}) {
 
 export async function runLiveForeground(dir, options = {}) {
   const server = await startLiveServer(dir, { ...options, watch: true });
+  const infoPath = join(dir, 'state', 'server-info');
+  let published = false;
+  try {
+    published = existsSync(infoPath) && statSync(infoPath).isFile();
+    if (published) JSON.parse(readFileSync(infoPath, 'utf8'));
+  } catch {
+    published = false;
+  }
+  if (!published) {
+    await server.close('startup-failed: could not publish server-info');
+    process.exit(1);
+  }
   let terminating = false;
   const onTerm = () => { if (terminating) return; terminating = true; server.close('signal').then(() => process.exit(0)); };
   process.once('SIGTERM', onTerm);
@@ -269,12 +281,10 @@ export async function runLiveForeground(dir, options = {}) {
 export function stopLive(dir) {
   const infoPath = join(dir, 'state', 'server-info');
   if (!existsSync(infoPath)) return false;
-  try {
-    const info = JSON.parse(readFileSync(infoPath, 'utf8'));
-    if (info.pid) process.kill(info.pid, 'SIGTERM');
-    return true;
-  } catch (e) {
-    if (e && e.code === 'ESRCH') { try { unlinkSync(infoPath); } catch {} }
-    return false;
-  }
+  let info;
+  try { info = JSON.parse(readFileSync(infoPath, 'utf8')); } catch { return false; }
+  if (!info || !Number.isInteger(info.pid) || info.pid <= 0) return false;
+  if (info.screen_dir && info.screen_dir !== dir) return false;
+  try { process.kill(info.pid, 'SIGTERM'); return true; }
+  catch (e) { if (e && e.code === 'ESRCH') { try { unlinkSync(infoPath); } catch {} } return false; }
 }

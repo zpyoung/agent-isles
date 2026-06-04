@@ -22,6 +22,20 @@ function runCli(args) {
   });
 }
 
+function pidAlive(pid) {
+  try { process.kill(pid, 0); return true; }
+  catch (e) { return e.code === 'EPERM'; }
+}
+
+async function waitFor(fn, timeoutMs = 5000, stepMs = 100) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (fn()) return true;
+    await sleep(stepMs);
+  }
+  return false;
+}
+
 test('isles live self-backgrounds, writes fresh server-info, and --stop stops it', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'isles-live-cli-'));
   writeFileSync(join(dir, 'screen-1.md'), '# Hi');
@@ -32,11 +46,13 @@ test('isles live self-backgrounds, writes fresh server-info, and --stop stops it
   const stale = { type: 'server-started', pid: 999999, port: 65535, host: '127.0.0.1', url: 'http://localhost:65535', screen_dir: dir, state_dir: state };
   writeFileSync(infoPath, JSON.stringify(stale) + '\n');
   writeFileSync(stoppedPath, JSON.stringify({ reason: 'stale' }) + '\n');
+  let pid;
 
   try {
     const launch = await runCli(['live', dir, '--port', '0']);
     assert.equal(launch.code, 0, `launch returns promptly with exit 0 (self-backgrounded): ${launch.stderr}`);
     const launchedInfo = JSON.parse(launch.stdout.trim());
+    pid = launchedInfo.pid;
     assert.equal(launchedInfo.screen_dir, dir);
     assert.notEqual(launchedInfo.pid, stale.pid, 'launcher prints fresh server-info, not the stale file');
     assert.notEqual(launchedInfo.port, stale.port, 'launcher waits for the new child port');
@@ -53,8 +69,56 @@ test('isles live self-backgrounds, writes fresh server-info, and --stop stops it
     assert.equal(info.pid, launchedInfo.pid);
   } finally {
     await runCli(['live', dir, '--stop']);
+    if (pid) await waitFor(() => !pidAlive(pid));
   }
 
-  for (let i = 0; i < 50 && !existsSync(stoppedPath); i += 1) await sleep(100);
-  assert.ok(existsSync(stoppedPath), 'server-stopped written after --stop');
+  assert.ok(await waitFor(() => existsSync(stoppedPath)), 'server-stopped written after --stop');
+  assert.ok(!pidAlive(pid), 'server pid is gone after --stop');
+});
+
+test('isles live relaunch is idempotent and --stop stops the reused server', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-live-cli-relaunch-'));
+  writeFileSync(join(dir, 'screen-1.md'), '# Hi again');
+  const infoPath = join(dir, 'state', 'server-info');
+  const stoppedPath = join(dir, 'state', 'server-stopped');
+  let pid;
+
+  try {
+    const first = await runCli(['live', dir, '--port', '0']);
+    assert.equal(first.code, 0, `first launch failed: ${first.stderr}`);
+    const firstInfo = JSON.parse(first.stdout.trim());
+    pid = firstInfo.pid;
+    assert.ok(Number.isInteger(pid) && pid > 0, 'first launch reports a sane pid');
+    assert.ok(pidAlive(pid), 'first server pid is alive');
+
+    const second = await runCli(['live', dir, '--port', '0']);
+    assert.equal(second.code, 0, `second launch failed: ${second.stderr}`);
+    const secondInfo = JSON.parse(second.stdout.trim());
+    assert.equal(secondInfo.pid, pid, 'relaunch reuses the running server pid');
+    assert.equal(secondInfo.port, firstInfo.port, 'relaunch reuses the running server port');
+    assert.equal(JSON.parse(readFileSync(infoPath, 'utf8')).pid, pid, 'server-info still belongs to the first server');
+    assert.ok(pidAlive(pid), 'reused server remains alive before --stop');
+  } finally {
+    await runCli(['live', dir, '--stop']);
+    if (pid) await waitFor(() => !pidAlive(pid));
+  }
+
+  assert.ok(await waitFor(() => existsSync(stoppedPath)), 'server-stopped written after one --stop');
+  assert.ok(!pidAlive(pid), 'reused server pid is gone after --stop');
+});
+
+test('isles live invalid args exit 2 without starting a server', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-live-cli-badargs-'));
+  writeFileSync(join(dir, 'screen-1.md'), '# Bad args');
+  const infoPath = join(dir, 'state', 'server-info');
+
+  const badPort = await runCli(['live', dir, '--port', 'abc']);
+  assert.equal(badPort.code, 2);
+  assert.match(badPort.stderr, /--port must be an integer 0-65535/);
+  assert.ok(!existsSync(infoPath), 'bad --port does not start a server');
+
+  const missingHost = await runCli(['live', dir, '--host']);
+  assert.equal(missingHost.code, 2);
+  assert.match(missingHost.stderr, /--host requires a value/);
+  assert.ok(!existsSync(infoPath), 'missing --host value does not start a server');
 });

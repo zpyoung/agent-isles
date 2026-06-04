@@ -10,7 +10,7 @@ import {
   validateMarkdownInput,
 } from '../src/render.mjs';
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, openSync, readFileSync, statSync, unlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, openSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CONFIG_FILE, getUserConfigDir, PackResolutionError, resolvePackInputs } from '../src/pack-resolver.mjs';
@@ -76,13 +76,30 @@ if (command === 'render') {
 async function runLive(args) {
   const parsed = { dir: undefined, port: undefined, host: undefined, urlHost: undefined,
     idleTimeoutMinutes: undefined, ownerPid: undefined, stop: false, serve: false };
+  const needVal = (i, name) => {
+    const v = args[i + 1];
+    if (v === undefined || v === '' || v.startsWith('-')) { console.error(`${name} requires a value`); process.exit(2); }
+    return v;
+  };
   for (let i = 0; i < args.length; i += 1) {
     const a = args[i];
-    if (a === '--port') { const v = Number(args[++i]); if (Number.isNaN(v)) { console.error('--port must be a number'); process.exit(2); } parsed.port = v; continue; }
-    if (a === '--host') { parsed.host = args[++i]; continue; }
-    if (a === '--url-host') { parsed.urlHost = args[++i]; continue; }
-    if (a === '--idle-timeout') { const v = Number(args[++i]); if (Number.isNaN(v)) { console.error('--idle-timeout must be a number'); process.exit(2); } parsed.idleTimeoutMinutes = v; continue; }
-    if (a === '--owner-pid') { const v = Number(args[++i]); if (Number.isNaN(v)) { console.error('--owner-pid must be a number'); process.exit(2); } parsed.ownerPid = v; continue; }
+    if (a === '--port') {
+      const v = Number(needVal(i, '--port'));
+      if (!Number.isInteger(v) || v < 0 || v > 65535) { console.error('--port must be an integer 0-65535'); process.exit(2); }
+      parsed.port = v; i += 1; continue;
+    }
+    if (a === '--host') { parsed.host = needVal(i, '--host'); i += 1; continue; }
+    if (a === '--url-host') { parsed.urlHost = needVal(i, '--url-host'); i += 1; continue; }
+    if (a === '--idle-timeout') {
+      const v = Number(needVal(i, '--idle-timeout'));
+      if (!Number.isFinite(v) || v <= 0) { console.error('--idle-timeout must be a positive number'); process.exit(2); }
+      parsed.idleTimeoutMinutes = v; i += 1; continue;
+    }
+    if (a === '--owner-pid') {
+      const v = Number(needVal(i, '--owner-pid'));
+      if (!Number.isInteger(v) || v <= 0) { console.error('--owner-pid must be a positive integer'); process.exit(2); }
+      parsed.ownerPid = v; i += 1; continue;
+    }
     if (a === '--stop') { parsed.stop = true; continue; }
     if (a === '--__serve') { parsed.serve = true; continue; }
     if (a.startsWith('-')) { console.error(`Unknown live option: ${a}`); process.exit(2); }
@@ -105,9 +122,24 @@ async function runLive(args) {
 
   // Parent: re-spawn self DETACHED, wait for server-info, print it, exit.
   const stateD = join(dir, 'state');
+  const infoPath = join(stateD, 'server-info');
+  const pidAlive = (pid) => { try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'EPERM'; } };
+  if (existsSync(infoPath)) {
+    try {
+      const st = statSync(infoPath);
+      if (st.isFile()) {
+        const existing = JSON.parse(readFileSync(infoPath, 'utf8'));
+        if (existing && Number.isInteger(existing.pid) && existing.pid > 0
+            && existing.screen_dir === dir && pidAlive(existing.pid)) {
+          console.log(JSON.stringify(existing));
+          process.exit(0);
+        }
+      }
+    } catch { /* fall through to fresh launch */ }
+  }
   mkdirSync(stateD, { recursive: true });
-  try { unlinkSync(join(stateD, 'server-info')); } catch {}
-  try { unlinkSync(join(stateD, 'server-stopped')); } catch {}
+  rmSync(infoPath, { force: true, recursive: true });
+  rmSync(join(stateD, 'server-stopped'), { force: true, recursive: true });
 
   const childArgs = [fileURLToPath(import.meta.url), 'live', dir, '--__serve'];
   if (parsed.port !== undefined) childArgs.push('--port', String(parsed.port));
@@ -119,12 +151,21 @@ async function runLive(args) {
   const child = spawn(process.execPath, childArgs, { detached: true, stdio: ['ignore', errFd, errFd] });
   child.unref();
 
-  const infoPath = join(stateD, 'server-info');
   for (let i = 0; i < 50; i += 1) {
-    if (existsSync(infoPath)) { console.log(readFileSync(infoPath, 'utf8').trim()); process.exit(0); }
+    if (existsSync(infoPath)) {
+      try {
+        if (statSync(infoPath).isFile()) {
+          const txt = readFileSync(infoPath, 'utf8');
+          JSON.parse(txt);
+          console.log(txt.trim());
+          process.exit(0);
+        }
+      } catch { /* keep polling */ }
+    }
     await new Promise((r) => setTimeout(r, 100));
   }
-  console.error(`isles live: server did not report ready within 5s (see ${join(stateD, 'server-error.log')})`); process.exit(1);
+  console.error(`isles live: server did not report ready within 5s (see ${join(stateD, 'server-error.log')})`);
+  process.exit(1);
 }
 
 async function runRender(args) {
