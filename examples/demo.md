@@ -48,6 +48,49 @@ Use `<agent-theme-toggle>` to let readers switch the entire rendered report betw
   </div>
 </div>
 
+### Option set
+
+Use `<agent-option-set>` with nested `<agent-choice>` rows when a report or live screen should let a reader pick one or more options. Single-select is the default; add `data-multiselect` when multiple choices can remain selected.
+
+<div class="agent-component-example my-4" data-agent-components="agent-option-set agent-choice">
+  <h4 class="h5 mb-3">Option set</h4>
+  <div class="row g-4 align-items-stretch">
+    <div class="col-12 col-lg-6">
+      <div class="agent-component-pane agent-component-rendered border rounded p-3 bg-light h-100">
+        <p class="text-uppercase text-primary fw-bold small mb-3">Rendered output</p>
+        <h5 class="h6 mb-2">Which layout?</h5>
+        <agent-option-set>
+          <agent-choice id="single-column" title="Single column">Focused reading experience</agent-choice>
+          <agent-choice id="two-column" title="Two column">Sidebar + main content</agent-choice>
+        </agent-option-set>
+        <h5 class="h6 mt-4 mb-2">Include sections</h5>
+        <agent-option-set data-multiselect>
+          <agent-choice id="risks" title="Risks">Show risk callouts</agent-choice>
+          <agent-choice id="timeline" title="Timeline">Show timeline context</agent-choice>
+        </agent-option-set>
+      </div>
+    </div>
+    <div class="col-12 col-lg-6">
+      <div class="agent-component-pane agent-component-source-card border rounded p-3 h-100">
+        <p class="text-uppercase text-info fw-bold small mb-3">Source Markdown</p>
+        <pre class="agent-component-source mb-0"><code>&lt;h5&gt;Which layout?&lt;/h5&gt;
+
+&lt;agent-option-set&gt;
+  &lt;agent-choice id="single-column" title="Single column"&gt;Focused reading experience&lt;/agent-choice&gt;
+  &lt;agent-choice id="two-column" title="Two column"&gt;Sidebar + main content&lt;/agent-choice&gt;
+&lt;/agent-option-set&gt;
+
+&lt;h5&gt;Include sections&lt;/h5&gt;
+
+&lt;agent-option-set data-multiselect&gt;
+  &lt;agent-choice id="risks" title="Risks"&gt;Show risk callouts&lt;/agent-choice&gt;
+  &lt;agent-choice id="timeline" title="Timeline"&gt;Show timeline context&lt;/agent-choice&gt;
+&lt;/agent-option-set&gt;</code></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
 ### Decision island
 
 Use `<agent-decision>` for recommendations, verdicts, and recorded decisions that need a clear stance.
