@@ -103,6 +103,16 @@ test('rendered demo loads without console errors and hydrates agent components',
         .toBe(true);
     }
 
+    const optionSet = page.locator('agent-option-set').first();
+    await expect
+      .poll(() => optionSet.evaluate((element) => Boolean(element.shadowRoot?.querySelector('slot'))))
+      .toBe(true);
+
+    const choice = page.locator('agent-choice').first();
+    await expect
+      .poll(() => choice.evaluate((element) => Boolean(element.shadowRoot?.querySelector('.choice'))))
+      .toBe(true);
+
     const decision = page.locator('agent-decision').first();
     await expect
       .poll(() => decision.evaluate((element) => Boolean(element.shadowRoot?.querySelector('.decision'))))

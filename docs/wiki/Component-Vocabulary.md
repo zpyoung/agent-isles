@@ -112,7 +112,7 @@ Behavior:
 Trusted/sanitized behavior:
 
 - Trusted mode preserves the tags, attributes, and child HTML.
-- Sanitized mode allows `data-multiselect` on `<agent-option-set>` and `id`, `title`, and `selected` on `<agent-choice>` while stripping event handlers and unsupported attributes.
+- Attributes that aren't part of the component API are ignored by the component. In sanitized render mode, the islands' declared safe attributes (`id`, `title`, `selected`, `data-multiselect`) are preserved.
 
 Example:
 
