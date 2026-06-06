@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import test from 'node:test';
 
 const componentBundle = resolve('dist/agent-components.js');
+const agentFlowSource = resolve('src/components/agent-flow.js');
 const demo = resolve('examples/demo.md');
 
 function assertCustomElementDefinition(bundle, tagName) {
@@ -42,6 +43,37 @@ mode: editor
   assert.match(html, /"type": "person"/);
   assert.match(html, /"source": "user"/);
   assert.doesNotMatch(html, /<code class="hljs language-agent-flow">/);
+});
+
+test('agent-flow fenced block enums are normalized from headers and JSON kind inference', async () => {
+  const { renderMarkdown } = await import('../src/render.mjs');
+
+  const headerHtml = await renderMarkdown(`
+\`\`\`agent-flow
+kind: C4
+title: Mixed Case Header
+mode: Editor
+---
+{"version":"0.1","kind":"flowchart","nodes":{},"edges":{},"views":{}}
+\`\`\`
+`);
+  assert.match(headerHtml, /<agent-flow kind="c4" title="Mixed Case Header" mode="editor">/);
+
+  const inferredHtml = await renderMarkdown(`
+\`\`\`agent-flow
+{"version":"0.1","kind":"C4","nodes":{},"edges":{},"views":{}}
+\`\`\`
+`);
+  assert.match(inferredHtml, /<agent-flow kind="c4" mode="viewer">/);
+});
+
+test('agent-flow source includes accessible SVG node interactions', () => {
+  const source = readFileSync(agentFlowSource, 'utf8');
+
+  assert.match(source, /aria-labelledby/);
+  assert.match(source, /selectNodeFromKeyboard/);
+  assert.match(source, /event\.preventDefault\(\)/);
+  assert.doesNotMatch(source, /role="img"/);
 });
 
 test('sanitized render mode preserves safe agent-flow attributes and drops active HTML', async () => {

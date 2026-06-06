@@ -70,6 +70,10 @@ function normalizeId(value, fallback) {
   return text || fallback;
 }
 
+function normalizeEnum(value, fallback = '') {
+  return normalizeId(value, fallback).toLowerCase();
+}
+
 function titleCase(value) {
   return String(value || '')
     .replace(/([a-z])([A-Z])/g, '$1 $2')
@@ -80,7 +84,7 @@ function titleCase(value) {
 }
 
 function packFor(kind) {
-  return PACKS[kind] || PACKS.flowchart;
+  return PACKS[normalizeEnum(kind)] || PACKS.flowchart;
 }
 
 function parseDocument(source, fallbackKind) {
@@ -94,7 +98,7 @@ function parseDocument(source, fallbackKind) {
     const nodes = asRecord(parsed.nodes);
     const edges = asRecord(parsed.edges);
     const views = asRecord(parsed.views);
-    const kind = normalizeId(parsed.kind, fallbackKind || EMPTY_DOCUMENT.kind);
+    const kind = normalizeEnum(parsed.kind, fallbackKind || EMPTY_DOCUMENT.kind);
     return {
       ...parsed,
       version: normalizeId(parsed.version, '0.1'),
@@ -165,10 +169,10 @@ function layoutNodes(nodes) {
 
 function validateReferences(document) {
   const messages = [];
-  const nodes = asRecord(document.nodes);
+  const nodeIds = new Set(orderedValues(document.nodes).map((node) => node.id));
   for (const edge of orderedValues(document.edges)) {
-    if (!nodes[edge.source]) messages.push(`Edge ${edge.id} has missing source ${edge.source}.`);
-    if (!nodes[edge.target]) messages.push(`Edge ${edge.id} has missing target ${edge.target}.`);
+    if (!nodeIds.has(edge.source)) messages.push(`Edge ${edge.id} has missing source ${edge.source}.`);
+    if (!nodeIds.has(edge.target)) messages.push(`Edge ${edge.id} has missing target ${edge.target}.`);
   }
   return messages;
 }
@@ -311,8 +315,8 @@ export class AgentFlow extends LitElement {
       stroke: #2563eb;
     }
 
-    .node[data-type="container"],
-    .node[data-type="component"],
+    .node[data-type="container"] rect,
+    .node[data-type="component"] rect,
     .node[data-type="decision"] rect {
       stroke: #9333ea;
     }
@@ -477,6 +481,8 @@ export class AgentFlow extends LitElement {
   }
 
   refreshDocument() {
+    this.kind = normalizeEnum(this.kind, EMPTY_DOCUMENT.kind);
+    this.mode = normalizeEnum(this.mode, 'viewer');
     this.document = parseDocument(this.textContent, this.kind);
     if (!this.kind || this.kind === 'flowchart') {
       this.kind = this.document.kind || this.kind;
@@ -522,7 +528,7 @@ export class AgentFlow extends LitElement {
 
     const layout = layoutNodes(nodes);
     return svg`
-      <svg viewBox="0 0 ${layout.width} ${layout.height}" role="img" aria-label=${this.title || 'Agent flow diagram'}>
+      <svg viewBox="0 0 ${layout.width} ${layout.height}" aria-labelledby=${`${this.flowId}-title`}>
         <defs>
           <marker id=${`${this.flowId}-arrow`} markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
             <path d="M0,0 L0,6 L9,3 z" fill="#64748b"></path>
@@ -552,7 +558,7 @@ export class AgentFlow extends LitElement {
     if (!position) return null;
     const selected = this.selectedNodeId === node.id;
     return svg`
-      <g class=${selected ? 'node selected' : 'node'} data-type=${node.type || 'node'} role="button" tabindex="0" aria-label=${node.label || node.id} @click=${() => { this.selectedNodeId = node.id; }}>
+      <g class=${selected ? 'node selected' : 'node'} data-type=${node.type || 'node'} role="button" tabindex="0" aria-label=${node.label || node.id} @click=${() => this.selectNode(node.id)} @keydown=${(event) => this.selectNodeFromKeyboard(event, node.id)}>
         <rect x=${position.x - 78} y=${position.y - 36} width="156" height="72" rx="14"></rect>
         <text class="node-label" x=${position.x} y=${position.y - 3}>${node.label || node.id}</text>
         <text class="node-type" x=${position.x} y=${position.y + 19}>${nodeTypeLabel(pack, node.type)}</text>
@@ -584,6 +590,18 @@ export class AgentFlow extends LitElement {
         </section>
       </aside>
     `;
+  }
+
+  selectNode(nodeId) {
+    this.selectedNodeId = nodeId;
+  }
+
+  selectNodeFromKeyboard(event, nodeId) {
+    if (event.key !== 'Enter' && event.key !== ' ' && event.key !== 'Spacebar') {
+      return;
+    }
+    event.preventDefault();
+    this.selectNode(nodeId);
   }
 
   updateSelectedNode(field, value) {

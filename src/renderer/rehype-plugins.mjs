@@ -88,7 +88,7 @@ function parseAgentFlowCodeBlock(source) {
       const key = match[1].toLowerCase();
       const value = match[2];
       if (['kind', 'title', 'mode', 'view'].includes(key) && value) {
-        attributes[key] = value;
+        attributes[key] = normalizeAgentFlowAttribute(key, value);
       }
     }
     bodyLines = lines.slice(separatorIndex + 1);
@@ -107,10 +107,15 @@ function parseAgentFlowCodeBlock(source) {
 function readAgentFlowDocumentKind(documentSource) {
   try {
     const document = JSON.parse(documentSource);
-    return typeof document.kind === 'string' && document.kind.trim() ? document.kind.trim() : '';
+    return typeof document.kind === 'string' && document.kind.trim() ? document.kind.trim().toLowerCase() : '';
   } catch {
     return '';
   }
+}
+
+function normalizeAgentFlowAttribute(key, value) {
+  const trimmed = value.trim();
+  return ['kind', 'mode'].includes(key) ? trimmed.toLowerCase() : trimmed;
 }
 
 async function transformD2CodeBlocks(node) {
