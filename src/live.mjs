@@ -1,4 +1,5 @@
 import http from 'node:http';
+import { createHash } from 'node:crypto';
 import {
   appendFileSync,
   existsSync,
@@ -24,11 +25,94 @@ export function eventsFile(dir) { return join(stateDir(dir), 'events'); }
 function readBody(req, limit = 1024 * 1024) {
   return new Promise((resolvePromise, reject) => {
     let body = '';
+    let bytes = 0;
+    let settled = false;
     req.setEncoding('utf8');
-    req.on('data', (c) => { body += c; if (body.length > limit) { reject(new Error('too large')); req.destroy(); } });
-    req.on('end', () => resolvePromise(body));
-    req.on('error', reject);
+    req.on('data', (c) => {
+      if (settled) return;
+      bytes += Buffer.byteLength(c, 'utf8');
+      if (bytes > limit) {
+        settled = true;
+        reject(new Error('too large'));
+        req.destroy();
+        return;
+      }
+      body += c;
+    });
+    req.on('end', () => { if (!settled) { settled = true; resolvePromise(body); } });
+    req.on('error', (error) => { if (!settled) { settled = true; reject(error); } });
   });
+}
+
+function parseSignalDetail(raw) {
+  try {
+    const parsed = JSON.parse(raw || '{}');
+    if (parsed && typeof parsed === 'object') return parsed;
+  } catch {}
+  return {};
+}
+
+function appendSignalEvent(dir, detail) {
+  const record = {
+    type: 'click',
+    choice: typeof detail.choice === 'string' ? detail.choice : null,
+    text: typeof detail.text === 'string' ? detail.text : '',
+    timestamp: Math.floor(Date.now() / 1000),
+  };
+  if (Array.isArray(detail.selected)) record.selected = detail.selected;
+  mkdirSync(stateDir(dir), { recursive: true });
+  appendFileSync(eventsFile(dir), JSON.stringify(record) + '\n');
+  return record;
+}
+
+function webSocketAccept(key) {
+  return createHash('sha1')
+    .update(`${key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11`)
+    .digest('base64');
+}
+
+function parseWebSocketFrames(buffer) {
+  const messages = [];
+  let offset = 0;
+  let shouldClose = false;
+  while (buffer.length - offset >= 2) {
+    const first = buffer[offset];
+    const second = buffer[offset + 1];
+    const opcode = first & 0x0f;
+    const masked = Boolean(second & 0x80);
+    let length = second & 0x7f;
+    let headerLength = 2;
+
+    if (length === 126) {
+      if (buffer.length - offset < 4) break;
+      length = buffer.readUInt16BE(offset + 2);
+      headerLength = 4;
+    } else if (length === 127) {
+      if (buffer.length - offset < 10) break;
+      const bigLength = buffer.readBigUInt64BE(offset + 2);
+      if (bigLength > BigInt(Number.MAX_SAFE_INTEGER)) { shouldClose = true; break; }
+      length = Number(bigLength);
+      headerLength = 10;
+    }
+
+    const maskLength = masked ? 4 : 0;
+    const frameLength = headerLength + maskLength + length;
+    if (buffer.length - offset < frameLength) break;
+
+    const maskStart = offset + headerLength;
+    const payloadStart = maskStart + maskLength;
+    const payload = Buffer.from(buffer.subarray(payloadStart, payloadStart + length));
+    if (masked) {
+      const mask = buffer.subarray(maskStart, maskStart + 4);
+      for (let i = 0; i < payload.length; i += 1) payload[i] ^= mask[i % 4];
+    }
+
+    if (opcode === 0x1) messages.push(payload.toString('utf8'));
+    if (opcode === 0x8) shouldClose = true;
+    offset += frameLength;
+    if (shouldClose) break;
+  }
+  return { messages, rest: buffer.subarray(offset), shouldClose };
 }
 
 export function resolveNewestScreen(dir) {
@@ -75,7 +159,7 @@ function injectLiveFrame(pageHtml) {
     #isles-header{position:fixed;top:0;left:0;right:0;height:2.2rem;display:flex;align-items:center;padding:0 1.5rem;font:500 .8rem system-ui,sans-serif;color:#888;background:rgba(127,127,127,.07);border-bottom:1px solid rgba(127,127,127,.25);z-index:99999}
     #isles-bar{position:fixed;bottom:0;left:0;right:0;padding:.45rem 1.5rem;text-align:center;font:.78rem system-ui,sans-serif;color:#888;background:rgba(127,127,127,.07);border-top:1px solid rgba(127,127,127,.25);z-index:99999}
   </style>`;
-  const headerHtml = `<div id="isles-header">Quirk Brainstorming</div>`;
+  const headerHtml = `<div id="isles-header">Agent Isles Live</div>`;
   const barHtml = `<div id="isles-bar"><span id="isles-indicator">Click an option above, then return to the terminal</span></div>`;
   const clientHtml = `<script>${LIVE_CLIENT}</script>`;
   let out = pageHtml;
@@ -87,7 +171,7 @@ function injectLiveFrame(pageHtml) {
 
 function waitingPage() {
   return injectLiveFrame(
-    '<!doctype html><html><head><meta charset="utf-8"><title>Quirk Brainstorming</title></head>' +
+    '<!doctype html><html><head><meta charset="utf-8"><title>Agent Isles Live</title></head>' +
     '<body><p style="padding:2rem;color:#888;font-family:system-ui,sans-serif">Waiting for the agent to push a screen…</p></body></html>'
   );
 }
@@ -117,6 +201,7 @@ async function renderNewest(dir) {
 export async function startLiveServer(dir, options = {}) {
   const host = options.host || defaultHost;
   const clients = new Set();
+  const signalSockets = new Set();
   mkdirSync(stateDir(dir), { recursive: true });
 
   const server = http.createServer(async (req, res) => {
@@ -139,20 +224,7 @@ export async function startLiveServer(dir, options = {}) {
       }
       if (req.method === 'POST' && req.url === '/__agent-isles/signal') {
         const raw = await readBody(req);
-        let detail = {};
-        try {
-          const parsed = JSON.parse(raw || '{}');
-          if (parsed && typeof parsed === 'object') detail = parsed;
-        } catch { detail = {}; }
-        const record = {
-          type: 'click',
-          choice: typeof detail.choice === 'string' ? detail.choice : null,
-          text: typeof detail.text === 'string' ? detail.text : '',
-          timestamp: Date.now(),
-        };
-        if (Array.isArray(detail.selected)) record.selected = detail.selected;
-        mkdirSync(stateDir(dir), { recursive: true });
-        appendFileSync(eventsFile(dir), JSON.stringify(record) + '\n');
+        appendSignalEvent(dir, parseSignalDetail(raw));
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end('{"ok":true}');
         return;
@@ -160,6 +232,35 @@ export async function startLiveServer(dir, options = {}) {
       res.writeHead(404); res.end('Not found');
     } catch (error) {
       res.writeHead(500); res.end(String(error && error.message || error));
+    }
+  });
+
+  server.on('upgrade', (req, socket) => {
+    try {
+      if (req.url !== '/__agent-isles/signal') { socket.destroy(); return; }
+      const key = req.headers['sec-websocket-key'];
+      if (typeof key !== 'string' || key.length === 0) { socket.destroy(); return; }
+      socket.write([
+        'HTTP/1.1 101 Switching Protocols',
+        'Upgrade: websocket',
+        'Connection: Upgrade',
+        `Sec-WebSocket-Accept: ${webSocketAccept(key)}`,
+        '',
+        '',
+      ].join('\r\n'));
+      signalSockets.add(socket);
+      let buffered = Buffer.alloc(0);
+      socket.on('data', (chunk) => {
+        buffered = Buffer.concat([buffered, chunk]);
+        const parsed = parseWebSocketFrames(buffered);
+        buffered = parsed.rest;
+        for (const message of parsed.messages) appendSignalEvent(dir, parseSignalDetail(message));
+        if (parsed.shouldClose) socket.destroy();
+      });
+      socket.on('close', () => signalSockets.delete(socket));
+      socket.on('error', () => signalSockets.delete(socket));
+    } catch {
+      socket.destroy();
     }
   });
 
@@ -233,6 +334,8 @@ export async function startLiveServer(dir, options = {}) {
       if (watcher) watcher.close();
       for (const c of clients) c.end();
       clients.clear();
+      for (const socket of signalSockets) socket.destroy();
+      signalSockets.clear();
       try { unlinkSync(join(stateDir(dir), 'server-info')); } catch {}
       try { writeFileSync(join(stateDir(dir), 'server-stopped'), JSON.stringify({ reason, timestamp: Date.now() }) + '\n'); } catch {}
       await new Promise((r) => server.close(() => r()));

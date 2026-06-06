@@ -59,8 +59,11 @@ test('GET / renders the newest screen as a full inline page with live chrome', a
     assert.match(res.body, /Hello Live/);
     assert.match(res.body, /agent-decision/);
     assert.match(res.body, /id="isles-indicator"/);
+    assert.match(res.body, /Agent Isles Live/);
+    assert.doesNotMatch(res.body, /Quirk Brainstorming/);
     assert.match(res.body, /customElements\.define/);
     assert.match(res.body, /EventSource\(/);
+    assert.match(res.body, /new WebSocket\(/);
   } finally {
     await server.close();
   }
@@ -93,6 +96,8 @@ test('POST /__agent-isles/signal appends one JSONL line per selection', async ()
     assert.equal(parsed.choice, 'a');
     assert.equal(parsed.text, 'Option A');
     assert.equal(typeof parsed.timestamp, 'number');
+    assert.ok(parsed.timestamp > 1_000_000_000);
+    assert.ok(parsed.timestamp < 10_000_000_000);
   } finally { await server.close(); }
 });
 

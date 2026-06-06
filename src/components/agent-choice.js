@@ -27,6 +27,8 @@ export class AgentChoice extends LitElement {
       .choice { border-color: #424245; background: #2d2d2f; color: #f5f5f7; }
       .key { background: #3a3a3c; color: #e5e5e7; }
       .desc { color: #aaa; }
+      :host([selected]) .choice { background: #0f3554; border-color: #66b7ff; }
+      :host([selected]) .key { background: #66b7ff; color: #001526; }
     }
   `;
 

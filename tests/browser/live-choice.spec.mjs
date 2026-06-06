@@ -66,3 +66,31 @@ test('multi-select records selected ids', async ({ page }) => {
     await server.close();
   }
 });
+
+test('dark-mode selected choice keeps a visible selected style', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'dark' });
+  const dir = mkdtempSync(join(tmpdir(), 'isles-live-pw-dark-'));
+  writeFileSync(join(dir, 'screen-1.md'),
+    '# Pick one\n\n<agent-option-set>\n<agent-choice id="a" title="Alpha">First</agent-choice>\n</agent-option-set>\n');
+  const server = await startLiveServer(dir, { port: 0 });
+  try {
+    await page.goto(server.url + '/');
+    const choice = await waitForChoiceUpgrade(page, 'a');
+    await choice.click();
+    await expect(choice).toHaveAttribute('selected', '');
+    await expect.poll(() => page.evaluate(() => {
+      const choiceEl = document.querySelector('agent-choice[id="a"]');
+      const card = choiceEl.shadowRoot.querySelector('.choice');
+      const key = choiceEl.shadowRoot.querySelector('.key');
+      return {
+        cardBorderColor: getComputedStyle(card).borderColor,
+        keyBackground: getComputedStyle(key).backgroundColor,
+      };
+    })).toEqual({
+      cardBorderColor: 'rgb(102, 183, 255)',
+      keyBackground: 'rgb(102, 183, 255)',
+    });
+  } finally {
+    await server.close();
+  }
+});
