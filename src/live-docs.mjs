@@ -1,4 +1,4 @@
-import { lstatSync, readFileSync, readdirSync } from 'node:fs';
+import { lstatSync, readFileSync, readdirSync, openSync, closeSync, constants } from 'node:fs';
 import { join } from 'node:path';
 
 const RESERVED_SLUGS = new Set(['events']);
@@ -19,12 +19,20 @@ export function extractTitle(markdown) {
   const lines = String(markdown).split(/\r?\n/);
   let inFence = false;
   let fenceChar = '';
+  let fenceLen = 0;
   for (const line of lines) {
-    const fence = line.match(/^[ \t]{0,3}(`{3,}|~{3,})/);
+    const fence = line.match(/^[ \t]{0,3}(`{3,}|~{3,})[ \t]*(.*)$/);
     if (fence) {
-      const char = fence[1][0];
-      if (!inFence) { inFence = true; fenceChar = char; }
-      else if (char === fenceChar) { inFence = false; }
+      const marker = fence[1];
+      const char = marker[0];
+      const len = marker.length;
+      if (!inFence) {
+        inFence = true;
+        fenceChar = char;
+        fenceLen = len;
+      } else if (char === fenceChar && len >= fenceLen && fence[2].trim() === '') {
+        inFence = false;
+      }
       continue;
     }
     if (inFence) continue;
@@ -35,6 +43,15 @@ export function extractTitle(markdown) {
     }
   }
   return null;
+}
+
+function readFileNoFollow(file) {
+  const fd = openSync(file, constants.O_RDONLY | constants.O_NOFOLLOW);
+  try {
+    return readFileSync(fd, 'utf8');
+  } finally {
+    closeSync(fd);
+  }
 }
 
 // Internal: filenames + slugs + stat, WITHOUT reading file contents. Symlinks
@@ -76,7 +93,7 @@ export function listScreens(dir) {
   return listScreenFiles(dir).map((screen) => {
     let title = null;
     try {
-      title = extractTitle(readFileSync(screen.file, 'utf8'));
+      title = extractTitle(readFileNoFollow(screen.file));
     } catch {
       /* unreadable mid-scan → fall back to filename */
     }

@@ -79,3 +79,10 @@ test('listScreens and resolveSlug skip symlinked .md files', () => {
   assert.deepEqual(names, ['real.md']);
   assert.equal(resolveSlug(dir, 'link'), null);
 });
+
+test('extractTitle respects fence length and info strings', () => {
+  // 4-backtick fence is not closed by a 3-backtick line
+  assert.equal(extractTitle('````\n```\n# fake\n````\n# Real\n'), 'Real');
+  // a fence line with an info/text string does not close the block
+  assert.equal(extractTitle('```\n``` not a close\n# fake\n```\n# Real\n'), 'Real');
+});
