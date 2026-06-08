@@ -15,6 +15,7 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { renderMarkdownString } from './render.mjs';
+import { listScreens, resolveSlug, readFileNoFollow } from './live-docs.mjs';
 import { injectLiveFrame } from './live-shell.mjs';
 
 export { injectLiveFrame };
@@ -162,26 +163,48 @@ function waitingPage() {
   );
 }
 
-async function renderNewest(dir) {
-  let screen;
-  try {
-    screen = resolveNewestScreen(dir);
-  } catch {
-    return waitingPage();
-  }
-  if (!screen) return waitingPage();
+function newestOf(screens) {
+  let active = null;
+  for (const s of screens) if (!active || s.mtimeMs > active.mtimeMs) active = s;
+  return active;
+}
+
+function sidebarScreens(screens) {
+  return screens.map((s) => ({ ...s, title: s.name }));
+}
+
+async function renderScreenHtml(dir, screen, screens, activeSlug) {
   let markdown;
   try {
-    markdown = readFileSync(screen, 'utf8');
+    markdown = readFileNoFollow(screen.file); // O_NOFOLLOW: refuse race-swapped symlinks
   } catch {
-    return waitingPage(); // file vanished between resolve and read (delete race)
+    return waitingPage(); // file vanished / became a symlink between resolve and read
   }
   const { html } = await renderMarkdownString(markdown, {
     assetMode: 'inline',
     includeUserPacks: false,
     projectDir: dir,
   });
-  return injectLiveFrame(html);
+  return injectLiveFrame(html, { screens: sidebarScreens(screens), activeSlug });
+}
+
+async function renderNewest(dir) {
+  let screens;
+  try {
+    screens = listScreens(dir);
+  } catch {
+    return waitingPage();
+  }
+  const active = newestOf(screens);
+  if (!active) return waitingPage();
+  return renderScreenHtml(dir, active, screens, active.slug);
+}
+
+async function renderBySlug(dir, slug) {
+  const screens = listScreens(dir);
+  const active = screens.find((s) => s.slug === slug);
+  if (!active) return null; // 404
+  return renderScreenHtml(dir, active, screens, active.slug);
 }
 
 export async function startLiveServer(dir, options = {}) {
@@ -208,12 +231,35 @@ export async function startLiveServer(dir, options = {}) {
         req.on('close', () => clients.delete(res));
         return;
       }
+      if (req.method === 'GET' && req.url === '/__agent-isles/screens') {
+        const screens = listScreens(dir).map(({ slug, name, title, mtimeMs }) => ({ slug, name, title, mtimeMs }));
+        const newest = newestOf(screens);
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ screens, newest: newest ? newest.slug : null }));
+        return;
+      }
       if (req.method === 'POST' && req.url === '/__agent-isles/signal') {
         const raw = await readBody(req);
         appendSignalEvent(dir, parseSignalDetail(raw));
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end('{"ok":true}');
         return;
+      }
+      if (req.method === 'GET') {
+        let slug;
+        try {
+          slug = decodeURIComponent((req.url.split('?')[0] || '/').replace(/^\/+/, ''));
+        } catch {
+          slug = null;
+        }
+        if (slug) {
+          const page = await renderBySlug(dir, slug);
+          if (page) {
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+            res.end(page);
+            return;
+          }
+        }
       }
       res.writeHead(404); res.end('Not found');
     } catch (error) {

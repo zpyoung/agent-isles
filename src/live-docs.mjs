@@ -45,7 +45,7 @@ export function extractTitle(markdown) {
   return null;
 }
 
-function readFileNoFollow(file) {
+export function readFileNoFollow(file) {
   const fd = openSync(file, constants.O_RDONLY | constants.O_NOFOLLOW);
   try {
     return readFileSync(fd, 'utf8');

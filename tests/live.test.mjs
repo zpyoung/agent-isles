@@ -185,3 +185,58 @@ test('close writes server-stopped and removes server-info', async () => {
   assert.ok(!existsSync(join(dir, 'state', 'server-info')));
   assert.ok(existsSync(join(dir, 'state', 'server-stopped')));
 });
+
+test('GET /<slug> renders that specific document', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-live-slug-'));
+  writeFileSync(join(dir, 'alpha.md'), '# Alpha Doc');
+  writeFileSync(join(dir, 'beta.md'), '# Beta Doc');
+  const server = await startLiveServer(dir, { port: 0 });
+  try {
+    const res = await get(server.url + '/beta');
+    assert.equal(res.status, 200);
+    assert.match(res.body, /Beta Doc/);
+    assert.doesNotMatch(res.body, /Alpha Doc/);
+  } finally { await server.close(); }
+});
+
+test('GET /<unknown-slug> returns 404', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-live-404-'));
+  writeFileSync(join(dir, 'a.md'), '# A');
+  const server = await startLiveServer(dir, { port: 0 });
+  try {
+    const res = await get(server.url + '/does-not-exist');
+    assert.equal(res.status, 404);
+  } finally { await server.close(); }
+});
+
+test('GET /__agent-isles/screens returns the document list as JSON', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-live-screens-'));
+  writeFileSync(join(dir, 'a.md'), '# Ay');
+  writeFileSync(join(dir, 'b.md'), '# Bee');
+  utimesSync(join(dir, 'a.md'), new Date(1000), new Date(1000));
+  utimesSync(join(dir, 'b.md'), new Date(2000), new Date(2000));
+  const server = await startLiveServer(dir, { port: 0 });
+  try {
+    const res = await get(server.url + '/__agent-isles/screens');
+    assert.equal(res.status, 200);
+    const data = JSON.parse(res.body);
+    assert.deepEqual(data.screens.map((s) => s.slug), ['a', 'b']);
+    assert.equal(data.newest, 'b');
+  } finally { await server.close(); }
+});
+
+test('GET / shows a sidebar when 2+ docs exist and none with a single doc', async () => {
+  const one = mkdtempSync(join(tmpdir(), 'isles-live-one-'));
+  writeFileSync(join(one, 'only.md'), '# Only');
+  const many = mkdtempSync(join(tmpdir(), 'isles-live-many-'));
+  writeFileSync(join(many, 'a.md'), '# A');
+  writeFileSync(join(many, 'b.md'), '# B');
+  const s1 = await startLiveServer(one, { port: 0 });
+  const s2 = await startLiveServer(many, { port: 0 });
+  try {
+    const r1 = await get(s1.url + '/');
+    assert.doesNotMatch(r1.body, /id="isles-sidebar"/);
+    const r2 = await get(s2.url + '/');
+    assert.match(r2.body, /id="isles-sidebar"/);
+  } finally { await s1.close(); await s2.close(); }
+});
