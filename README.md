@@ -518,3 +518,18 @@ npm run build
 npm test
 npm run render -- --out dist/demo.html
 ```
+
+## Development: `pnpm dev` (hot reload)
+
+`pnpm dev` is a repo-only supervisor (not part of the published `isles` CLI). It runs a
+serve command, watches `src/**`, rebuilds the component bundle, and hot-reloads the browser.
+
+```bash
+pnpm dev live <dir>          # foreground live server + reload on source change
+pnpm dev preview <dir>       # directory preview + reload on source change
+pnpm dev render <file.md>    # single-file preview server + reload on source change
+```
+
+Flags: `--no-open` (don't launch the browser), `--no-build` (skip the rollup rebuild step).
+Editing component source (`src/components/**`) triggers a rollup rebuild; editing renderer/
+theme/server source restarts the wrapped server; the browser reloads automatically via SSE.
