@@ -1,4 +1,4 @@
-import { lstatSync, readFileSync, readdirSync, openSync, closeSync, constants } from 'node:fs';
+import { lstatSync, readFileSync, readdirSync, openSync, closeSync, fstatSync, constants } from 'node:fs';
 import { join } from 'node:path';
 
 const RESERVED_SLUGS = new Set(['events']);
@@ -46,8 +46,9 @@ export function extractTitle(markdown) {
 }
 
 export function readFileNoFollow(file) {
-  const fd = openSync(file, constants.O_RDONLY | constants.O_NOFOLLOW);
+  const fd = openSync(file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   try {
+    if (!fstatSync(fd).isFile()) throw new Error('not a regular file');
     return readFileSync(fd, 'utf8');
   } finally {
     closeSync(fd);

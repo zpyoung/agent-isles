@@ -240,3 +240,15 @@ test('GET / shows a sidebar when 2+ docs exist and none with a single doc', asyn
     assert.match(r2.body, /id="isles-sidebar"/);
   } finally { await s1.close(); await s2.close(); }
 });
+
+test('GET /__agent-isles/screens tolerates a query string', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-live-screens-q-'));
+  writeFileSync(join(dir, 'a.md'), '# A');
+  const server = await startLiveServer(dir, { port: 0 });
+  try {
+    const res = await get(server.url + '/__agent-isles/screens?x=1');
+    assert.equal(res.status, 200);
+    const data = JSON.parse(res.body);
+    assert.deepEqual(data.screens.map((s) => s.slug), ['a']);
+  } finally { await server.close(); }
+});

@@ -211,13 +211,14 @@ export async function startLiveServer(dir, options = {}) {
 
   const server = http.createServer(async (req, res) => {
     try {
-      if (req.method === 'GET' && (req.url === '/' || req.url.startsWith('/?'))) {
+      const pathname = req.url.split('?')[0];
+      if (req.method === 'GET' && pathname === '/') {
         const page = await renderNewest(dir);
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(page);
         return;
       }
-      if (req.method === 'GET' && req.url === '/events') {
+      if (req.method === 'GET' && pathname === '/events') {
         res.writeHead(200, {
           'Content-Type': 'text/event-stream; charset=utf-8',
           'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive',
@@ -227,14 +228,14 @@ export async function startLiveServer(dir, options = {}) {
         req.on('close', () => clients.delete(res));
         return;
       }
-      if (req.method === 'GET' && req.url === '/__agent-isles/screens') {
+      if (req.method === 'GET' && pathname === '/__agent-isles/screens') {
         const screens = listScreens(dir).map(({ slug, name, title, mtimeMs }) => ({ slug, name, title, mtimeMs }));
         const newest = newestOf(screens);
         res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ screens, newest: newest ? newest.slug : null }));
         return;
       }
-      if (req.method === 'POST' && req.url === '/__agent-isles/signal') {
+      if (req.method === 'POST' && pathname === '/__agent-isles/signal') {
         const raw = await readBody(req);
         appendSignalEvent(dir, parseSignalDetail(raw));
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -244,7 +245,7 @@ export async function startLiveServer(dir, options = {}) {
       if (req.method === 'GET') {
         let slug;
         try {
-          slug = decodeURIComponent((req.url.split('?')[0] || '/').replace(/^\/+/, ''));
+          slug = decodeURIComponent((pathname || '/').replace(/^\/+/, ''));
         } catch {
           slug = null;
         }

@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync, mkdirSync, utimesSync, symlinkSync } from '
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { slugForName, extractTitle, listScreens, resolveSlug } from '../src/live-docs.mjs';
+import { slugForName, extractTitle, listScreens, resolveSlug, readFileNoFollow } from '../src/live-docs.mjs';
 
 test('slugForName sanitizes filenames and strips .md', () => {
   assert.equal(slugForName('Screen 1.md'), 'screen-1');
@@ -85,4 +85,10 @@ test('extractTitle respects fence length and info strings', () => {
   assert.equal(extractTitle('````\n```\n# fake\n````\n# Real\n'), 'Real');
   // a fence line with an info/text string does not close the block
   assert.equal(extractTitle('```\n``` not a close\n# fake\n```\n# Real\n'), 'Real');
+});
+
+test('readFileNoFollow rejects a non-regular file (directory)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-docs-nonreg-'));
+  mkdirSync(join(dir, 'subdir'));
+  assert.throws(() => readFileNoFollow(join(dir, 'subdir')));
 });
