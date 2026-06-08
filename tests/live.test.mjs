@@ -188,14 +188,14 @@ test('close writes server-stopped and removes server-info', async () => {
 
 test('GET /<slug> renders that specific document', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'isles-live-slug-'));
-  writeFileSync(join(dir, 'alpha.md'), '# Alpha Doc');
-  writeFileSync(join(dir, 'beta.md'), '# Beta Doc');
+  writeFileSync(join(dir, 'alpha.md'), '# Alpha Doc\n\nALPHA_BODY_UNIQUE');
+  writeFileSync(join(dir, 'beta.md'), '# Beta Doc\n\nBETA_BODY_UNIQUE');
   const server = await startLiveServer(dir, { port: 0 });
   try {
     const res = await get(server.url + '/beta');
     assert.equal(res.status, 200);
-    assert.match(res.body, /Beta Doc/);
-    assert.doesNotMatch(res.body, /Alpha Doc/);
+    assert.match(res.body, /BETA_BODY_UNIQUE/);          // selected doc's body content present
+    assert.doesNotMatch(res.body, /ALPHA_BODY_UNIQUE/);  // other doc's body content absent
   } finally { await server.close(); }
 });
 

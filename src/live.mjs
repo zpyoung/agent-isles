@@ -169,10 +169,6 @@ function newestOf(screens) {
   return active;
 }
 
-function sidebarScreens(screens) {
-  return screens.map((s) => ({ ...s, title: s.name }));
-}
-
 async function renderScreenHtml(dir, screen, screens, activeSlug) {
   let markdown;
   try {
@@ -185,7 +181,7 @@ async function renderScreenHtml(dir, screen, screens, activeSlug) {
     includeUserPacks: false,
     projectDir: dir,
   });
-  return injectLiveFrame(html, { screens: sidebarScreens(screens), activeSlug });
+  return injectLiveFrame(html, { screens, activeSlug });
 }
 
 async function renderNewest(dir) {
