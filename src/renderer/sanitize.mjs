@@ -5,7 +5,9 @@ const coreSanitizedSchema = {
   tagNames: [
     ...new Set([
       ...(defaultSchema.tagNames || []),
+      'agent-choice',
       'agent-decision',
+      'agent-option-set',
       'agent-risk',
       'agent-metric',
       'agent-delta',
@@ -105,7 +107,9 @@ const coreSanitizedSchema = {
     ],
     code: ['className', ...(defaultSchema.attributes?.code || [])],
     pre: ['className', 'data*', ...(defaultSchema.attributes?.pre || [])],
+    'agent-choice': ['className', 'id', 'title', 'selected'],
     'agent-decision': ['className', 'title', 'verdict'],
+    'agent-option-set': ['className', 'data-multiselect'],
     'agent-risk': ['className', 'title', 'level'],
     'agent-metric': ['className', 'label', 'value', 'unit', 'trend', 'tone'],
     'agent-delta': ['className', 'label', 'value', 'unit', 'percent', 'direction', 'tone'],

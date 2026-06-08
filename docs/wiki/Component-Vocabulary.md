@@ -122,6 +122,67 @@ Example:
 <agent-theme-toggle label="Theme"></agent-theme-toggle>
 ```
 
+### `<agent-option-set>` and `<agent-choice>`
+
+Use for lightweight interactive option pickers in rendered reports and live screens. Authors place one or more `<agent-choice>` rows inside an `<agent-option-set>`; the component updates selected state in the browser DOM and can emit live-mode click signals without invoking writeback.
+
+Status: supported.
+
+Authoring guidance:
+
+- Use single-select option sets by default when the reader should pick one path.
+- Add `data-multiselect` on `<agent-option-set>` when several choices can remain selected.
+- Use surrounding Markdown headings or labels to name the group; `<agent-option-set>` itself does not render a `title` attribute.
+- Put the stable choice identifier on `<agent-choice id="...">`; this `id` is the sanitizer-clobber-safe choice identity used in DOM events and live JSONL records.
+- Use `title` for the short choice label and keep the visible explanation in the choice body.
+- Add `selected` to a choice only for initial state. In single-select sets, author at most one initially selected choice.
+- Do not use these components for durable source edits; interactive choices are ephemeral signals, not writeback operations.
+
+Attributes:
+
+| Tag | Attribute | Required | Allowed values | Default | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `agent-option-set` | `data-multiselect` | No | Boolean attribute | absent | Allows multiple selected child choices. Single-select is the default. |
+| `agent-choice` | `id` | Recommended | HTML id token | empty | Stable choice identity used as event `choice` and live-mode JSONL `choice`. |
+| `agent-choice` | `title` | No | Plain text | empty | Visible choice label; event `text` uses this label when present. |
+| `agent-choice` | `selected` | No | Boolean attribute | absent | Reflected selected state; may be used for initial selection. |
+
+Child content:
+
+- `<agent-option-set>` slots direct `<agent-choice>` children.
+- `<agent-choice>` body content is the visible description and should stay readable in source form.
+
+Behavior:
+
+- Clicking a choice updates the reflected `selected` boolean on that choice.
+- In single-select sets, selecting one choice deselects sibling choices.
+- In multi-select sets, each choice toggles independently.
+- The option set dispatches a composed `agent-isles:select` DOM event with `detail = { choice, text, selected: [ids], multiselect }`.
+- In `isles live` mode, the live client captures selection events and appends JSONL records such as `{"type":"click","choice":"a","text":"...","timestamp":...[,"selected":[...]]}` to `<dir>/state/events`.
+
+Trusted/sanitized behavior:
+
+- Trusted mode preserves the tags, attributes, and child HTML.
+- Attributes that aren't part of the component API are ignored by the component. In sanitized render mode, the islands' declared safe attributes (`id`, `title`, `selected`, `data-multiselect`) are preserved.
+
+Example:
+
+```markdown
+#### Which layout?
+
+<agent-option-set>
+  <agent-choice id="single-column" title="Single column">Focused reading experience</agent-choice>
+  <agent-choice id="two-column" title="Two column">Sidebar + main content</agent-choice>
+</agent-option-set>
+
+#### Include sections
+
+<agent-option-set data-multiselect>
+  <agent-choice id="risks" title="Risks">Show risk callouts</agent-choice>
+  <agent-choice id="timeline" title="Timeline">Show timeline context</agent-choice>
+</agent-option-set>
+```
+
 ### `<agent-decision>`
 
 Use for architectural, product, implementation, or operational decisions where the outcome should be visually scannable.
