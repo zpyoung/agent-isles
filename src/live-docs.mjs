@@ -58,7 +58,7 @@ export function readFileNoFollow(file) {
 // Internal: filenames + slugs + stat, WITHOUT reading file contents. Symlinks
 // are skipped (lstat → isFile() false) so a symlinked .md cannot expose a file
 // outside the directory.
-function listScreenFiles(dir) {
+export function listScreenFiles(dir) {
   let names;
   try {
     names = readdirSync(dir);

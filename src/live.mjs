@@ -15,7 +15,7 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { renderMarkdownString } from './render.mjs';
-import { listScreens, resolveSlug, readFileNoFollow } from './live-docs.mjs';
+import { listScreens, listScreenFiles, resolveSlug, readFileNoFollow } from './live-docs.mjs';
 import { injectLiveFrame } from './live-shell.mjs';
 
 export { injectLiveFrame };
@@ -145,20 +145,6 @@ export function resolveNewestScreen(dir) {
     if (st.mtimeMs > newestMtime) { newestMtime = st.mtimeMs; newest = full; }
   }
   return newest;
-}
-
-function screenSnapshot(dir) {
-  let names;
-  try { names = readdirSync(dir); } catch { return ''; }
-  const parts = [];
-  for (const name of names) {
-    if (!name.endsWith('.md')) continue;
-    try {
-      const s = statSync(join(dir, name));
-      if (s.isFile()) parts.push(`${name}:${s.mtimeMs}:${s.size}`);
-    } catch { /* deleted mid-scan */ }
-  }
-  return parts.sort().join('|');
 }
 
 function waitingPage() {
@@ -325,7 +311,9 @@ export async function startLiveServer(dir, options = {}) {
 
   function broadcast(event, data) {
     const payload = JSON.stringify(data || {});
-    for (const c of clients) c.write(`event: ${event}\ndata: ${payload}\n\n`);
+    for (const c of clients) {
+      try { c.write(`event: ${event}\ndata: ${payload}\n\n`); } catch { /* drop a dead client; keep serving the rest */ }
+    }
   }
 
   function clearEvents() {
@@ -338,8 +326,12 @@ export async function startLiveServer(dir, options = {}) {
     return map;
   }
 
-  let lastScreens = listScreens(dir);
-  let lastSnapshot = screenSnapshot(dir);
+  function snapshotOf(screens) {
+    return screens.map((s) => `${s.name}:${s.mtimeMs}:${s.size}`).join('|');
+  }
+
+  let lastScreens = listScreenFiles(dir);
+  let lastSnapshot = snapshotOf(lastScreens);
   let watcher = null;
   let debounceTimer = null;
   if (options.watch) {
@@ -348,28 +340,30 @@ export async function startLiveServer(dir, options = {}) {
         if (filename && !String(filename).endsWith('.md')) return;
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
-          const snap = screenSnapshot(dir);
-          if (snap === lastSnapshot) return; // ignore state/ churn + non-.md + no-op events
-          lastSnapshot = snap;
-          const next = listScreens(dir);
-          const prevByName = indexByName(lastScreens);
-          const nextByName = indexByName(next);
-          const added = next.filter((s) => !prevByName.has(s.name));
-          const removed = lastScreens.filter((s) => !nextByName.has(s.name));
-          const changed = next.filter((s) => {
-            const prev = prevByName.get(s.name);
-            return prev && (prev.mtimeMs !== s.mtimeMs || prev.size !== s.size);
-          });
-          lastScreens = next;
+          try {
+            const next = listScreenFiles(dir);
+            const snap = snapshotOf(next);
+            if (snap === lastSnapshot) return; // ignore state/ churn + non-.md + no-op events
+            lastSnapshot = snap;
+            const prevByName = indexByName(lastScreens);
+            const nextByName = indexByName(next);
+            const added = next.filter((s) => !prevByName.has(s.name));
+            const removed = lastScreens.filter((s) => !nextByName.has(s.name));
+            const changed = next.filter((s) => {
+              const prev = prevByName.get(s.name);
+              return prev && (prev.mtimeMs !== s.mtimeMs || prev.size !== s.size);
+            });
+            lastScreens = next;
 
-          if (added.length || removed.length) broadcast('live:screens', { count: next.length });
-          for (const s of changed) broadcast('live:reload', { slug: s.slug });
-          if (added.length) {
-            let push = added[0];
-            for (const s of added) if (s.mtimeMs > push.mtimeMs) push = s;
-            clearEvents(); // a new screen pushed → reset the single-flow interaction state
-            broadcast('live:advance', { slug: push.slug });
-          }
+            if (added.length || removed.length) broadcast('live:screens', { count: next.length });
+            for (const s of changed) broadcast('live:reload', { slug: s.slug });
+            if (added.length) {
+              let push = added[0];
+              for (const s of added) if (s.mtimeMs > push.mtimeMs) push = s;
+              clearEvents(); // a new screen pushed → reset the single-flow interaction state
+              broadcast('live:advance', { slug: push.slug });
+            }
+          } catch { /* watcher must never crash the debounce timer */ }
         }, 120);
       });
       watcher.on('error', () => {});
