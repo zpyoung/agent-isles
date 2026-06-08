@@ -28,7 +28,13 @@ export const LIVE_CLIENT = `
     fetch('/__agent-isles/screens').then(function (r) { return r.json(); }).then(function (data) {
       var screens = (data && data.screens) || [];
       var shouldHave = screens.length >= 2;
-      if (shouldHave !== sidebarPresent) { window.location.reload(); return; }
+      if (shouldHave !== sidebarPresent) {
+        // Sidebar appearing (1 -> 2 docs) always accompanies a live:advance that
+        // navigates to the pushed screen; don't race it with a reload of the old
+        // URL. Only reload when the sidebar disappears (2 -> 1 docs, a removal).
+        if (!shouldHave) window.location.reload();
+        return;
+      }
       if (!shouldHave) return;
       var cur = currentSlug();
       var present = screens.some(function (s) { return s.slug === cur; });
@@ -47,7 +53,7 @@ export const LIVE_CLIENT = `
   var es = new EventSource('/events');
   es.addEventListener('live:advance', function (e) {
     var slug = parseSlug(e);
-    if (slug) window.location.assign('/' + encodeURIComponent(slug));
+    if (slug && slug !== currentSlug()) window.location.assign('/' + encodeURIComponent(slug));
   });
   es.addEventListener('live:reload', function (e) {
     var slug = parseSlug(e);
