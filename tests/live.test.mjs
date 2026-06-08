@@ -341,3 +341,18 @@ test('adding a screen broadcasts live:screens (membership change)', async () => 
     assert.ok(await waitFor(() => sse.text.includes('event: live:screens')), 'screens broadcast on add');
   } finally { sse.req.destroy(); await server.close(); }
 });
+
+test('served client wires typed SSE handlers and slug-aware reload', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-live-client-'));
+  writeFileSync(join(dir, 'a.md'), '# A');
+  writeFileSync(join(dir, 'b.md'), '# B');
+  const server = await startLiveServer(dir, { port: 0 });
+  try {
+    const body = (await get(server.url + '/a')).body;
+    assert.match(body, /addEventListener\('live:advance'/);
+    assert.match(body, /addEventListener\('live:reload'/);
+    assert.match(body, /addEventListener\('live:screens'/);
+    assert.match(body, /__agent-isles\/screens/);          // sidebar refresh fetch
+    assert.match(body, /__ISLES_ACTIVE_SLUG="a"/);         // active slug embedded
+  } finally { await server.close(); }
+});
