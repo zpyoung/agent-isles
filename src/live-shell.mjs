@@ -40,7 +40,8 @@ export function injectLiveFrame(pageHtml, opts = {}) {
   const headerHtml = `<div id="isles-header">Agent Isles Live</div>`;
   const sidebarHtml = hasSidebar ? buildSidebar(screens, activeSlug) : '';
   const barHtml = `<div id="isles-bar"><span id="isles-indicator">Click an option above, then return to the terminal</span></div>`;
-  const slugScript = `<script>window.__ISLES_ACTIVE_SLUG=${JSON.stringify(activeSlug)};</script>`;
+  const slugJson = JSON.stringify(activeSlug).replace(/</g, '\\u003c');
+  const slugScript = `<script>window.__ISLES_ACTIVE_SLUG=${slugJson};</script>`;
   const clientHtml = `${slugScript}<script>${LIVE_CLIENT}</script>`;
 
   let out = pageHtml;
@@ -51,7 +52,9 @@ export function injectLiveFrame(pageHtml, opts = {}) {
   // Insert before the *last* </body>: inlined bundles (e.g. mermaid's DOMPurify
   // iframe srcdoc template) contain literal "</body></html>" strings inside a
   // <script>, so a first-match replace would splice the client into that script.
-  const bodyClose = out.toLowerCase().lastIndexOf('</body>');
+  let bodyClose = -1;
+  const bodyCloseRe = /<\/body>/gi;
+  for (let m = bodyCloseRe.exec(out); m !== null; m = bodyCloseRe.exec(out)) bodyClose = m.index;
   out = bodyClose >= 0
     ? `${out.slice(0, bodyClose)}${barHtml}${clientHtml}${out.slice(bodyClose)}`
     : `${out}${barHtml}${clientHtml}`;
