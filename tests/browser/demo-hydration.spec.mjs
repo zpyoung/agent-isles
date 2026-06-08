@@ -20,6 +20,8 @@ const expectedCustomElements = [
   'agent-kpi',
   'agent-copy-block',
   'agent-theme-toggle',
+  'agent-option-set',
+  'agent-choice',
   'agent-tabs',
   'agent-tab',
   'agent-timeline',
@@ -68,7 +70,7 @@ test('rendered demo loads without console errors and hydrates agent components',
     await expect(page.locator('h1')).toContainText('Agent Isles Demo');
 
     const galleryExamples = page.locator('.agent-component-example');
-    await expect(galleryExamples).toHaveCount(13);
+    await expect(galleryExamples).toHaveCount(14);
     const firstGallery = galleryExamples.first();
     const renderedPane = firstGallery.locator('.agent-component-rendered');
     const sourcePane = firstGallery.locator('.agent-component-source-card');
@@ -100,6 +102,16 @@ test('rendered demo loads without console errors and hydrates agent components',
         .poll(() => page.evaluate((customElementTag) => Boolean(customElements.get(customElementTag)), tag))
         .toBe(true);
     }
+
+    const optionSet = page.locator('agent-option-set').first();
+    await expect
+      .poll(() => optionSet.evaluate((element) => Boolean(element.shadowRoot?.querySelector('slot'))))
+      .toBe(true);
+
+    const choice = page.locator('agent-choice').first();
+    await expect
+      .poll(() => choice.evaluate((element) => Boolean(element.shadowRoot?.querySelector('.choice'))))
+      .toBe(true);
 
     const decision = page.locator('agent-decision').first();
     await expect

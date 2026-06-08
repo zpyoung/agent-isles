@@ -9,12 +9,14 @@ import {
   RENDER_MODES,
   validateMarkdownInput,
 } from '../src/render.mjs';
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { existsSync, mkdirSync, openSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CONFIG_FILE, getUserConfigDir, PackResolutionError, resolvePackInputs } from '../src/pack-resolver.mjs';
 import { watchMarkdownFile } from '../src/watch.mjs';
 import { previewMarkdown, startPreviewServer } from '../src/preview.mjs';
+import { runLiveForeground, stopLive } from '../src/live.mjs';
 
 const USAGE = `Agent Isles — Markdown seas, component islands.
 
@@ -25,12 +27,15 @@ Usage:
   isles watch <file.md> [--out <file.html>] [--mode trusted|sanitized] [--assets cdn|local|inline] [--show-source] [--pack <path>]... [--no-user-packs]
   isles preview (--stdin | <file.md>) [--open] [--mode trusted|sanitized] [--safe|--sanitize] [--show-source] [--pack <path>]... [--no-user-packs]
   isles preview <dir> [--port <port>] [--writeback] [--mode trusted|sanitized] [--show-source] [--pack <path>]... [--no-user-packs]
+  isles live <dir> [--port <port>] [--host <host>] [--url-host <host>] [--idle-timeout <min>] [--owner-pid <pid>]
+  isles live <dir> --stop
 
 Commands:
   render         Render Markdown to browser-ready HTML
   packs resolve  Print resolved component packs, sources, asset outputs, and sanitizer permissions
   watch          Render immediately and rebuild when the Markdown file changes
   preview        Render ephemeral Markdown to a temp HTML file, or serve a localhost directory preview
+  live           Serve live agent screens in the background, or stop a live server
 
 Options:
   --assets cdn|local|inline   Use CDN assets (default), copy local offline assets, or inline all assets into single HTML file
@@ -60,10 +65,107 @@ if (command === 'render') {
   await runWatch(args);
 } else if (command === 'preview') {
   await runPreview(args);
+} else if (command === 'live') {
+  await runLive(args);
 } else {
   console.error(`Unknown command: ${command}\n`);
   console.error(USAGE);
   process.exit(2);
+}
+
+async function runLive(args) {
+  const parsed = { dir: undefined, port: undefined, host: undefined, urlHost: undefined,
+    idleTimeoutMinutes: undefined, ownerPid: undefined, stop: false, serve: false };
+  const needVal = (i, name) => {
+    const v = args[i + 1];
+    if (v === undefined || v === '' || v.startsWith('-')) { console.error(`${name} requires a value`); process.exit(2); }
+    return v;
+  };
+  for (let i = 0; i < args.length; i += 1) {
+    const a = args[i];
+    if (a === '--port') {
+      const v = Number(needVal(i, '--port'));
+      if (!Number.isInteger(v) || v < 0 || v > 65535) { console.error('--port must be an integer 0-65535'); process.exit(2); }
+      parsed.port = v; i += 1; continue;
+    }
+    if (a === '--host') { parsed.host = needVal(i, '--host'); i += 1; continue; }
+    if (a === '--url-host') { parsed.urlHost = needVal(i, '--url-host'); i += 1; continue; }
+    if (a === '--idle-timeout') {
+      const v = Number(needVal(i, '--idle-timeout'));
+      if (!Number.isFinite(v) || v <= 0) { console.error('--idle-timeout must be a positive number'); process.exit(2); }
+      parsed.idleTimeoutMinutes = v; i += 1; continue;
+    }
+    if (a === '--owner-pid') {
+      const v = Number(needVal(i, '--owner-pid'));
+      if (!Number.isInteger(v) || v <= 0) { console.error('--owner-pid must be a positive integer'); process.exit(2); }
+      parsed.ownerPid = v; i += 1; continue;
+    }
+    if (a === '--stop') { parsed.stop = true; continue; }
+    if (a === '--__serve') { parsed.serve = true; continue; }
+    if (a.startsWith('-')) { console.error(`Unknown live option: ${a}`); process.exit(2); }
+    if (!parsed.dir) { parsed.dir = a; continue; }
+    console.error(`Unexpected extra argument: ${a}`); process.exit(2);
+  }
+  if (!parsed.dir) { console.error('Missing <dir> for live.\n'); console.error(USAGE); process.exit(2); }
+  const dir = resolve(parsed.dir);
+
+  if (parsed.stop) { stopLive(dir); process.exit(0); }
+
+  if (parsed.serve) {
+    // Daemon child: run the server in the foreground; process stays alive until shutdown.
+    await runLiveForeground(dir, {
+      port: parsed.port, host: parsed.host, urlHost: parsed.urlHost,
+      idleTimeoutMinutes: parsed.idleTimeoutMinutes, ownerPid: parsed.ownerPid,
+    });
+    return;
+  }
+
+  // Parent: re-spawn self DETACHED, wait for server-info, print it, exit.
+  const stateD = join(dir, 'state');
+  const infoPath = join(stateD, 'server-info');
+  const pidAlive = (pid) => { try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'EPERM'; } };
+  if (existsSync(infoPath)) {
+    try {
+      const st = statSync(infoPath);
+      if (st.isFile()) {
+        const existing = JSON.parse(readFileSync(infoPath, 'utf8'));
+        if (existing && Number.isInteger(existing.pid) && existing.pid > 0
+            && existing.screen_dir === dir && pidAlive(existing.pid)) {
+          console.log(JSON.stringify(existing));
+          process.exit(0);
+        }
+      }
+    } catch { /* fall through to fresh launch */ }
+  }
+  mkdirSync(stateD, { recursive: true });
+  rmSync(infoPath, { force: true, recursive: true });
+  rmSync(join(stateD, 'server-stopped'), { force: true, recursive: true });
+
+  const childArgs = [fileURLToPath(import.meta.url), 'live', dir, '--__serve'];
+  if (parsed.port !== undefined) childArgs.push('--port', String(parsed.port));
+  if (parsed.host) childArgs.push('--host', parsed.host);
+  if (parsed.urlHost) childArgs.push('--url-host', parsed.urlHost);
+  if (parsed.idleTimeoutMinutes !== undefined) childArgs.push('--idle-timeout', String(parsed.idleTimeoutMinutes));
+  if (parsed.ownerPid !== undefined) childArgs.push('--owner-pid', String(parsed.ownerPid));
+  const errFd = openSync(join(stateD, 'server-error.log'), 'a');
+  const child = spawn(process.execPath, childArgs, { detached: true, stdio: ['ignore', errFd, errFd] });
+  child.unref();
+
+  for (let i = 0; i < 50; i += 1) {
+    if (existsSync(infoPath)) {
+      try {
+        if (statSync(infoPath).isFile()) {
+          const txt = readFileSync(infoPath, 'utf8');
+          JSON.parse(txt);
+          console.log(txt.trim());
+          process.exit(0);
+        }
+      } catch { /* keep polling */ }
+    }
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  console.error(`isles live: server did not report ready within 5s (see ${join(stateD, 'server-error.log')})`);
+  process.exit(1);
 }
 
 async function runRender(args) {

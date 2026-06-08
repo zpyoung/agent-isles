@@ -1,0 +1,55 @@
+import { LitElement, html } from 'lit';
+
+export class AgentOptionSet extends LitElement {
+  static properties = {
+    multiselect: { type: Boolean, attribute: 'data-multiselect' },
+  };
+
+  constructor() {
+    super();
+    this.multiselect = false;
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    this.addEventListener('agent-isles:choice-click', this._onChoiceClick);
+  }
+
+  disconnectedCallback() {
+    this.removeEventListener('agent-isles:choice-click', this._onChoiceClick);
+    super.disconnectedCallback();
+  }
+
+  _choices() {
+    return Array.from(this.querySelectorAll('agent-choice'))
+      .filter((c) => c.closest('agent-option-set') === this);
+  }
+
+  _onChoiceClick = (event) => {
+    const target = event.composedPath().find(
+      (el) => el && el.tagName === 'AGENT-CHOICE'
+    );
+    if (!target || target.closest('agent-option-set') !== this) return;
+    if (this.multiselect) {
+      target.selected = !target.selected;
+    } else {
+      for (const choice of this._choices()) choice.selected = choice === target;
+    }
+    const selected = this._choices().filter((c) => c.selected);
+    this.dispatchEvent(new CustomEvent('agent-isles:select', {
+      detail: {
+        choice: event.detail.choice,
+        text: event.detail.text,
+        selected: selected.map((c) => c.choiceId),
+        multiselect: this.multiselect,
+      },
+      bubbles: true, composed: true,
+    }));
+  };
+
+  render() {
+    return html`<slot></slot>`;
+  }
+}
+
+customElements.define('agent-option-set', AgentOptionSet);
