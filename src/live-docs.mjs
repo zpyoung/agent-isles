@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-const RESERVED_SLUGS = new Set(['events', '__agent-isles']);
+const RESERVED_SLUGS = new Set(['events']);
 
 export function slugForName(name) {
   const base = String(name).replace(/\.md$/i, '');
