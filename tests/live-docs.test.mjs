@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, mkdirSync, utimesSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, mkdirSync, utimesSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -55,4 +55,27 @@ test('resolveSlug matches by computed slug and rejects unknown / traversal input
   assert.equal(resolveSlug(dir, 'nope'), null);
   assert.equal(resolveSlug(dir, '../secret'), null);
   assert.equal(resolveSlug(dir, ''), null);
+});
+
+test('extractTitle ignores # inside fenced code blocks and requires a space after #', () => {
+  assert.equal(extractTitle('```\n# fake\n```\n# Real Title\n'), 'Real Title');
+  assert.equal(extractTitle('# Title ###'), 'Title');
+  assert.equal(extractTitle('#\nBody'), null);
+});
+
+test('listScreens falls back to filename when there is no H1', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-docs-notitle-'));
+  writeFileSync(join(dir, 'plain.md'), 'no heading here');
+  assert.equal(listScreens(dir)[0].title, 'plain.md');
+});
+
+test('listScreens and resolveSlug skip symlinked .md files', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-docs-symlink-'));
+  const outside = mkdtempSync(join(tmpdir(), 'isles-docs-outside-'));
+  writeFileSync(join(outside, 'secret.md'), '# Secret');
+  writeFileSync(join(dir, 'real.md'), '# Real');
+  symlinkSync(join(outside, 'secret.md'), join(dir, 'link.md'));
+  const names = listScreens(dir).map((s) => s.name);
+  assert.deepEqual(names, ['real.md']);
+  assert.equal(resolveSlug(dir, 'link'), null);
 });
