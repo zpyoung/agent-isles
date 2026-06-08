@@ -4,7 +4,7 @@ import test from 'node:test';
 import { renderChildArgs, RELOAD_CLIENT, injectReloadClient } from '../scripts/dev/render-mode.mjs';
 
 test('render child args force inline assets and an out file', () => {
-  const args = renderChildArgs('demo.md', '/tmp/out.html', ['demo.md', '--mode', 'sanitized']);
+  const args = renderChildArgs('/tmp/out.html', ['demo.md', '--mode', 'sanitized']);
   assert.deepEqual(args, ['render', 'demo.md', '--mode', 'sanitized', '--out', '/tmp/out.html', '--assets', 'inline']);
 });
 

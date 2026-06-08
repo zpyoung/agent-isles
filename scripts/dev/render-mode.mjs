@@ -24,14 +24,15 @@ export function injectReloadClient(html) {
   return `${html.slice(0, idx)}${RELOAD_CLIENT}${html.slice(idx)}`;
 }
 
-export function renderChildArgs(target, outFile, passthrough) {
+// The target file is already present in `passthrough` (the first positional arg from parseDevArgs).
+export function renderChildArgs(outFile, passthrough) {
   return ['render', ...passthrough, '--out', outFile, '--assets', 'inline'];
 }
 
 // Re-render via a fresh `isles render` process (always picks up current renderer/theme/component code).
-export function renderOnce(target, outFile, passthrough, { spawnFn = nodeSpawn } = {}) {
+export function renderOnce(outFile, passthrough, { spawnFn = nodeSpawn } = {}) {
   return new Promise((resolve, reject) => {
-    const child = spawnFn(process.execPath, [BIN, ...renderChildArgs(target, outFile, passthrough)], {
+    const child = spawnFn(process.execPath, [BIN, ...renderChildArgs(outFile, passthrough)], {
       stdio: ['ignore', 'inherit', 'inherit'],
     });
     child.on('error', reject);

@@ -75,9 +75,12 @@ async function runServerMode(opts) {
     openOnce(url);
   }
 
+  let inFlight = false;
   const onBatch = async (paths) => {
     const decision = classifyChange(paths, PROJECT_ROOT);
     if (decision.ignored || !decision.restart) return;
+    if (inFlight) return; // a rebuild+restart is already running; coalesce this batch
+    inFlight = true;
     try {
       if (decision.rebuild) await runRollup(PROJECT_ROOT, { skip: !opts.build });
       console.log('[dev] source changed → restarting server');
@@ -86,6 +89,8 @@ async function runServerMode(opts) {
       proc.spawn();
     } catch (error) {
       console.error(`[dev] rebuild failed, keeping last server: ${error.message}`);
+    } finally {
+      inFlight = false;
     }
   };
   const stopWatching = startWatching(watchRoots(opts), onBatch);
@@ -100,22 +105,27 @@ async function runRenderMode(opts) {
   const outFile = join(outDir, 'index.html');
   const rerender = async ({ rebuild } = {}) => {
     if (rebuild) await runRollup(PROJECT_ROOT, { skip: !opts.build });
-    await renderOnce(opts.target, outFile, opts.passthrough);
+    await renderOnce(outFile, opts.passthrough);
   };
   await rerender({ rebuild: opts.build });
   const srv = await startRenderServer(outFile, { port: 0 });
   console.log(`[dev] ${srv.url}`);
   if (opts.open) openBrowser(srv.url);
 
+  let inFlight = false;
   const onBatch = async (paths) => {
     const decision = classifyChange(paths, PROJECT_ROOT);
     const targetChanged = paths.some((p) => p === resolve(opts.target));
     if (decision.ignored && !targetChanged) return;
+    if (inFlight) return; // a re-render is already running; coalesce this batch
+    inFlight = true;
     try {
       await rerender({ rebuild: decision.rebuild });
       srv.broadcastReload();
     } catch (error) {
       console.error(`[dev] re-render failed: ${error.message}`);
+    } finally {
+      inFlight = false;
     }
   };
   const stopWatching = startWatching(watchRoots(opts), onBatch);
