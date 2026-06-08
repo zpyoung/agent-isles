@@ -323,15 +323,22 @@ export async function startLiveServer(dir, options = {}) {
     }
   } catch {}
 
-  function broadcast(event) {
-    for (const c of clients) c.write(`event: ${event}\ndata: {}\n\n`);
+  function broadcast(event, data) {
+    const payload = JSON.stringify(data || {});
+    for (const c of clients) c.write(`event: ${event}\ndata: ${payload}\n\n`);
   }
 
   function clearEvents() {
     rmSync(eventsFile(dir), { force: true });
   }
 
-  let lastScreen = resolveNewestScreen(dir);
+  function indexByName(screens) {
+    const map = new Map();
+    for (const s of screens) map.set(s.name, s);
+    return map;
+  }
+
+  let lastScreens = listScreens(dir);
   let lastSnapshot = screenSnapshot(dir);
   let watcher = null;
   let debounceTimer = null;
@@ -344,12 +351,25 @@ export async function startLiveServer(dir, options = {}) {
           const snap = screenSnapshot(dir);
           if (snap === lastSnapshot) return; // ignore state/ churn + non-.md + no-op events
           lastSnapshot = snap;
-          const next = resolveNewestScreen(dir);
-          if (next !== lastScreen) { // includes screen -> none and none -> screen
-            lastScreen = next;
-            clearEvents();
+          const next = listScreens(dir);
+          const prevByName = indexByName(lastScreens);
+          const nextByName = indexByName(next);
+          const added = next.filter((s) => !prevByName.has(s.name));
+          const removed = lastScreens.filter((s) => !nextByName.has(s.name));
+          const changed = next.filter((s) => {
+            const prev = prevByName.get(s.name);
+            return prev && (prev.mtimeMs !== s.mtimeMs || prev.size !== s.size);
+          });
+          lastScreens = next;
+
+          if (added.length || removed.length) broadcast('live:screens', { count: next.length });
+          for (const s of changed) broadcast('live:reload', { slug: s.slug });
+          if (added.length) {
+            let push = added[0];
+            for (const s of added) if (s.mtimeMs > push.mtimeMs) push = s;
+            clearEvents(); // a new screen pushed → reset the single-flow interaction state
+            broadcast('live:advance', { slug: push.slug });
           }
-          broadcast('live:reload');
         }, 120);
       });
       watcher.on('error', () => {});

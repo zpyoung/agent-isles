@@ -36,6 +36,14 @@ function postJson(url, obj) {
   });
 }
 
+function openSse(url) {
+  const req = http.get(url);
+  const state = { text: '', req };
+  req.on('response', (res) => { res.setEncoding('utf8'); res.on('data', (c) => { state.text += c; }); });
+  req.on('error', () => {});
+  return state;
+}
+
 test('resolveNewestScreen picks the most recently modified top-level .md', () => {
   const dir = mkdtempSync(join(tmpdir(), 'isles-live-newest-'));
   writeFileSync(join(dir, 'a.md'), '# A');
@@ -288,4 +296,48 @@ test('signal with an unknown screen slug records screen but no screen_file', asy
     assert.equal(rec.screen, 'ghost');
     assert.ok(!('screen_file' in rec));
   } finally { await server.close(); }
+});
+
+test('adding a new screen broadcasts live:advance and clears prior events', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-live-advance-'));
+  writeFileSync(join(dir, 'screen-1.md'), '# One');
+  const server = await startLiveServer(dir, { port: 0, watch: true });
+  const sse = openSse(server.url + '/events');
+  try {
+    assert.ok(await waitFor(() => sse.text.includes('event: live:ready')));
+    await postJson(server.url + '/__agent-isles/signal', { choice: 'a', text: 'A' });
+    assert.ok(existsSync(eventsFile(dir)));
+    writeFileSync(join(dir, 'screen-2.md'), '# Two');
+    assert.ok(await waitFor(() => sse.text.includes('event: live:advance')), 'advance broadcast');
+    assert.match(sse.text, /event: live:advance\ndata: {"slug":"screen-2"}/);
+    assert.ok(await waitFor(() => !existsSync(eventsFile(dir))), 'events cleared on push');
+  } finally { sse.req.destroy(); await server.close(); }
+});
+
+test('editing an existing screen broadcasts live:reload with its slug, not advance', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-live-edit-'));
+  writeFileSync(join(dir, 'a.md'), '# A');
+  writeFileSync(join(dir, 'b.md'), '# B');
+  const server = await startLiveServer(dir, { port: 0, watch: true });
+  const sse = openSse(server.url + '/events');
+  try {
+    assert.ok(await waitFor(() => sse.text.includes('event: live:ready')));
+    writeFileSync(join(dir, 'a.md'), '# A edited and longer');
+    utimesSync(join(dir, 'a.md'), new Date(Date.now()), new Date(Date.now() + 5000));
+    assert.ok(await waitFor(() => sse.text.includes('event: live:reload')), 'reload broadcast');
+    assert.match(sse.text, /event: live:reload\ndata: {"slug":"a"}/);
+    assert.doesNotMatch(sse.text, /event: live:advance/);
+  } finally { sse.req.destroy(); await server.close(); }
+});
+
+test('adding a screen broadcasts live:screens (membership change)', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-live-membership-'));
+  writeFileSync(join(dir, 'a.md'), '# A');
+  const server = await startLiveServer(dir, { port: 0, watch: true });
+  const sse = openSse(server.url + '/events');
+  try {
+    assert.ok(await waitFor(() => sse.text.includes('event: live:ready')));
+    writeFileSync(join(dir, 'b.md'), '# B');
+    assert.ok(await waitFor(() => sse.text.includes('event: live:screens')), 'screens broadcast on add');
+  } finally { sse.req.destroy(); await server.close(); }
 });
