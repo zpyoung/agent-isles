@@ -13,9 +13,13 @@ export const RELOAD_CLIENT = `<script>
 })();
 </script>`;
 
-// Mode B controls the rendered HTML, so inject our own reload client before </body>.
+// Mode B controls the rendered HTML, so inject our own reload client before the last </body>.
+// Search the original string (case-insensitive regex) so multi-byte casing can't shift indices.
 export function injectReloadClient(html) {
-  const idx = html.toLowerCase().lastIndexOf('</body>');
+  const re = /<\/body>/gi;
+  let idx = -1;
+  let match;
+  while ((match = re.exec(html)) !== null) idx = match.index;
   if (idx < 0) return `${html}${RELOAD_CLIENT}`;
   return `${html.slice(0, idx)}${RELOAD_CLIENT}${html.slice(idx)}`;
 }

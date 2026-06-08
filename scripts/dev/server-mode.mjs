@@ -34,12 +34,19 @@ export function createServerProcess(subcommand, passthrough, { spawnFn = nodeSpa
   return {
     onLine: null, // assigned by caller to receive stdout lines (preview URL detection)
     spawn() {
+      const self = this;
+      let buffer = '';
       child = spawnFn(process.execPath, [BIN, ...args], { stdio: ['ignore', 'pipe', 'inherit'] });
       child.stdout?.setEncoding('utf8');
       child.stdout?.on('data', (chunk) => {
-        for (const line of chunk.split('\n')) {
-          if (line.trim() && this.onLine) this.onLine(line.trim());
-          else if (line.trim()) process.stdout.write(`${line}\n`);
+        buffer += chunk;
+        let nl;
+        while ((nl = buffer.indexOf('\n')) >= 0) {
+          const line = buffer.slice(0, nl).trim();
+          buffer = buffer.slice(nl + 1);
+          if (!line) continue;
+          if (self.onLine) self.onLine(line);
+          else process.stdout.write(`${line}\n`);
         }
       });
       return child;
