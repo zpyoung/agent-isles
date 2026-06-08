@@ -15,7 +15,9 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { renderMarkdownString } from './render.mjs';
-import { LIVE_CLIENT } from './live-client.js';
+import { injectLiveFrame } from './live-shell.mjs';
+
+export { injectLiveFrame };
 
 const defaultHost = '127.0.0.1';
 
@@ -151,22 +153,6 @@ function screenSnapshot(dir) {
     } catch { /* deleted mid-scan */ }
   }
   return parts.sort().join('|');
-}
-
-function injectLiveFrame(pageHtml) {
-  const overlayStyle = `<style>
-    body{padding-top:2.2rem;padding-bottom:2.2rem}
-    #isles-header{position:fixed;top:0;left:0;right:0;height:2.2rem;display:flex;align-items:center;padding:0 1.5rem;font:500 .8rem system-ui,sans-serif;color:#888;background:rgba(127,127,127,.07);border-bottom:1px solid rgba(127,127,127,.25);z-index:99999}
-    #isles-bar{position:fixed;bottom:0;left:0;right:0;padding:.45rem 1.5rem;text-align:center;font:.78rem system-ui,sans-serif;color:#888;background:rgba(127,127,127,.07);border-top:1px solid rgba(127,127,127,.25);z-index:99999}
-  </style>`;
-  const headerHtml = `<div id="isles-header">Agent Isles Live</div>`;
-  const barHtml = `<div id="isles-bar"><span id="isles-indicator">Click an option above, then return to the terminal</span></div>`;
-  const clientHtml = `<script>${LIVE_CLIENT}</script>`;
-  let out = pageHtml;
-  out = /<\/head>/i.test(out) ? out.replace(/<\/head>/i, `${overlayStyle}</head>`) : `${overlayStyle}${out}`;
-  out = /<body[^>]*>/i.test(out) ? out.replace(/(<body[^>]*>)/i, `$1${headerHtml}`) : `${headerHtml}${out}`;
-  out = /<\/body>/i.test(out) ? out.replace(/<\/body>/i, `${barHtml}${clientHtml}</body>`) : `${out}${barHtml}${clientHtml}`;
-  return out;
 }
 
 function waitingPage() {
