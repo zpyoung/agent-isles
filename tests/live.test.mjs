@@ -252,3 +252,40 @@ test('GET /__agent-isles/screens tolerates a query string', async () => {
     assert.deepEqual(data.screens.map((s) => s.slug), ['a']);
   } finally { await server.close(); }
 });
+
+test('signal records are stamped with the screen slug + filename when provided', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-live-stamp-'));
+  writeFileSync(join(dir, 'screen-2.md'), '# Two');
+  const server = await startLiveServer(dir, { port: 0 });
+  try {
+    const r = await postJson(server.url + '/__agent-isles/signal', { choice: 'a', text: 'A', screen: 'screen-2' });
+    assert.equal(r.status, 200);
+    const rec = JSON.parse(readFileSync(eventsFile(dir), 'utf8').trim().split('\n')[0]);
+    assert.equal(rec.screen, 'screen-2');
+    assert.equal(rec.screen_file, 'screen-2.md');
+  } finally { await server.close(); }
+});
+
+test('signal records omit screen fields when no screen is provided (back-compat)', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-live-nostamp-'));
+  writeFileSync(join(dir, 's.md'), '# x');
+  const server = await startLiveServer(dir, { port: 0 });
+  try {
+    await postJson(server.url + '/__agent-isles/signal', { choice: 'a', text: 'A' });
+    const rec = JSON.parse(readFileSync(eventsFile(dir), 'utf8').trim().split('\n')[0]);
+    assert.ok(!('screen' in rec));
+    assert.ok(!('screen_file' in rec));
+  } finally { await server.close(); }
+});
+
+test('signal with an unknown screen slug records screen but no screen_file', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-live-stamp-unknown-'));
+  writeFileSync(join(dir, 's.md'), '# x');
+  const server = await startLiveServer(dir, { port: 0 });
+  try {
+    await postJson(server.url + '/__agent-isles/signal', { choice: 'a', screen: 'ghost' });
+    const rec = JSON.parse(readFileSync(eventsFile(dir), 'utf8').trim().split('\n')[0]);
+    assert.equal(rec.screen, 'ghost');
+    assert.ok(!('screen_file' in rec));
+  } finally { await server.close(); }
+});

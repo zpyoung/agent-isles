@@ -63,6 +63,11 @@ function appendSignalEvent(dir, detail) {
     timestamp: Math.floor(Date.now() / 1000),
   };
   if (Array.isArray(detail.selected)) record.selected = detail.selected;
+  if (typeof detail.screen === 'string' && detail.screen) {
+    record.screen = detail.screen;
+    const match = resolveSlug(dir, detail.screen);
+    if (match) record.screen_file = match.name;
+  }
   mkdirSync(stateDir(dir), { recursive: true });
   appendFileSync(eventsFile(dir), JSON.stringify(record) + '\n');
   return record;
