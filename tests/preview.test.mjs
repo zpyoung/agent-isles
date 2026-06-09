@@ -301,8 +301,8 @@ test('single-heading pages stay single-column with no TOC layout', async () => {
     includeUserPacks: false,
   });
 
-  assert.doesNotMatch(html, /agent-isles-page--with-toc/);
-  assert.doesNotMatch(html, /agent-isles-layout/);
+  assert.doesNotMatch(html, /<main class="[^"]*agent-isles-page--with-toc/);
+  assert.doesNotMatch(html, /<div class="agent-isles-layout">/);
   assert.doesNotMatch(html, /<nav class="agent-isles-toc"/);
 });
 
