@@ -630,7 +630,8 @@ test('theme styles the TOC as a themeable sticky sidebar', async () => {
 
   // Two-column sticky sidebar at the 1200px breakpoint.
   assert.match(theme, /@media\s*\(min-width:\s*1200px\)/);
-  assert.match(theme, /grid-template-columns:\s*minmax\(0,\s*960px\)/);
+  assert.match(theme, /\.agent-isles-page\.agent-isles-page--with-toc\s*{[^}]*max-width:\s*var\(--agent-isles-page-with-toc-max-width,\s*calc\(var\(--agent-isles-page-max-width\)\s*\+\s*var\(--agent-isles-toc-width,\s*240px\)\s*\+\s*2\.5rem\)\)/s);
+  assert.match(theme, /grid-template-columns:\s*minmax\(0,\s*var\(--agent-isles-page-max-width\)\)/);
   assert.match(theme, /position:\s*sticky/);
   // Sticky-critical properties must stay present.
   assert.match(theme, /align-self:\s*start/);

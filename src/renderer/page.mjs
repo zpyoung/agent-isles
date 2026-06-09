@@ -401,6 +401,18 @@ function buildTocScript() {
   const links = Array.from(nav.querySelectorAll('a[href^="#"]'));
   const linkByTarget = new Map();
   const targets = [];
+  const resolveObservedTarget = (target) => {
+    if (!target) {
+      return null;
+    }
+    if (target.classList && target.classList.contains('agent-isles-heading-anchor')) {
+      const heading = target.nextElementSibling;
+      if (heading && /^H[1-6]$/.test(heading.tagName)) {
+        return heading;
+      }
+    }
+    return target;
+  };
   for (const link of links) {
     let id;
     try {
@@ -408,7 +420,7 @@ function buildTocScript() {
     } catch {
       continue;
     }
-    const target = id && document.getElementById(id);
+    const target = resolveObservedTarget(id && document.getElementById(id));
     if (target) {
       linkByTarget.set(target, link);
       targets.push(target);

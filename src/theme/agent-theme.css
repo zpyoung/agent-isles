@@ -93,7 +93,7 @@ body {
 }
 
 .agent-isles-page.agent-isles-page--with-toc {
-  max-width: var(--agent-isles-page-with-toc-max-width, 1240px);
+  max-width: var(--agent-isles-page-with-toc-max-width, calc(var(--agent-isles-page-max-width) + var(--agent-isles-toc-width, 240px) + 2.5rem));
 }
 
 .agent-isles-layout {
@@ -121,7 +121,7 @@ body {
 @media (min-width: 1200px) {
   .agent-isles-page--with-toc .agent-isles-layout {
     display: grid;
-    grid-template-columns: minmax(0, 960px) var(--agent-isles-toc-width, 240px);
+    grid-template-columns: minmax(0, var(--agent-isles-page-max-width)) var(--agent-isles-toc-width, 240px);
     gap: 2.5rem;
     align-items: start;
   }

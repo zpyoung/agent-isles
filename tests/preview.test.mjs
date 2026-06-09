@@ -5,6 +5,7 @@ import { existsSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, rmSync, 
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
+import vm from 'node:vm';
 
 import {
   discoverMarkdownFiles,
@@ -286,11 +287,69 @@ test('multi-heading pages wrap content and TOC in a sticky-TOC layout', async ()
     includeUserPacks: false,
   });
 
-  assert.match(html, /class="agent-isles-page container py-4 agent-isles-page--with-toc"/);
+  assert.match(html, /<main class="[^"]*\bagent-isles-page--with-toc\b[^"]*">/);
   assert.match(html, /<div class="agent-isles-layout">/);
   assert.match(html, /<div class="agent-isles-content">/);
   // Existing TOC markup is preserved unchanged.
   assert.match(html, /<nav class="agent-isles-toc" aria-label="Table of contents">/);
+});
+
+test('scroll-spy observes generated headings instead of zero-height anchor spans', async () => {
+  const { renderMarkdownString } = await import('../src/render.mjs');
+
+  const { html } = await renderMarkdownString('# Guide\n\n## Alpha\n\nBody.\n\n## Beta\n\nMore body.\n', {
+    assetMode: 'inline',
+    includeUserPacks: false,
+  });
+  const scriptMatch = html.match(/<script>\s*\/\* Agent Isles table-of-contents scroll-spy \*\/\n([\s\S]*?)\n\s*<\/script>/);
+  assert.ok(scriptMatch, 'scroll-spy script is present');
+
+  const observedTargets = [];
+  const linkClasses = new Set();
+  const link = {
+    hash: '#alpha',
+    classList: {
+      add: (className) => linkClasses.add(className),
+      remove: (className) => linkClasses.delete(className),
+    },
+    attrs: new Map(),
+    setAttribute(name, value) {
+      this.attrs.set(name, value);
+    },
+    removeAttribute(name) {
+      this.attrs.delete(name);
+    },
+  };
+  const heading = { tagName: 'H2' };
+  const anchorSpan = {
+    classList: { contains: (className) => className === 'agent-isles-heading-anchor' },
+    nextElementSibling: heading,
+  };
+  const nav = { querySelectorAll: () => [link] };
+  const observers = [];
+  class FakeIntersectionObserver {
+    constructor(callback) {
+      this.callback = callback;
+      observers.push(this);
+    }
+
+    observe(target) {
+      observedTargets.push(target);
+    }
+  }
+
+  vm.runInNewContext(scriptMatch[1], {
+    IntersectionObserver: FakeIntersectionObserver,
+    document: {
+      querySelector: (selector) => selector === '.agent-isles-toc' ? nav : null,
+      getElementById: (id) => id === 'alpha' ? anchorSpan : null,
+    },
+  });
+
+  assert.deepEqual(observedTargets, [heading]);
+  observers[0].callback([{ target: heading, isIntersecting: true }]);
+  assert.ok(linkClasses.has('is-active'));
+  assert.equal(link.attrs.get('aria-current'), 'location');
 });
 
 test('single-heading pages stay single-column with no TOC layout', async () => {
