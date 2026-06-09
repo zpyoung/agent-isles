@@ -432,15 +432,23 @@ function buildTocScript() {
       activeLink.setAttribute('aria-current', 'location');
     }
   };
+  const visible = new Set();
   const observer = new IntersectionObserver((entries) => {
     for (const entry of entries) {
       if (entry.isIntersecting) {
-        const link = linkByTarget.get(entry.target);
-        if (link) {
-          setActive(link);
-        }
+        visible.add(entry.target);
+      } else {
+        visible.delete(entry.target);
       }
     }
+    let activeTarget = null;
+    for (const target of targets) {
+      if (visible.has(target)) {
+        activeTarget = target;
+        break;
+      }
+    }
+    setActive(activeTarget ? linkByTarget.get(activeTarget) : null);
   }, { rootMargin: '0px 0px -70% 0px', threshold: 0 });
   targets.forEach((target) => observer.observe(target));
 }());
