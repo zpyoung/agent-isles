@@ -1,7 +1,7 @@
 # Dev supervisor with hot reload — design
 
 **Date:** 2026-06-08
-**Status:** Approved (pending spec review)
+**Status:** Approved — pending implementation
 **Topic:** A repo-only `pnpm dev <subcommand>` supervisor that runs an agent-isles serve command in the foreground, watches the project source, rebuilds, and hot-reloads the browser.
 
 ## Problem

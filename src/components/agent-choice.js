@@ -80,6 +80,9 @@ export class AgentChoice extends LitElement {
   }
 
   _onKeydown(event) {
+    // Only activate from the card itself — not from focusable slotted content
+    // (e.g. a link in the description) whose key events bubble up to this handler.
+    if (event.target !== event.currentTarget) return;
     if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
       event.preventDefault();
       this._onClick();
