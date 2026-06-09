@@ -27,6 +27,7 @@ const expectedPublishedFiles = [
   'src/components/agent-kpi.js',
   'src/components/agent-metric.js',
   'src/components/agent-option-set.js',
+  'src/components/agent-proceed.js',
   'src/components/agent-risk.js',
   'src/components/agent-status-board.js',
   'src/components/agent-tabs.js',
