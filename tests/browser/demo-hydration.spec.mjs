@@ -38,6 +38,7 @@ const expectedCustomElements = [
   'agent-kanban',
   'agent-kanban-lane',
   'agent-kanban-card',
+  'agent-flow',
 ];
 
 test('rendered demo loads without console errors and hydrates agent components', async ({ page }) => {
@@ -70,7 +71,7 @@ test('rendered demo loads without console errors and hydrates agent components',
     await expect(page.locator('h1')).toContainText('Agent Isles Demo');
 
     const galleryExamples = page.locator('.agent-component-example');
-    await expect(galleryExamples).toHaveCount(14);
+    await expect(galleryExamples).toHaveCount(15);
     const firstGallery = galleryExamples.first();
     const renderedPane = firstGallery.locator('.agent-component-rendered');
     const sourcePane = firstGallery.locator('.agent-component-source-card');
@@ -112,6 +113,68 @@ test('rendered demo loads without console errors and hydrates agent components',
     await expect
       .poll(() => choice.evaluate((element) => Boolean(element.shadowRoot?.querySelector('.choice'))))
       .toBe(true);
+
+    const agentFlow = page.locator('agent-flow').first();
+    await expect
+      .poll(() => agentFlow.evaluate((element) => Boolean(element.shadowRoot?.querySelector('svg[aria-labelledby]'))))
+      .toBe(true);
+    await expect
+      .poll(() => agentFlow.evaluate((element) => element.shadowRoot?.querySelector('svg')?.getAttribute('role') ?? null))
+      .toBe(null);
+    await expect
+      .poll(() => agentFlow.evaluate((element) => element.shadowRoot?.querySelectorAll('.node[role="button"][tabindex="0"]').length || 0))
+      .toBeGreaterThan(1);
+    await expect
+      .poll(() => agentFlow.evaluate((element) => getComputedStyle(element.shadowRoot?.querySelector('.node[data-type="container"] rect')).stroke))
+      .toBe('rgb(147, 51, 234)');
+    const agentFlowKeyboardResult = await agentFlow.evaluate(async (element) => {
+      const nodes = [...element.shadowRoot.querySelectorAll('.node')];
+      const enterNode = nodes[1];
+      const spaceNode = nodes[2] || nodes[0];
+      const enterLabel = enterNode.getAttribute('aria-label');
+      const spaceLabel = spaceNode.getAttribute('aria-label');
+
+      enterNode.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+      await element.updateComplete;
+      const afterEnter = element.shadowRoot.querySelector('.node.selected')?.getAttribute('aria-label');
+
+      const spaceEvent = new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true });
+      spaceNode.dispatchEvent(spaceEvent);
+      await element.updateComplete;
+      const afterSpace = element.shadowRoot.querySelector('.node.selected')?.getAttribute('aria-label');
+
+      return { afterEnter, afterSpace, enterLabel, spaceLabel, spacePrevented: spaceEvent.defaultPrevented };
+    });
+    expect(agentFlowKeyboardResult.enterLabel).toBeTruthy();
+    expect(agentFlowKeyboardResult.spaceLabel).toBeTruthy();
+    expect(agentFlowKeyboardResult).toEqual({
+      afterEnter: agentFlowKeyboardResult.enterLabel,
+      afterSpace: agentFlowKeyboardResult.spaceLabel,
+      enterLabel: agentFlowKeyboardResult.enterLabel,
+      spaceLabel: agentFlowKeyboardResult.spaceLabel,
+      spacePrevented: true,
+    });
+    const normalizedReferenceWarnings = await page.evaluate(async () => {
+      const flow = document.createElement('agent-flow');
+      flow.textContent = JSON.stringify({
+        version: '0.1',
+        kind: 'Flowchart',
+        nodes: {
+          internalSource: { id: 'source-id', type: 'start', label: 'Source' },
+          internalTarget: { id: 'target-id', type: 'end', label: 'Target' },
+        },
+        edges: {
+          linked: { id: 'linked', source: 'source-id', target: 'target-id' },
+        },
+        views: {},
+      });
+      document.body.append(flow);
+      await flow.updateComplete;
+      const warnings = [...flow.shadowRoot.querySelectorAll('.warning')].map((warning) => warning.textContent.trim());
+      flow.remove();
+      return warnings;
+    });
+    expect(normalizedReferenceWarnings).toEqual([]);
 
     const decision = page.locator('agent-decision').first();
     await expect
