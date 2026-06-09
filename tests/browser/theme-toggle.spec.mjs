@@ -86,13 +86,20 @@ test('theme toggle hydrates and switches Bootstrap color mode', async ({ page })
     const flowHostTheme = await page.evaluate(() => document.querySelector('agent-flow')?.getAttribute('data-bs-theme'));
     expect(flowHostTheme).toBe('dark');
 
-    const componentSurfaceAudit = await page.evaluate(() => ({
-      pageTheme: document.documentElement.getAttribute('data-bs-theme'),
-      ganttLane: getComputedStyle(document.querySelector('agent-gantt-phase')?.shadowRoot?.querySelector('.lane')).backgroundImage,
-      kanbanLane: getComputedStyle(document.querySelector('agent-kanban-lane')?.shadowRoot?.querySelector('.lane')).backgroundColor,
-      kanbanHeading: getComputedStyle(document.querySelector('agent-kanban-lane')?.shadowRoot?.querySelector('.lane-heading')).color,
-      flowSurface: getComputedStyle(document.querySelector('agent-flow')?.shadowRoot?.querySelector('.flow')).backgroundColor,
-    }));
+    const componentSurfaceAudit = await page.evaluate(() => {
+      const readShadowStyle = (hostSelector, shadowSelector, property) => {
+        const target = document.querySelector(hostSelector)?.shadowRoot?.querySelector(shadowSelector);
+        return target ? getComputedStyle(target)[property] : null;
+      };
+
+      return {
+        pageTheme: document.documentElement.getAttribute('data-bs-theme'),
+        ganttLane: readShadowStyle('agent-gantt-phase', '.lane', 'backgroundImage'),
+        kanbanLane: readShadowStyle('agent-kanban-lane', '.lane', 'backgroundColor'),
+        kanbanHeading: readShadowStyle('agent-kanban-lane', '.lane-heading', 'color'),
+        flowSurface: readShadowStyle('agent-flow', '.flow', 'backgroundColor'),
+      };
+    });
     expect(componentSurfaceAudit).toEqual(expect.objectContaining({
       pageTheme: 'dark',
       kanbanLane: 'rgba(15, 23, 42, 0.78)',
