@@ -67,6 +67,25 @@ test('multi-select records selected ids', async ({ page }) => {
   }
 });
 
+test('keyboard activation from a slotted link does not select the choice', async ({ page }) => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-live-pw-link-'));
+  writeFileSync(join(dir, 'screen-1.md'),
+    '# Pick one\n\n<agent-option-set>\n<agent-choice id="a" title="Alpha"><a href="#details">Learn more</a></agent-choice>\n</agent-option-set>\n');
+  const server = await startLiveServer(dir, { port: 0 });
+  try {
+    await page.goto(server.url + '/');
+    await waitForChoiceUpgrade(page, 'a');
+    const link = page.locator('agent-choice[id="a"] a');
+    await link.focus();
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(100);
+    expect(existsSync(join(dir, 'state', 'events'))).toBe(false);
+    await expect(page.locator('agent-choice[id="a"]')).not.toHaveAttribute('selected', '');
+  } finally {
+    await server.close();
+  }
+});
+
 test('dark-mode selected choice keeps a visible selected style', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark' });
   const dir = mkdtempSync(join(tmpdir(), 'isles-live-pw-dark-'));

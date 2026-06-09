@@ -72,7 +72,20 @@ export class AgentChoice extends LitElement {
     return raw === '' ? null : raw;
   }
 
-  _onClick() {
+  _eventStartedFromInteractiveDescendant(event) {
+    if (!event) return false;
+    for (const node of event.composedPath()) {
+      if (node === event.currentTarget) return false;
+      if (typeof node.matches === 'function'
+        && node.matches('a[href], button, input, select, textarea, summary, [role="button"], [tabindex]:not([tabindex="-1"])')) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  _onClick(event) {
+    if (this._eventStartedFromInteractiveDescendant(event)) return;
     this.dispatchEvent(new CustomEvent('agent-isles:choice-click', {
       detail: { choice: this.choiceId, text: (this.title || this.textContent || '').trim() },
       bubbles: true, composed: true,
@@ -80,13 +93,12 @@ export class AgentChoice extends LitElement {
   }
 
   _onKeydown(event) {
+    if (event.key !== 'Enter' && event.key !== ' ' && event.key !== 'Spacebar') return;
     // Only activate from the card itself — not from focusable slotted content
     // (e.g. a link in the description) whose key events bubble up to this handler.
     if (event.target !== event.currentTarget) return;
-    if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
-      event.preventDefault();
-      this._onClick();
-    }
+    event.preventDefault();
+    this._onClick();
   }
 
   render() {
