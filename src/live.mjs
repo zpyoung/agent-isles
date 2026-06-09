@@ -54,6 +54,10 @@ function parseSignalDetail(raw) {
 
 const SIGNAL_MAX_STR = 256;   // cap any single string field
 const SIGNAL_MAX_SELECTED = 64; // cap selection list length
+// Event-type vocabulary is open so custom pack components can define their own
+// signals (e.g. "quirk-rating"), but constrained to a short lowercase token so
+// records stay greppable and a sender can't smuggle arbitrary content in `type`.
+const SIGNAL_TYPE_RE = /^[a-z][a-z0-9-]{0,31}$/;
 
 function clampStr(value) {
   return value.length > SIGNAL_MAX_STR ? value.slice(0, SIGNAL_MAX_STR) : value;
@@ -65,7 +69,7 @@ export function appendSignalEvent(dir, detail) {
   // context downstream. Constrain to bounded strings so a hostile or buggy
   // sender can't inject huge or structured payloads.
   const record = {
-    type: detail.type === 'proceed' ? 'proceed' : 'click',
+    type: typeof detail.type === 'string' && SIGNAL_TYPE_RE.test(detail.type) ? detail.type : 'click',
     choice: typeof detail.choice === 'string' ? clampStr(detail.choice) : null,
     text: typeof detail.text === 'string' ? clampStr(detail.text) : '',
     timestamp: Math.floor(Date.now() / 1000),

@@ -55,5 +55,13 @@ export const LIVE_CLIENT = `
     var bar = document.getElementById('isles-indicator');
     if (bar) bar.textContent = 'Proceeding…';
   });
+
+  // Generic signal channel for custom (pack) components: dispatch a composed
+  // 'agent-isles:signal' event with detail {type, choice?, text?, selected?}
+  // and it is forwarded like select/proceed. The server validates the type
+  // token and clamps the payload.
+  document.addEventListener('agent-isles:signal', function (e) {
+    sendSignal(e.detail || {});
+  });
 })();
 `;
