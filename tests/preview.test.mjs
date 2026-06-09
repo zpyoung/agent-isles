@@ -432,6 +432,20 @@ test('isles preview starts a localhost directory server and exits cleanly on SIG
   }
 });
 
+test('preview dir HTML includes reload-on-reconnect guard', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-preview-reconnect-'));
+  writeFileSync(join(dir, 'a.md'), '# A');
+  const preview = await startPreviewServer(dir, { port: 0 });
+  try {
+    const res = await fetch(`${preview.url}/`);
+    const html = await res.text();
+    assert.match(html, /events\.addEventListener\('open'/);
+    assert.match(html, /window\.location\.reload\(\)/);
+  } finally {
+    await preview.close();
+  }
+});
+
 async function fetchJson(url) {
   const response = await fetch(url);
   if (!response.ok) {

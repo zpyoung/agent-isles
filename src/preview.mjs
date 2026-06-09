@@ -785,7 +785,13 @@ function buildPreviewShell(root) {
       updateReferenceTools();
     });
 
+    let wasConnected = false;
     const events = new EventSource('/events');
+    events.addEventListener('open', () => {
+      // Reconnect after a drop ⇒ server restarted (pnpm dev). Reload to pick up new code.
+      if (wasConnected) { window.location.reload(); }
+      wasConnected = true;
+    });
     events.addEventListener('preview:update', async () => {
       const previousSelection = selectedPath;
       await loadFiles({ preserveSelection: true });
