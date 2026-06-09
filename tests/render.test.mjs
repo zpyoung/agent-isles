@@ -632,6 +632,9 @@ test('theme styles the TOC as a themeable sticky sidebar', async () => {
   assert.match(theme, /@media\s*\(min-width:\s*1200px\)/);
   assert.match(theme, /grid-template-columns:\s*minmax\(0,\s*960px\)/);
   assert.match(theme, /position:\s*sticky/);
+  // Sticky-critical properties must stay present.
+  assert.match(theme, /align-self:\s*start/);
+  assert.match(theme, /\.agent-isles-content\s*{[^}]*min-width:\s*0/s);
 
   // Active-link state exists (not color-only).
   assert.match(theme, /\.agent-isles-toc a\.is-active/);

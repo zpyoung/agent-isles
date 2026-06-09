@@ -78,7 +78,7 @@ body {
 }
 
 .agent-isles-toc a {
-  color: #1d4ed8;
+  color: var(--agent-isles-primary);
   font-weight: 650;
   text-decoration: none;
 }
