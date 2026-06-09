@@ -32,7 +32,7 @@ test('appendSignalEvent omits screen when absent or non-string', () => {
   assert.equal('screen' in rec, false);
 });
 
-test('live client stamps window.__islesScreen onto outgoing signals', () => {
+function runLiveClientSignal({ screen, detail }) {
   let proceedHandler;
   const sent = [];
   class EventSourceStub { addEventListener() {} }
@@ -46,7 +46,7 @@ test('live client stamps window.__islesScreen onto outgoing signals', () => {
     location: { protocol: 'http:', host: 'localhost:0' },
     setTimeout() {},
     WebSocket: WebSocketStub,
-    __islesScreen: 'layout-v2.md',
+    __islesScreen: screen,
   };
   const context = {
     EventSource: EventSourceStub,
@@ -60,7 +60,33 @@ test('live client stamps window.__islesScreen onto outgoing signals', () => {
   };
 
   vm.runInNewContext(LIVE_CLIENT, context);
-  proceedHandler({ detail: { type: 'proceed', selected: ['x'] } });
+  proceedHandler({ detail });
   assert.equal(sent.length, 1);
-  assert.equal(JSON.parse(sent[0]).screen, 'layout-v2.md');
+  return JSON.parse(sent[0]);
+}
+
+test('live client stamps window.__islesScreen onto outgoing signals', () => {
+  const payload = runLiveClientSignal({
+    screen: 'layout-v2.md',
+    detail: { type: 'proceed', selected: ['x'] },
+  });
+  assert.equal(payload.screen, 'layout-v2.md');
+});
+
+test('live client stamps the screen nonce when payload.screen is null', () => {
+  const payload = runLiveClientSignal({
+    screen: 'layout-v2.md',
+    detail: { type: 'proceed', selected: ['x'], screen: null },
+  });
+  assert.equal(payload.screen, 'layout-v2.md');
+});
+
+test('live client only stamps a non-empty string screen nonce', () => {
+  for (const screen of ['', 42, { name: 'layout-v2.md' }]) {
+    const payload = runLiveClientSignal({
+      screen,
+      detail: { type: 'proceed', selected: ['x'] },
+    });
+    assert.equal('screen' in payload, false);
+  }
 });

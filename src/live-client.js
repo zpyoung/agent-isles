@@ -31,8 +31,10 @@ export const LIVE_CLIENT = `
 
   function sendSignal(detail) {
     var payload = detail || {};
-    var screen = (typeof window !== 'undefined' && window.__islesScreen) || null;
-    if (screen && payload.screen === undefined) {
+    var screen = typeof window !== 'undefined' && typeof window.__islesScreen === 'string'
+      ? window.__islesScreen
+      : '';
+    if (screen.length > 0 && payload.screen == null) {
       payload = Object.assign({}, payload, { screen: screen });
     }
     pendingSignals.push(JSON.stringify(payload));
