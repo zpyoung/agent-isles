@@ -36,14 +36,14 @@ test('dev live restarts the server on src change', async () => {
     const info1 = await waitFor(() => readInfo(dir), 12000, 200);
     assert.ok(info1 && info1.pid, 'first server started');
 
-    // Rewrite the probe on each poll → triggers a restart. Poll slowly (2s) so each
-    // restart fully completes (kill → respawn → server-info rewrite) before the next
-    // trigger; a fast cadence would thrash and race the server-info file.
+    // Rewrite the nested src/components probe once, then wait for the supervisor to
+    // publish a fresh server-info. Rewriting on every poll can create restart
+    // pressure under the full concurrent node:test suite and mask the restart.
+    writeFileSync(probe, `// dev probe ${Date.now()}\n`);
     const restarted = await waitFor(() => {
-      writeFileSync(probe, `// dev probe ${Date.now()}\n`);
       const info2 = readInfo(dir);
       return info2 && info2.pid && info2.pid !== info1.pid ? info2 : null;
-    }, 16000, 2000);
+    }, 16000, 200);
     assert.ok(restarted, 'server restarted with a new pid after src change');
   } finally {
     rmSync(probe, { force: true });

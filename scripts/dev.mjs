@@ -105,11 +105,6 @@ async function runServerMode(opts) {
     proc.onLine = (line) => { const url = parsePreviewUrl(line); if (url) openOnce(url); else console.log(line); };
   }
   proc.spawn();
-  if (opts.subcommand === 'live') {
-    const dir = resolve(opts.target);
-    const url = await (async () => { for (let i = 0; i < 80; i += 1) { const u = readLiveUrl(dir); if (u) return u; await new Promise((r) => setTimeout(r, 100)); } return null; })();
-    openOnce(url);
-  }
 
   let inFlight = false;
   const onBatch = async (paths) => {
@@ -120,8 +115,9 @@ async function runServerMode(opts) {
     try {
       if (decision.rebuild) await runRollup(PROJECT_ROOT, { skip: !opts.build });
       console.log('[dev] source changed → restarting server');
+      const child = proc.current();
       proc.kill();
-      await new Promise((r) => setTimeout(r, 150));
+      await waitForExit(child, 2000);
       proc.spawn();
     } catch (error) {
       console.error(`[dev] rebuild failed, keeping last server: ${error.message}`);
@@ -130,6 +126,11 @@ async function runServerMode(opts) {
     }
   };
   const stopWatching = startWatching(watchRoots(opts), onBatch);
+  if (opts.subcommand === 'live') {
+    const dir = resolve(opts.target);
+    const url = await (async () => { for (let i = 0; i < 80; i += 1) { const u = readLiveUrl(dir); if (u) return u; await new Promise((r) => setTimeout(r, 100)); } return null; })();
+    openOnce(url);
+  }
 
   let shuttingDown = false;
   const shutdown = () => {
