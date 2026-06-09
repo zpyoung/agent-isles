@@ -49,9 +49,26 @@ export const LIVE_CLIENT = `
     var bar = document.getElementById('isles-indicator');
     if (!bar) return;
     var n = (e.detail && e.detail.selected && e.detail.selected.length) || 0;
+    var hasProceed = !!document.querySelector('agent-proceed');
     bar.textContent = n === 0
       ? 'Click an option above, then return to the terminal'
-      : n + ' selected — return to the terminal to continue';
+      : hasProceed
+        ? n + ' selected — click Proceed, or return to the terminal'
+        : n + ' selected — return to the terminal to continue';
+  });
+
+  document.addEventListener('agent-isles:proceed', function (e) {
+    sendSignal(e.detail || {});
+    var bar = document.getElementById('isles-indicator');
+    if (bar) bar.textContent = 'Proceeding…';
+  });
+
+  // Generic signal channel for custom (pack) components: dispatch a composed
+  // 'agent-isles:signal' event with detail {type, choice?, text?, selected?}
+  // and it is forwarded like select/proceed. The server validates the type
+  // token and clamps the payload.
+  document.addEventListener('agent-isles:signal', function (e) {
+    sendSignal(e.detail || {});
   });
 })();
 `;

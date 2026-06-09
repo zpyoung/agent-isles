@@ -21,7 +21,8 @@
     "render": "node ./bin/isles.mjs render examples/demo.md",
     "dev": "node ./scripts/dev.mjs",
     "prepack": "npm run build",
-    "pack:dry-run": "npm pack --dry-run"
+    "pack:dry-run": "npm pack --dry-run",
+    "local": "node ./bin/isles.mjs"
   },
   "keywords": [
     "markdown",
