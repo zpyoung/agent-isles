@@ -52,7 +52,7 @@ body {
 }
 
 .agent-isles-toc {
-  background: rgba(255, 255, 255, 0.88);
+  background: var(--agent-isles-surface);
   border: 1px solid var(--agent-isles-border);
   border-radius: 1rem;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
@@ -78,7 +78,7 @@ body {
 }
 
 .agent-isles-toc a {
-  color: #1d4ed8;
+  color: var(--agent-isles-primary);
   font-weight: 650;
   text-decoration: none;
 }
@@ -90,6 +90,51 @@ body {
 
 .agent-isles-toc-item--h3 {
   padding-left: 1rem;
+}
+
+.agent-isles-page.agent-isles-page--with-toc {
+  max-width: var(--agent-isles-page-with-toc-max-width, calc(var(--agent-isles-page-max-width) + var(--agent-isles-toc-width, 240px) + 2.5rem));
+}
+
+.agent-isles-layout {
+  display: flex;
+  flex-direction: column;
+}
+
+.agent-isles-content {
+  min-width: 0;
+}
+
+.agent-isles-layout .agent-isles-toc {
+  order: -1;
+}
+
+.agent-isles-toc a.is-active,
+.agent-isles-toc a[aria-current="location"] {
+  color: var(--agent-isles-primary);
+  font-weight: 800;
+  border-left: 2px solid var(--agent-isles-primary);
+  padding-left: 0.5rem;
+  margin-left: -0.5rem;
+}
+
+@media (min-width: 1200px) {
+  .agent-isles-page--with-toc .agent-isles-layout {
+    display: grid;
+    grid-template-columns: minmax(0, var(--agent-isles-page-max-width)) var(--agent-isles-toc-width, 240px);
+    gap: 2.5rem;
+    align-items: start;
+  }
+
+  .agent-isles-page--with-toc .agent-isles-layout .agent-isles-toc {
+    order: 0;
+    position: sticky;
+    top: 1.5rem;
+    align-self: start;
+    max-height: calc(100vh - 3rem);
+    overflow-y: auto;
+    margin: 0;
+  }
 }
 
 .agent-isles-heading-anchor {
@@ -106,6 +151,7 @@ agent-copy-block,
 agent-theme-toggle,
 agent-option-set,
 agent-choice,
+agent-proceed,
 agent-tabs,
 agent-timeline,
 agent-gantt,
