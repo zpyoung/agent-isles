@@ -55,7 +55,10 @@ test('non-source markdown change → not ignored, no rebuild/restart (server han
 test('windows paths classify and ignore correctly', () => {
   const root = 'C:\\repo';
   assert.equal(classifyChange(['C:\\repo\\dist\\agent-components.js'], root).ignored, true);
-  const r = classifyChange(['C:\\repo\\src\\components\\option-set.js'], root);
-  assert.equal(r.rebuild, true);
-  assert.equal(r.restart, true);
+  const component = classifyChange(['C:\\repo\\src\\components\\option-set.js'], root);
+  assert.equal(component.rebuild, true);
+  assert.equal(component.restart, true);
+  const source = classifyChange(['C:\\repo\\src\\renderer\\page.mjs'], root);
+  assert.equal(source.rebuild, false);
+  assert.equal(source.restart, true);
 });
