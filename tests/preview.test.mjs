@@ -278,6 +278,34 @@ test('rendered preview pages include heading anchors and a table of contents', a
   assert.match(html, /<span id="font-scale" class="agent-isles-heading-anchor" aria-hidden="true"><\/span><h3>Font Scale<\/h3>/);
 });
 
+test('multi-heading pages wrap content and TOC in a sticky-TOC layout', async () => {
+  const { renderMarkdownString } = await import('../src/render.mjs');
+
+  const { html } = await renderMarkdownString('# Guide\n\n## Alpha\n\nBody.\n\n## Beta\n\nMore body.\n', {
+    assetMode: 'inline',
+    includeUserPacks: false,
+  });
+
+  assert.match(html, /class="agent-isles-page container py-4 agent-isles-page--with-toc"/);
+  assert.match(html, /<div class="agent-isles-layout">/);
+  assert.match(html, /<div class="agent-isles-content">/);
+  // Existing TOC markup is preserved unchanged.
+  assert.match(html, /<nav class="agent-isles-toc" aria-label="Table of contents">/);
+});
+
+test('single-heading pages stay single-column with no TOC layout', async () => {
+  const { renderMarkdownString } = await import('../src/render.mjs');
+
+  const { html } = await renderMarkdownString('# Guide\n\n## Only Section\n\nBody.\n', {
+    assetMode: 'inline',
+    includeUserPacks: false,
+  });
+
+  assert.doesNotMatch(html, /agent-isles-page--with-toc/);
+  assert.doesNotMatch(html, /agent-isles-layout/);
+  assert.doesNotMatch(html, /<nav class="agent-isles-toc"/);
+});
+
 test('isles preview starts a localhost directory server and exits cleanly on SIGINT', async () => {
   const root = mkdtempSync(join(tmpdir(), 'agent-isles-preview-cli-'));
   writeFileSync(join(root, 'one.md'), '# CLI Preview\n', 'utf8');

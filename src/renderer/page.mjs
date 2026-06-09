@@ -44,9 +44,11 @@ export function buildHtmlPage(body, options = {}) {
   const assetMode = normalizeAssetMode(options.assetMode);
   const theme = readTheme();
   const packAssetRecords = options.packAssetRecords || buildPackAssetRecords(options.resolvedPacks?.packs || []);
+  const tocHtml = options.showSource ? '' : buildTableOfContents(options.toc);
+  const hasToc = Boolean(tocHtml);
   const mainClass = options.showSource
     ? 'agent-isles-page agent-isles-page--source-view container-fluid py-4'
-    : 'agent-isles-page container py-4';
+    : `agent-isles-page container py-4${hasToc ? ' agent-isles-page--with-toc' : ''}`;
   const pageBody = options.showSource ? buildSourceComparison(body, options.sourceMarkdown || '') : body;
   const missingBundleComment = existsSync(componentBundlePath)
     ? ''
@@ -61,9 +63,19 @@ export function buildHtmlPage(body, options = {}) {
   const componentScript = buildComponentScript(assetMode, missingBundleComment);
   const mermaidScripts = hasMermaidDiagrams(body) ? buildMermaidScripts(assetMode) : '';
 
-  const mainBody = options.showSource ? pageBody : [buildTableOfContents(options.toc), indent(pageBody, 4)]
-    .filter(Boolean)
-    .join('\n');
+  let mainBody;
+  if (options.showSource) {
+    mainBody = pageBody;
+  } else if (hasToc) {
+    mainBody = `    <div class="agent-isles-layout">
+      <div class="agent-isles-content">
+${indent(pageBody, 8)}
+      </div>
+${tocHtml}
+    </div>`;
+  } else {
+    mainBody = indent(pageBody, 4);
+  }
 
   return `<!doctype html>
 <html lang="en">
