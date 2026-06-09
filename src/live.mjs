@@ -52,9 +52,9 @@ function parseSignalDetail(raw) {
   return {};
 }
 
-function appendSignalEvent(dir, detail) {
+export function appendSignalEvent(dir, detail) {
   const record = {
-    type: 'click',
+    type: detail.type === 'proceed' ? 'proceed' : 'click',
     choice: typeof detail.choice === 'string' ? detail.choice : null,
     text: typeof detail.text === 'string' ? detail.text : '',
     timestamp: Math.floor(Date.now() / 1000),

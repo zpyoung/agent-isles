@@ -44,7 +44,13 @@ export const LIVE_CLIENT = `
     var n = (e.detail && e.detail.selected && e.detail.selected.length) || 0;
     bar.textContent = n === 0
       ? 'Click an option above, then return to the terminal'
-      : n + ' selected — return to the terminal to continue';
+      : n + ' selected — click Proceed, or return to the terminal';
+  });
+
+  document.addEventListener('agent-isles:proceed', function (e) {
+    sendSignal(e.detail || {});
+    var bar = document.getElementById('isles-indicator');
+    if (bar) bar.textContent = 'Proceeding…';
   });
 })();
 `;
