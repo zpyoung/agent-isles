@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import {
   appendFileSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   readdirSync,
   readFileSync,
@@ -137,7 +138,7 @@ export function resolveNewestScreen(dir) {
     const full = join(dir, name);
     let st;
     try {
-      st = statSync(full);
+      st = lstatSync(full);
     } catch {
       continue; // deleted between readdir and stat
     }
@@ -355,7 +356,7 @@ export async function startLiveServer(dir, options = {}) {
             });
             lastScreens = next;
 
-            if (added.length || removed.length) broadcast('live:screens', { count: next.length });
+            if (added.length || removed.length || changed.length) broadcast('live:screens', { count: next.length });
             for (const s of changed) broadcast('live:reload', { slug: s.slug });
             if (added.length) {
               let push = added[0];

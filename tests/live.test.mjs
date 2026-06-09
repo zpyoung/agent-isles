@@ -356,3 +356,29 @@ test('served client wires typed SSE handlers and slug-aware reload', async () =>
     assert.match(body, /__ISLES_ACTIVE_SLUG="a"/);         // active slug embedded
   } finally { await server.close(); }
 });
+
+test('editing an existing screen also broadcasts live:screens (updated-badge trigger)', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-live-edit-screens-'));
+  writeFileSync(join(dir, 'a.md'), '# A');
+  writeFileSync(join(dir, 'b.md'), '# B');
+  const server = await startLiveServer(dir, { port: 0, watch: true });
+  const sse = openSse(server.url + '/events');
+  try {
+    assert.ok(await waitFor(() => sse.text.includes('event: live:ready')));
+    writeFileSync(join(dir, 'b.md'), '# B much longer now');
+    utimesSync(join(dir, 'b.md'), new Date(Date.now()), new Date(Date.now() + 5000));
+    assert.ok(await waitFor(() => sse.text.includes('event: live:screens')), 'screens broadcast on edit');
+  } finally { sse.req.destroy(); await server.close(); }
+});
+
+test('served client includes the updated-badge logic', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-live-badge-'));
+  writeFileSync(join(dir, 'a.md'), '# A');
+  writeFileSync(join(dir, 'b.md'), '# B');
+  const server = await startLiveServer(dir, { port: 0 });
+  try {
+    const body = (await get(server.url + '/a')).body;
+    assert.match(body, /isles-updated/);
+    assert.match(body, /data-mtime=/);
+  } finally { await server.close(); }
+});

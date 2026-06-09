@@ -52,3 +52,12 @@ test('injectLiveFrame inserts before the last </body> even with length-changing 
   assert.ok(out.indexOf('id="isles-bar"') < out.lastIndexOf('</body>'));
   assert.ok(out.includes('<p>İ</p>'), 'original content corrupted by mis-aligned index');
 });
+
+test('buildSidebar includes data-mtime for updated-badge tracking', () => {
+  const html = buildSidebar(
+    [{ slug: 'a', name: 'a.md', title: 'A', mtimeMs: 123 }, { slug: 'b', name: 'b.md', title: 'B', mtimeMs: 456 }],
+    'a',
+  );
+  assert.match(html, /data-mtime="123"/);
+  assert.match(html, /data-mtime="456"/);
+});

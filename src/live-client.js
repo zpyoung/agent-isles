@@ -23,6 +23,13 @@ export const LIVE_CLIENT = `
   }
 
   var sidebarPresent = !!document.getElementById('isles-sidebar');
+  var baselineMtime = {};
+  (function () {
+    var links = document.querySelectorAll('#isles-sidebar a[data-slug]');
+    for (var i = 0; i < links.length; i++) {
+      baselineMtime[links[i].getAttribute('data-slug')] = Number(links[i].getAttribute('data-mtime')) || 0;
+    }
+  })();
 
   function refreshSidebar() {
     fetch('/__agent-isles/screens').then(function (r) { return r.json(); }).then(function (data) {
@@ -43,9 +50,13 @@ export const LIVE_CLIENT = `
       if (!ul) { window.location.reload(); return; }
       ul.innerHTML = screens.map(function (s) {
         var active = s.slug === cur ? ' class="active"' : '';
+        var base = baselineMtime[s.slug];
+        var updated = base !== undefined && s.slug !== cur && s.mtimeMs > base;
+        var badge = updated ? '<span class="isles-updated">\\u25CF</span>' : '';
         return '<li' + active + '><a href="/' + encodeURIComponent(s.slug) + '"'
-          + ' data-slug="' + esc(s.slug) + '" title="' + esc(s.title || s.name) + '">'
-          + esc(s.name) + '</a></li>';
+          + ' data-slug="' + esc(s.slug) + '" data-mtime="' + esc(s.mtimeMs) + '"'
+          + ' title="' + esc(s.title || s.name) + '">'
+          + esc(s.name) + badge + '</a></li>';
       }).join('');
     }).catch(function () {});
   }

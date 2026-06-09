@@ -12,7 +12,8 @@ export function buildSidebar(screens, activeSlug) {
   const items = screens.map((s) => {
     const active = s.slug === activeSlug ? ' class="active"' : '';
     return `<li${active}><a href="/${encodeURIComponent(s.slug)}"`
-      + ` data-slug="${escapeHtml(s.slug)}" title="${escapeHtml(s.title || s.name)}">`
+      + ` data-slug="${escapeHtml(s.slug)}" data-mtime="${escapeHtml(s.mtimeMs)}"`
+      + ` title="${escapeHtml(s.title || s.name)}">`
       + `${escapeHtml(s.name)}</a></li>`;
   }).join('');
   return `<nav id="isles-sidebar" aria-label="Documents">`
