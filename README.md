@@ -61,6 +61,7 @@ The public demo lives in `examples/demo.md`. It is intentionally readable as pla
 - `<agent-decision>` elements for recommendations,
 - `<agent-risk>` elements for caveats and mitigations,
 - `<agent-theme-toggle>` for switching the rendered report between light and dark modes,
+- `<agent-flow>` fenced blocks for JSON-first C4/flowchart diagrams,
 - `<agent-gantt>` schedules for phase lanes, milestone weeks, overlapping work, and task details,
 - `<agent-status-board>` boards for derived RAG/health rollups across workstreams.
 

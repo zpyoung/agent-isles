@@ -20,6 +20,7 @@ import {
 import { buildSanitizedSchema, dropUnsafeRawHtmlElements } from './renderer/sanitize.mjs';
 import {
   rehypeAgentD2,
+  rehypeAgentFlow,
   rehypeAgentHeadingAnchors,
   rehypeAgentMermaid,
   rehypeAgentWritebackMetadata,
@@ -57,6 +58,7 @@ export async function renderMarkdown(markdown, options = {}) {
     .use(remarkRehype, { allowDangerousHtml: true })
     .use(rehypeAgentMermaid)
     .use(rehypeAgentD2)
+    .use(rehypeAgentFlow)
     .use(rehypeRaw)
     .use(rehypeAgentWritebackMetadata, {
       ...options,
