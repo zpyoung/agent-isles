@@ -1,61 +1,13 @@
 import { LitElement, css, html, svg } from 'lit';
+import {
+  DEFAULT_AGENT_FLOW_KIND,
+  EMPTY_AGENT_FLOW_DOCUMENT,
+  getAgentFlowPack,
+  parseAgentFlowDocumentSource,
+  validateAgentFlowDocument,
+} from '../agent-flow/index.js';
 
-const C4_NODE_LABELS = {
-  person: 'Person',
-  softwareSystem: 'Software System',
-  container: 'Container',
-  component: 'Component',
-  boundary: 'Boundary',
-};
-
-const FLOWCHART_NODE_LABELS = {
-  start: 'Start',
-  process: 'Process',
-  decision: 'Decision',
-  end: 'End',
-};
-
-const PACKS = {
-  c4: {
-    kind: 'c4',
-    label: 'C4 Model',
-    nodeTypes: C4_NODE_LABELS,
-    edgeTypes: { relationship: 'Relationship' },
-    palette: [
-      ['person', 'Person'],
-      ['softwareSystem', 'Software System'],
-      ['container', 'Container'],
-      ['component', 'Component'],
-      ['boundary', 'Boundary'],
-    ],
-    validate(document) {
-      return validateReferences(document);
-    },
-  },
-  flowchart: {
-    kind: 'flowchart',
-    label: 'Flowchart',
-    nodeTypes: FLOWCHART_NODE_LABELS,
-    edgeTypes: { flow: 'Flow' },
-    palette: [
-      ['start', 'Start'],
-      ['process', 'Process'],
-      ['decision', 'Decision'],
-      ['end', 'End'],
-    ],
-    validate(document) {
-      return validateReferences(document);
-    },
-  },
-};
-
-const EMPTY_DOCUMENT = Object.freeze({
-  version: '0.1',
-  kind: 'flowchart',
-  nodes: {},
-  edges: {},
-  views: {},
-});
+const EMPTY_DOCUMENT = EMPTY_AGENT_FLOW_DOCUMENT;
 
 function hasText(value) {
   return typeof value === 'string' && value.trim().length > 0;
@@ -84,37 +36,11 @@ function titleCase(value) {
 }
 
 function packFor(kind) {
-  return PACKS[normalizeEnum(kind)] || PACKS.flowchart;
+  return getAgentFlowPack(kind);
 }
 
 function parseDocument(source, fallbackKind) {
-  const text = String(source || '').trim();
-  if (!text) {
-    return { ...EMPTY_DOCUMENT, kind: fallbackKind || EMPTY_DOCUMENT.kind };
-  }
-
-  try {
-    const parsed = JSON.parse(text);
-    const nodes = asRecord(parsed.nodes);
-    const edges = asRecord(parsed.edges);
-    const views = asRecord(parsed.views);
-    const kind = normalizeEnum(parsed.kind, fallbackKind || EMPTY_DOCUMENT.kind);
-    return {
-      ...parsed,
-      version: normalizeId(parsed.version, '0.1'),
-      kind,
-      nodes,
-      edges,
-      views,
-    };
-  } catch (error) {
-    return {
-      ...EMPTY_DOCUMENT,
-      kind: fallbackKind || EMPTY_DOCUMENT.kind,
-      error: error?.message || String(error),
-      source: text,
-    };
-  }
+  return parseAgentFlowDocumentSource(source, { fallbackKind: fallbackKind || DEFAULT_AGENT_FLOW_KIND });
 }
 
 function orderedValues(record) {
@@ -165,16 +91,6 @@ function layoutNodes(nodes) {
     });
   });
   return { width, height, positions };
-}
-
-function validateReferences(document) {
-  const messages = [];
-  const nodeIds = new Set(orderedValues(document.nodes).map((node) => node.id));
-  for (const edge of orderedValues(document.edges)) {
-    if (!nodeIds.has(edge.source)) messages.push(`Edge ${edge.id} has missing source ${edge.source}.`);
-    if (!nodeIds.has(edge.target)) messages.push(`Edge ${edge.id} has missing target ${edge.target}.`);
-  }
-  return messages;
 }
 
 function nodeTypeLabel(pack, type) {
@@ -499,7 +415,7 @@ export class AgentFlow extends LitElement {
     const edges = visibleEdges(document, nodes);
     const warnings = [
       ...(document.error ? [`Invalid agent-flow JSON: ${document.error}`] : []),
-      ...pack.validate(document),
+      ...validateAgentFlowDocument(document, pack.kind),
     ];
 
     return html`
@@ -573,7 +489,7 @@ export class AgentFlow extends LitElement {
         <section class="panel">
           <h4>Palette</h4>
           <div class="palette">
-            ${pack.palette.map(([, label]) => html`<span>${label}</span>`)}
+            ${pack.getPalette(document).map(({ label }) => html`<span>${label}</span>`)}
           </div>
         </section>
         <section class="panel inspector">
