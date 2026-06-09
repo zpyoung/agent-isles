@@ -1,6 +1,7 @@
 node_modules/
 dist/
 coverage/
+.quirk/
 .DS_Store
 *.log
 .env
