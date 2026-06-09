@@ -1,6 +1,8 @@
 import { D2 } from '@terrastruct/d2';
 import { createSourceVersion, sourcePathForWriteback, WRITEBACK_CONTRACT_VERSION } from '../writeback.mjs';
 
+export { defaultOutFile, normalizeRenderMode } from './input.mjs';
+
 export function rehypeAgentMermaid() {
   return (tree) => {
     transformMermaidCodeBlocks(tree);
