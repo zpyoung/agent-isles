@@ -53,6 +53,7 @@ export function startRenderServer(outFile, { port = 0 } = {}) {
       res.write('retry: 500\n\n');
       clients.add(res);
       req.on('close', () => clients.delete(res));
+      res.on('error', () => clients.delete(res));
       return;
     }
     let html;
@@ -67,7 +68,16 @@ export function startRenderServer(outFile, { port = 0 } = {}) {
       const url = `http://localhost:${addr.port}/`;
       resolve({
         url,
-        broadcastReload() { for (const res of clients) res.write('event: reload\ndata: {}\n\n'); },
+        broadcastReload() {
+          for (const res of [...clients]) {
+            try {
+              res.write('event: reload\ndata: {}\n\n');
+            } catch {
+              clients.delete(res);
+              try { res.end(); } catch {}
+            }
+          }
+        },
         close() { for (const res of clients) res.end(); clients.clear(); return new Promise((r) => server.close(r)); },
       });
     });

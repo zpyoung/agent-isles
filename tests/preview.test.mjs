@@ -323,7 +323,7 @@ test('preview dir HTML includes reload-on-reconnect guard', async () => {
   try {
     const res = await fetch(`${preview.url}/`);
     const html = await res.text();
-    assert.match(html, /wasConnected/);
+    assert.match(html, /events\.addEventListener\('open',[\s\S]*location\.reload\(\)/);
   } finally {
     await preview.close();
   }

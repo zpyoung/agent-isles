@@ -1,4 +1,4 @@
-import { watch, mkdtempSync } from 'node:fs';
+import { watch, mkdtempSync, readdirSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -49,19 +49,55 @@ function watchRoots(opts) {
 function startWatching(roots, onBatch) {
   const debounced = createDebouncer((paths) => onBatch(paths), 150);
   const watchers = [];
+  const seen = new Set();
   for (const root of roots) {
-    try {
-      const w = watch(root, { recursive: true }, (_evt, file) => {
-        if (file) debounced(join(root, file));
-      });
-      w.on('error', () => {});
-      watchers.push(w);
-    } catch { /* path may not exist or be unwatchable; skip */ }
+    for (const { path, isDirectory } of watchTargets(root)) {
+      if (seen.has(path)) continue;
+      seen.add(path);
+      try {
+        const w = watch(path, { recursive: false }, (_evt, file) => {
+          if (!isDirectory) {
+            debounced(path);
+            return;
+          }
+          const leaf = file ? String(file) : '';
+          debounced(leaf ? join(path, leaf) : path);
+        });
+        w.on('error', () => {});
+        watchers.push(w);
+      } catch { /* path may not exist or be unwatchable; skip */ }
+    }
   }
   return () => { for (const w of watchers) { try { w.close(); } catch {} } };
 }
 
+function watchTargets(root) {
+  let stats;
+  try {
+    stats = statSync(root);
+  } catch {
+    return [];
+  }
+  if (!stats.isDirectory()) return [{ path: root, isDirectory: false }];
+  const out = [];
+  const stack = [root];
+  while (stack.length > 0) {
+    const dir = stack.pop();
+    out.push({ path: dir, isDirectory: true });
+    let entries = [];
+    try { entries = readdirSync(dir, { withFileTypes: true }); }
+    catch { continue; }
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === 'dist' || entry.name === 'state') continue;
+      stack.push(join(dir, entry.name));
+    }
+  }
+  return out;
+}
+
 async function runServerMode(opts) {
+  await runRollup(PROJECT_ROOT, { skip: !opts.build });
   const proc = createServerProcess(opts.subcommand, opts.passthrough);
   let opened = false;
   const openOnce = (url) => { if (!opened && url) { opened = true; if (opts.open) openBrowser(url); console.log(`[dev] ${url}`); } };
@@ -95,7 +131,15 @@ async function runServerMode(opts) {
   };
   const stopWatching = startWatching(watchRoots(opts), onBatch);
 
-  const shutdown = () => { stopWatching(); proc.kill(); process.exit(0); };
+  let shuttingDown = false;
+  const shutdown = () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    stopWatching();
+    const child = proc.current();
+    proc.kill();
+    waitForExit(child).finally(() => process.exit(0));
+  };
   process.once('SIGINT', shutdown);
   process.once('SIGTERM', shutdown);
 }
@@ -133,6 +177,22 @@ async function runRenderMode(opts) {
   const shutdown = () => { stopWatching(); srv.close().finally(() => process.exit(0)); };
   process.once('SIGINT', shutdown);
   process.once('SIGTERM', shutdown);
+}
+
+function waitForExit(child, timeoutMs = 5000) {
+  return new Promise((resolveDone) => {
+    if (!child || child.exitCode !== null) { resolveDone(); return; }
+    let done = false;
+    const doneOnce = () => {
+      if (done) return;
+      done = true;
+      clearTimeout(timeout);
+      resolveDone();
+    };
+    const timeout = setTimeout(doneOnce, timeoutMs);
+    child.once('exit', doneOnce);
+    child.once('close', doneOnce);
+  });
 }
 
 async function main() {

@@ -3,16 +3,25 @@
 
 const IGNORE_SEGMENTS = ['/dist/', '/node_modules/', '/.git/', '/state/'];
 
+function normalize(path) {
+  return String(path || '').replace(/\\/g, '/');
+}
+
 function isIgnored(path) {
-  return IGNORE_SEGMENTS.some((seg) => path.includes(seg));
+  const normalizedPath = normalize(path);
+  return IGNORE_SEGMENTS.some((seg) => normalizedPath.includes(seg));
 }
 
 function isComponentSource(path, root) {
-  return path.startsWith(`${root}/src/components/`);
+  const normalizedPath = normalize(path);
+  const normalizedRoot = normalize(root);
+  return normalizedPath.startsWith(`${normalizedRoot}/src/components/`);
 }
 
 function isOtherSource(path, root) {
-  return path.startsWith(`${root}/src/`) && !isComponentSource(path, root);
+  const normalizedPath = normalize(path);
+  const normalizedRoot = normalize(root);
+  return normalizedPath.startsWith(`${normalizedRoot}/src/`) && !isComponentSource(path, root);
 }
 
 export function classifyChange(changedPaths, root) {

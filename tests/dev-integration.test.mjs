@@ -27,7 +27,7 @@ test('dev live restarts the server on src change', async () => {
   writeFileSync(join(dir, 'screen.md'), '# Hi');
   // A temp file under src/ is the change signal: a real create/write reliably fires
   // fs.watch on macOS, whereas a pure mtime touch (utimes) often does not.
-  const probe = join(ROOT, 'src', '__dev_probe__.mjs');
+  const probe = join(ROOT, 'src', 'components', '__dev_probe__.mjs');
   // --no-build avoids running rollup in tests; --no-open avoids launching a browser.
   const proc = spawn(process.execPath, [DEV, 'live', dir, '--no-build', '--no-open'], {
     cwd: ROOT, stdio: ['ignore', 'inherit', 'inherit'],
