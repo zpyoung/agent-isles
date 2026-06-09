@@ -20,7 +20,8 @@
     "test:browser": "npm run build && npm run render -- --out dist/demo.html --assets local && playwright test",
     "render": "node ./bin/isles.mjs render examples/demo.md",
     "prepack": "npm run build",
-    "pack:dry-run": "npm pack --dry-run"
+    "pack:dry-run": "npm pack --dry-run",
+    "local": "node ./bin/isles.mjs"
   },
   "keywords": [
     "markdown",

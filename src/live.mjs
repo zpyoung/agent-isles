@@ -153,7 +153,7 @@ function screenSnapshot(dir) {
   return parts.sort().join('|');
 }
 
-function injectLiveFrame(pageHtml) {
+export function injectLiveFrame(pageHtml) {
   const overlayStyle = `<style>
     body{padding-top:2.2rem;padding-bottom:2.2rem}
     #isles-header{position:fixed;top:0;left:0;right:0;height:2.2rem;display:flex;align-items:center;padding:0 1.5rem;font:500 .8rem system-ui,sans-serif;color:#888;background:rgba(127,127,127,.07);border-bottom:1px solid rgba(127,127,127,.25);z-index:99999}
@@ -165,7 +165,14 @@ function injectLiveFrame(pageHtml) {
   let out = pageHtml;
   out = /<\/head>/i.test(out) ? out.replace(/<\/head>/i, `${overlayStyle}</head>`) : `${overlayStyle}${out}`;
   out = /<body[^>]*>/i.test(out) ? out.replace(/(<body[^>]*>)/i, `$1${headerHtml}`) : `${headerHtml}${out}`;
-  out = /<\/body>/i.test(out) ? out.replace(/<\/body>/i, `${barHtml}${clientHtml}</body>`) : `${out}${barHtml}${clientHtml}`;
+  // Insert before the *last* </body>: inlined bundles (e.g. mermaid's DOMPurify
+  // iframe srcdoc template) contain literal "</body></html>" strings inside a
+  // <script>, so a first-match replace would splice the live client into that
+  // script and prematurely close it.
+  const bodyClose = out.toLowerCase().lastIndexOf('</body>');
+  out = bodyClose >= 0
+    ? `${out.slice(0, bodyClose)}${barHtml}${clientHtml}${out.slice(bodyClose)}`
+    : `${out}${barHtml}${clientHtml}`;
   return out;
 }
 
