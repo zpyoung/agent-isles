@@ -195,6 +195,18 @@ test('injectLiveFrame inserts before the real </body>, not a </body> literal ins
   );
 });
 
+test('injectLiveFrame finds </body> without lowercasing index drift', () => {
+  const page = '<!doctype html><html><head><title>t</title></head><body><p>İ</p></body></html>';
+
+  const out = injectLiveFrame(page);
+
+  assert.ok(
+    out.includes('<p>İ</p><div id="isles-bar"'),
+    'live frame was inserted at a drifted offset after Unicode case mapping',
+  );
+  assert.ok(out.includes('</body></html>'), 'closing body tag was corrupted');
+});
+
 test('close writes server-stopped and removes server-info', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'isles-live-stop-'));
   writeFileSync(join(dir, 'screen-1.md'), '# One');

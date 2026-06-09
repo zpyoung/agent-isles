@@ -42,9 +42,12 @@ export const LIVE_CLIENT = `
     var bar = document.getElementById('isles-indicator');
     if (!bar) return;
     var n = (e.detail && e.detail.selected && e.detail.selected.length) || 0;
+    var hasProceed = !!document.querySelector('agent-proceed');
     bar.textContent = n === 0
       ? 'Click an option above, then return to the terminal'
-      : n + ' selected — click Proceed, or return to the terminal';
+      : hasProceed
+        ? n + ' selected — click Proceed, or return to the terminal'
+        : n + ' selected — return to the terminal to continue';
   });
 
   document.addEventListener('agent-isles:proceed', function (e) {

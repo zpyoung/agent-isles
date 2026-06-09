@@ -3,7 +3,9 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
+import vm from 'node:vm';
 
+import { LIVE_CLIENT } from '../src/live-client.js';
 import { appendSignalEvent, eventsFile } from '../src/live.mjs';
 
 test('appendSignalEvent writes a proceed record when detail.type is proceed', () => {
@@ -39,4 +41,43 @@ test('proceed island and live client speak the same event name', () => {
   assert.match(comp, /agent-isles:proceed/);
   const client = readFileSync(new URL('../src/live-client.js', import.meta.url), 'utf8');
   assert.match(client, /agent-isles:proceed/);
+});
+
+function runLiveClientSelect(hasProceed) {
+  let selectHandler;
+  const bar = { textContent: '' };
+  class EventSourceStub {
+    addEventListener() {}
+  }
+  class WebSocketStub {
+    static OPEN = 1;
+    constructor() { this.readyState = WebSocketStub.OPEN; }
+    addEventListener(name, handler) { if (name === 'open') handler(); }
+    send() {}
+  }
+  const context = {
+    EventSource: EventSourceStub,
+    WebSocket: WebSocketStub,
+    window: {
+      location: { protocol: 'http:', host: 'localhost:0' },
+      setTimeout() {},
+      WebSocket: WebSocketStub,
+    },
+    document: {
+      addEventListener(name, handler) {
+        if (name === 'agent-isles:select') selectHandler = handler;
+      },
+      getElementById(id) { return id === 'isles-indicator' ? bar : null; },
+      querySelector(selector) { return selector === 'agent-proceed' && hasProceed ? {} : null; },
+    },
+  };
+
+  vm.runInNewContext(LIVE_CLIENT, context);
+  selectHandler({ detail: { selected: ['a', 'b'] } });
+  return bar.textContent;
+}
+
+test('live selection indicator only mentions Proceed when the page has that island', () => {
+  assert.equal(runLiveClientSelect(true), '2 selected — click Proceed, or return to the terminal');
+  assert.equal(runLiveClientSelect(false), '2 selected — return to the terminal to continue');
 });

@@ -169,7 +169,8 @@ export function injectLiveFrame(pageHtml) {
   // iframe srcdoc template) contain literal "</body></html>" strings inside a
   // <script>, so a first-match replace would splice the live client into that
   // script and prematurely close it.
-  const bodyClose = out.toLowerCase().lastIndexOf('</body>');
+  let bodyClose = -1;
+  for (const match of out.matchAll(/<\/body>/gi)) bodyClose = match.index ?? -1;
   out = bodyClose >= 0
     ? `${out.slice(0, bodyClose)}${barHtml}${clientHtml}${out.slice(bodyClose)}`
     : `${out}${barHtml}${clientHtml}`;
