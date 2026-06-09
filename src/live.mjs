@@ -13,7 +13,7 @@ import {
   watch as fsWatch,
   writeFileSync,
 } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { renderMarkdownString } from './render.mjs';
 import { LIVE_CLIENT } from './live-client.js';
 
@@ -80,6 +80,9 @@ export function appendSignalEvent(dir, detail) {
       .slice(0, SIGNAL_MAX_SELECTED)
       .map(clampStr);
   }
+  // Screen nonce: the page the signal originated from, so consumers can scope a
+  // record to a specific screen (not just a timestamp window).
+  if (typeof detail.screen === 'string') record.screen = clampStr(detail.screen);
   mkdirSync(stateDir(dir), { recursive: true });
   appendFileSync(eventsFile(dir), JSON.stringify(record) + '\n');
   return record;
@@ -173,7 +176,7 @@ function screenSnapshot(dir) {
   return parts.sort().join('|');
 }
 
-export function injectLiveFrame(pageHtml) {
+export function injectLiveFrame(pageHtml, screen = null) {
   const overlayStyle = `<style>
     body{padding-top:2.2rem;padding-bottom:2.2rem}
     #isles-header{position:fixed;top:0;left:0;right:0;height:2.2rem;display:flex;align-items:center;padding:0 1.5rem;font:500 .8rem system-ui,sans-serif;color:#888;background:rgba(127,127,127,.07);border-bottom:1px solid rgba(127,127,127,.25);z-index:99999}
@@ -181,7 +184,11 @@ export function injectLiveFrame(pageHtml) {
   </style>`;
   const headerHtml = `<div id="isles-header">Agent Isles Live</div>`;
   const barHtml = `<div id="isles-bar"><span id="isles-indicator">Click an option above, then return to the terminal</span></div>`;
-  const clientHtml = `<script>${LIVE_CLIENT}</script>`;
+  // Embed which screen this page is — the live client stamps it onto every
+  // signal so a host can reject a click from a stale (not-yet-reloaded) tab
+  // even if it lands after the events file was cleared for a newer screen.
+  const screenHtml = `<script>window.__islesScreen=${JSON.stringify(typeof screen === 'string' ? screen : null)};</script>`;
+  const clientHtml = `${screenHtml}<script>${LIVE_CLIENT}</script>`;
   let out = pageHtml;
   out = /<\/head>/i.test(out) ? out.replace(/<\/head>/i, `${overlayStyle}</head>`) : `${overlayStyle}${out}`;
   out = /<body[^>]*>/i.test(out) ? out.replace(/(<body[^>]*>)/i, `$1${headerHtml}`) : `${headerHtml}${out}`;
@@ -223,7 +230,7 @@ async function renderNewest(dir) {
     includeUserPacks: false,
     projectDir: dir,
   });
-  return injectLiveFrame(html);
+  return injectLiveFrame(html, basename(screen));
 }
 
 export async function startLiveServer(dir, options = {}) {

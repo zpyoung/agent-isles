@@ -30,7 +30,12 @@ export const LIVE_CLIENT = `
   }
 
   function sendSignal(detail) {
-    pendingSignals.push(JSON.stringify(detail));
+    var payload = detail || {};
+    var screen = (typeof window !== 'undefined' && window.__islesScreen) || null;
+    if (screen && payload.screen === undefined) {
+      payload = Object.assign({}, payload, { screen: screen });
+    }
+    pendingSignals.push(JSON.stringify(payload));
     if (pendingSignals.length > 50) pendingSignals.shift();
     flushSignals();
   }

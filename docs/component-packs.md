@@ -141,8 +141,13 @@ Server-side constraints (applied to every signal, regardless of source):
 - Cross-origin browser requests to the signal endpoint are rejected; only the served page (or
   non-browser local clients) can append events.
 
-Consumers tail `<dir>/state/events` — e.g. a host can block on a `proceed` record, or watch for its
-own pack-defined types.
+Every record also carries a **`screen`** field: the live client stamps each signal with the screen
+the page belongs to (the Markdown file's basename, exposed as `window.__islesScreen`). A consumer can
+use it to scope a record to a specific screen — rejecting, say, a click from a stale tab that lands
+after a newer screen was pushed. You don't set `screen` yourself; the client adds it.
+
+Consumers tail `<dir>/state/events` — e.g. a host can block on a `proceed` record for a given `screen`,
+or watch for its own pack-defined types.
 
 ## Security boundary and V1 non-goals
 
