@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import {
   appendFileSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   readdirSync,
   readFileSync,
@@ -15,7 +16,10 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { renderMarkdownString } from './render.mjs';
-import { LIVE_CLIENT } from './live-client.js';
+import { listScreens, listScreenFiles, resolveSlug, readFileNoFollow } from './live-docs.mjs';
+import { injectLiveFrame } from './live-shell.mjs';
+
+export { injectLiveFrame };
 
 const defaultHost = '127.0.0.1';
 
@@ -79,6 +83,12 @@ export function appendSignalEvent(dir, detail) {
       .filter((s) => typeof s === 'string')
       .slice(0, SIGNAL_MAX_SELECTED)
       .map(clampStr);
+  }
+  if (typeof detail.screen === 'string' && detail.screen) {
+    const screen = clampStr(detail.screen);
+    record.screen = screen;
+    const match = resolveSlug(dir, screen);
+    if (match) record.screen_file = match.name;
   }
   mkdirSync(stateDir(dir), { recursive: true });
   appendFileSync(eventsFile(dir), JSON.stringify(record) + '\n');
@@ -149,7 +159,7 @@ export function resolveNewestScreen(dir) {
     const full = join(dir, name);
     let st;
     try {
-      st = statSync(full);
+      st = lstatSync(full);
     } catch {
       continue; // deleted between readdir and stat
     }
@@ -159,44 +169,6 @@ export function resolveNewestScreen(dir) {
   return newest;
 }
 
-function screenSnapshot(dir) {
-  let names;
-  try { names = readdirSync(dir); } catch { return ''; }
-  const parts = [];
-  for (const name of names) {
-    if (!name.endsWith('.md')) continue;
-    try {
-      const s = statSync(join(dir, name));
-      if (s.isFile()) parts.push(`${name}:${s.mtimeMs}:${s.size}`);
-    } catch { /* deleted mid-scan */ }
-  }
-  return parts.sort().join('|');
-}
-
-export function injectLiveFrame(pageHtml) {
-  const overlayStyle = `<style>
-    body{padding-top:2.2rem;padding-bottom:2.2rem}
-    #isles-header{position:fixed;top:0;left:0;right:0;height:2.2rem;display:flex;align-items:center;padding:0 1.5rem;font:500 .8rem system-ui,sans-serif;color:#888;background:rgba(127,127,127,.07);border-bottom:1px solid rgba(127,127,127,.25);z-index:99999}
-    #isles-bar{position:fixed;bottom:0;left:0;right:0;padding:.45rem 1.5rem;text-align:center;font:.78rem system-ui,sans-serif;color:#888;background:rgba(127,127,127,.07);border-top:1px solid rgba(127,127,127,.25);z-index:99999}
-  </style>`;
-  const headerHtml = `<div id="isles-header">Agent Isles Live</div>`;
-  const barHtml = `<div id="isles-bar"><span id="isles-indicator">Click an option above, then return to the terminal</span></div>`;
-  const clientHtml = `<script>${LIVE_CLIENT}</script>`;
-  let out = pageHtml;
-  out = /<\/head>/i.test(out) ? out.replace(/<\/head>/i, `${overlayStyle}</head>`) : `${overlayStyle}${out}`;
-  out = /<body[^>]*>/i.test(out) ? out.replace(/(<body[^>]*>)/i, `$1${headerHtml}`) : `${headerHtml}${out}`;
-  // Insert before the *last* </body>: inlined bundles (e.g. mermaid's DOMPurify
-  // iframe srcdoc template) contain literal "</body></html>" strings inside a
-  // <script>, so a first-match replace would splice the live client into that
-  // script and prematurely close it.
-  let bodyClose = -1;
-  for (const match of out.matchAll(/<\/body>/gi)) bodyClose = match.index ?? -1;
-  out = bodyClose >= 0
-    ? `${out.slice(0, bodyClose)}${barHtml}${clientHtml}${out.slice(bodyClose)}`
-    : `${out}${barHtml}${clientHtml}`;
-  return out;
-}
-
 function waitingPage() {
   return injectLiveFrame(
     '<!doctype html><html><head><meta charset="utf-8"><title>Agent Isles Live</title></head>' +
@@ -204,32 +176,51 @@ function waitingPage() {
   );
 }
 
-async function renderNewest(dir) {
-  let screen;
-  try {
-    screen = resolveNewestScreen(dir);
-  } catch {
-    return waitingPage();
-  }
-  if (!screen) return waitingPage();
+function newestOf(screens) {
+  let active = null;
+  for (const s of screens) if (!active || s.mtimeMs > active.mtimeMs) active = s;
+  return active;
+}
+
+async function renderScreenHtml(dir, screen, screens, activeSlug) {
   let markdown;
   try {
-    markdown = readFileSync(screen, 'utf8');
+    markdown = readFileNoFollow(screen.file); // O_NOFOLLOW: refuse race-swapped symlinks
   } catch {
-    return waitingPage(); // file vanished between resolve and read (delete race)
+    return waitingPage(); // file vanished / became a symlink between resolve and read
   }
   const { html } = await renderMarkdownString(markdown, {
     assetMode: 'inline',
     includeUserPacks: false,
     projectDir: dir,
   });
-  return injectLiveFrame(html);
+  return injectLiveFrame(html, { screens, activeSlug });
+}
+
+async function renderNewest(dir) {
+  let screens;
+  try {
+    screens = listScreens(dir);
+  } catch {
+    return waitingPage();
+  }
+  const active = newestOf(screens);
+  if (!active) return waitingPage();
+  return renderScreenHtml(dir, active, screens, active.slug);
+}
+
+async function renderBySlug(dir, slug) {
+  const screens = listScreens(dir);
+  const active = screens.find((s) => s.slug === slug);
+  if (!active) return null; // 404
+  return renderScreenHtml(dir, active, screens, active.slug);
 }
 
 export async function startLiveServer(dir, options = {}) {
   const host = options.host || defaultHost;
   const clients = new Set();
   const signalSockets = new Set();
+  let closing = false;
   mkdirSync(stateDir(dir), { recursive: true });
 
   // Signal endpoints (POST + WS) can wake and steer a tool-wielding agent, so
@@ -246,14 +237,20 @@ export async function startLiveServer(dir, options = {}) {
   };
 
   const server = http.createServer(async (req, res) => {
+    if (closing) {
+      res.writeHead(503, { 'Connection': 'close' });
+      res.end('Server closing');
+      return;
+    }
     try {
-      if (req.method === 'GET' && (req.url === '/' || req.url.startsWith('/?'))) {
+      const pathname = req.url.split('?')[0];
+      if (req.method === 'GET' && pathname === '/') {
         const page = await renderNewest(dir);
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(page);
         return;
       }
-      if (req.method === 'GET' && req.url === '/events') {
+      if (req.method === 'GET' && pathname === '/events') {
         res.writeHead(200, {
           'Content-Type': 'text/event-stream; charset=utf-8',
           'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive',
@@ -261,15 +258,39 @@ export async function startLiveServer(dir, options = {}) {
         res.write('retry: 500\nevent: live:ready\ndata: {}\n\n');
         clients.add(res);
         req.on('close', () => clients.delete(res));
+        res.on('error', () => dropClient(res));
         return;
       }
-      if (req.method === 'POST' && req.url === '/__agent-isles/signal') {
+      if (req.method === 'GET' && pathname === '/__agent-isles/screens') {
+        const screens = listScreens(dir).map(({ slug, name, title, mtimeMs }) => ({ slug, name, title, mtimeMs }));
+        const newest = newestOf(screens);
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ screens, newest: newest ? newest.slug : null }));
+        return;
+      }
+      if (req.method === 'POST' && pathname === '/__agent-isles/signal') {
         if (!originAllowed(req)) { res.writeHead(403); res.end('Forbidden origin'); return; }
         const raw = await readBody(req);
         appendSignalEvent(dir, parseSignalDetail(raw));
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end('{"ok":true}');
         return;
+      }
+      if (req.method === 'GET') {
+        let slug;
+        try {
+          slug = decodeURIComponent((pathname || '/').replace(/^\/+/, ''));
+        } catch {
+          slug = null;
+        }
+        if (slug) {
+          const page = await renderBySlug(dir, slug);
+          if (page) {
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+            res.end(page);
+            return;
+          }
+        }
       }
       res.writeHead(404); res.end('Not found');
     } catch (error) {
@@ -279,6 +300,7 @@ export async function startLiveServer(dir, options = {}) {
 
   server.on('upgrade', (req, socket) => {
     try {
+      if (closing) { socket.destroy(); return; }
       if (req.url !== '/__agent-isles/signal') { socket.destroy(); return; }
       if (!originAllowed(req)) { socket.destroy(); return; }
       const key = req.headers['sec-websocket-key'];
@@ -343,16 +365,35 @@ export async function startLiveServer(dir, options = {}) {
     }
   } catch {}
 
-  function broadcast(event) {
-    for (const c of clients) c.write(`event: ${event}\ndata: {}\n\n`);
+  function dropClient(c) {
+    clients.delete(c);
+    try { c.end(); } catch {}
+  }
+
+  function broadcast(event, data) {
+    const payload = JSON.stringify(data || {});
+    for (const c of clients) {
+      try { c.write(`event: ${event}\ndata: ${payload}\n\n`); }
+      catch { dropClient(c); }
+    }
   }
 
   function clearEvents() {
     rmSync(eventsFile(dir), { force: true });
   }
 
-  let lastScreen = resolveNewestScreen(dir);
-  let lastSnapshot = screenSnapshot(dir);
+  function indexByName(screens) {
+    const map = new Map();
+    for (const s of screens) map.set(s.name, s);
+    return map;
+  }
+
+  function snapshotOf(screens) {
+    return screens.map((s) => `${s.name}:${s.mtimeMs}:${s.size}`).join('|');
+  }
+
+  let lastScreens = listScreenFiles(dir);
+  let lastSnapshot = snapshotOf(lastScreens);
   let watcher = null;
   let debounceTimer = null;
   if (options.watch) {
@@ -361,15 +402,30 @@ export async function startLiveServer(dir, options = {}) {
         if (filename && !String(filename).endsWith('.md')) return;
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
-          const snap = screenSnapshot(dir);
-          if (snap === lastSnapshot) return; // ignore state/ churn + non-.md + no-op events
-          lastSnapshot = snap;
-          const next = resolveNewestScreen(dir);
-          if (next !== lastScreen) { // includes screen -> none and none -> screen
-            lastScreen = next;
-            clearEvents();
-          }
-          broadcast('live:reload');
+          try {
+            const next = listScreenFiles(dir);
+            const snap = snapshotOf(next);
+            if (snap === lastSnapshot) return; // ignore state/ churn + non-.md + no-op events
+            lastSnapshot = snap;
+            const prevByName = indexByName(lastScreens);
+            const nextByName = indexByName(next);
+            const added = next.filter((s) => !prevByName.has(s.name));
+            const removed = lastScreens.filter((s) => !nextByName.has(s.name));
+            const changed = next.filter((s) => {
+              const prev = prevByName.get(s.name);
+              return prev && (prev.mtimeMs !== s.mtimeMs || prev.size !== s.size);
+            });
+            lastScreens = next;
+
+            if (added.length || removed.length || changed.length) broadcast('live:screens', { count: next.length });
+            for (const s of changed) broadcast('live:reload', { slug: s.slug });
+            if (added.length) {
+              let push = added[0];
+              for (const s of added) if (s.mtimeMs > push.mtimeMs) push = s;
+              clearEvents(); // a new screen pushed → reset the single-flow interaction state
+              broadcast('live:advance', { slug: push.slug });
+            }
+          } catch { /* watcher must never crash the debounce timer */ }
         }, 120);
       });
       watcher.on('error', () => {});
@@ -382,17 +438,21 @@ export async function startLiveServer(dir, options = {}) {
   let closePromise = null;
   function close(reason = 'closed') {
     if (closePromise) return closePromise;
+    closing = true;
     closePromise = (async () => {
       clearInterval(lifecycle);
       clearTimeout(debounceTimer);
       if (watcher) watcher.close();
-      for (const c of clients) c.end();
+      for (const c of clients) dropClient(c);
       clients.clear();
       for (const socket of signalSockets) socket.destroy();
       signalSockets.clear();
       try { unlinkSync(join(stateDir(dir), 'server-info')); } catch {}
       try { writeFileSync(join(stateDir(dir), 'server-stopped'), JSON.stringify({ reason, timestamp: Date.now() }) + '\n'); } catch {}
-      await new Promise((r) => server.close(() => r()));
+      await new Promise((r) => {
+        server.close(() => r());
+        server.closeAllConnections?.();
+      });
     })();
     return closePromise;
   }

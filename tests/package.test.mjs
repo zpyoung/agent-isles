@@ -36,6 +36,8 @@ const expectedPublishedFiles = [
   'src/components/dependency-graph.js',
   'src/components/index.js',
   'src/live-client.js',
+  'src/live-docs.mjs',
+  'src/live-shell.mjs',
   'src/live.mjs',
   'src/pack-loader.mjs',
   'src/pack-resolver.mjs',
