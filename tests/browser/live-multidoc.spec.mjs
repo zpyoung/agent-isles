@@ -28,6 +28,7 @@ test('writing a brand-new screen auto-advances the viewer to it', async ({ page 
   try {
     await page.goto(server.url + '/');
     await expect(page.locator('h1')).toHaveText('Screen One');
+    await expect.poll(() => server._clients.size).toBe(1);
     writeFileSync(join(dir, 'screen-2.md'), '# Screen Two');
     await expect(page.locator('h1')).toHaveText('Screen Two');
     await expect(page).toHaveURL(server.url + '/screen-2');

@@ -342,6 +342,42 @@ test('adding a screen broadcasts live:screens (membership change)', async () => 
   } finally { sse.req.destroy(); await server.close(); }
 });
 
+test('broadcast drops an SSE client whose write throws', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-live-dead-sse-'));
+  writeFileSync(join(dir, 'a.md'), '# A');
+  const server = await startLiveServer(dir, { port: 0 });
+  let ended = false;
+  const deadClient = {
+    write() { throw new Error('socket gone'); },
+    end() { ended = true; },
+  };
+  try {
+    server._clients.add(deadClient);
+    server.broadcast('live:reload', { slug: 'a' });
+    assert.equal(server._clients.has(deadClient), false);
+    assert.equal(ended, true);
+
+    // A second broadcast should not try the dead client again.
+    server.broadcast('live:reload', { slug: 'a' });
+    assert.equal(server._clients.size, 0);
+  } finally { await server.close(); }
+});
+
+test('close completes with an active SSE client connected', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-live-close-sse-'));
+  writeFileSync(join(dir, 'a.md'), '# A');
+  const server = await startLiveServer(dir, { port: 0 });
+  const sse = openSse(server.url + '/events');
+  try {
+    assert.ok(await waitFor(() => sse.text.includes('event: live:ready')));
+    await Promise.race([
+      server.close(),
+      sleep(1000).then(() => { throw new Error('server.close timed out'); }),
+    ]);
+    assert.equal(server._clients.size, 0);
+  } finally { sse.req.destroy(); await server.close(); }
+});
+
 test('served client wires typed SSE handlers and slug-aware reload', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'isles-live-client-'));
   writeFileSync(join(dir, 'a.md'), '# A');

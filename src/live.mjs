@@ -199,9 +199,15 @@ export async function startLiveServer(dir, options = {}) {
   const host = options.host || defaultHost;
   const clients = new Set();
   const signalSockets = new Set();
+  let closing = false;
   mkdirSync(stateDir(dir), { recursive: true });
 
   const server = http.createServer(async (req, res) => {
+    if (closing) {
+      res.writeHead(503, { 'Connection': 'close' });
+      res.end('Server closing');
+      return;
+    }
     try {
       const pathname = req.url.split('?')[0];
       if (req.method === 'GET' && pathname === '/') {
@@ -218,6 +224,7 @@ export async function startLiveServer(dir, options = {}) {
         res.write('retry: 500\nevent: live:ready\ndata: {}\n\n');
         clients.add(res);
         req.on('close', () => clients.delete(res));
+        res.on('error', () => dropClient(res));
         return;
       }
       if (req.method === 'GET' && pathname === '/__agent-isles/screens') {
@@ -258,6 +265,7 @@ export async function startLiveServer(dir, options = {}) {
 
   server.on('upgrade', (req, socket) => {
     try {
+      if (closing) { socket.destroy(); return; }
       if (req.url !== '/__agent-isles/signal') { socket.destroy(); return; }
       const key = req.headers['sec-websocket-key'];
       if (typeof key !== 'string' || key.length === 0) { socket.destroy(); return; }
@@ -310,10 +318,16 @@ export async function startLiveServer(dir, options = {}) {
     }
   } catch {}
 
+  function dropClient(c) {
+    clients.delete(c);
+    try { c.end(); } catch {}
+  }
+
   function broadcast(event, data) {
     const payload = JSON.stringify(data || {});
     for (const c of clients) {
-      try { c.write(`event: ${event}\ndata: ${payload}\n\n`); } catch { /* drop a dead client; keep serving the rest */ }
+      try { c.write(`event: ${event}\ndata: ${payload}\n\n`); }
+      catch { dropClient(c); }
     }
   }
 
@@ -377,17 +391,21 @@ export async function startLiveServer(dir, options = {}) {
   let closePromise = null;
   function close(reason = 'closed') {
     if (closePromise) return closePromise;
+    closing = true;
     closePromise = (async () => {
       clearInterval(lifecycle);
       clearTimeout(debounceTimer);
       if (watcher) watcher.close();
-      for (const c of clients) c.end();
+      for (const c of clients) dropClient(c);
       clients.clear();
       for (const socket of signalSockets) socket.destroy();
       signalSockets.clear();
       try { unlinkSync(join(stateDir(dir), 'server-info')); } catch {}
       try { writeFileSync(join(stateDir(dir), 'server-stopped'), JSON.stringify({ reason, timestamp: Date.now() }) + '\n'); } catch {}
-      await new Promise((r) => server.close(() => r()));
+      await new Promise((r) => {
+        server.close(() => r());
+        server.closeAllConnections?.();
+      });
     })();
     return closePromise;
   }
