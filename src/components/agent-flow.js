@@ -1,5 +1,7 @@
 import { LitElement, css, html, svg } from 'lit';
 
+import { layoutNodes } from './flow-layout.js';
+
 const C4_NODE_LABELS = {
   person: 'Person',
   softwareSystem: 'Software System',
@@ -147,25 +149,6 @@ function visibleEdges(document, nodes) {
   return orderedValues(document.edges).filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target));
 }
 
-function layoutNodes(nodes) {
-  const width = 720;
-  const height = Math.max(260, Math.ceil(nodes.length / 3) * 150 + 70);
-  const columns = Math.min(3, Math.max(1, nodes.length));
-  const rows = Math.max(1, Math.ceil(nodes.length / columns));
-  const xGap = width / (columns + 1);
-  const yGap = height / (rows + 1);
-
-  const positions = new Map();
-  nodes.forEach((node, index) => {
-    const column = index % columns;
-    const row = Math.floor(index / columns);
-    positions.set(node.id, {
-      x: Math.round(xGap * (column + 1)),
-      y: Math.round(yGap * (row + 1)),
-    });
-  });
-  return { width, height, positions };
-}
 
 function validateReferences(document) {
   const messages = [];
@@ -526,7 +509,7 @@ export class AgentFlow extends LitElement {
       return html`<div class="empty">No nodes in this flow document yet.</div>`;
     }
 
-    const layout = layoutNodes(nodes);
+    const layout = layoutNodes(nodes, edges);
     return svg`
       <svg viewBox="0 0 ${layout.width} ${layout.height}" aria-labelledby=${`${this.flowId}-title`}>
         <defs>

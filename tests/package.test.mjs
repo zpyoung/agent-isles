@@ -33,6 +33,7 @@ const expectedPublishedFiles = [
   'src/components/agent-theme-toggle.js',
   'src/components/agent-timeline.js',
   'src/components/dependency-graph.js',
+  'src/components/flow-layout.js',
   'src/components/index.js',
   'src/live-client.js',
   'src/live.mjs',
