@@ -21,6 +21,7 @@ const expectedPublishedFiles = [
   'src/components/agent-delta.js',
   'src/components/agent-dependency-map.js',
   'src/components/agent-dependency.js',
+  'src/components/agent-flow.js',
   'src/components/agent-gantt.js',
   'src/components/agent-kanban.js',
   'src/components/agent-kpi.js',

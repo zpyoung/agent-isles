@@ -26,6 +26,68 @@
 
 ## Component reference
 
+### Agent flow diagrams
+
+Use `<agent-flow>` for JSON-first, schema-driven diagrams. The core document format stays agnostic (`nodes`, `edges`, `views`), while packs such as `c4` and `flowchart` define the node vocabulary and palette.
+
+<div class="agent-component-example my-4" data-agent-components="agent-flow">
+  <h4 class="h5 mb-3">Agent flow</h4>
+  <div class="row g-4 align-items-stretch">
+    <div class="col-12 col-lg-6">
+      <div class="agent-component-pane agent-component-rendered border rounded p-3 bg-light h-100">
+        <p class="text-uppercase text-primary fw-bold small mb-3">Rendered output</p>
+        <agent-flow kind="c4" title="Agent Isles Architecture" mode="viewer">
+{
+  "version": "0.1",
+  "kind": "c4",
+  "title": "Agent Isles Architecture",
+  "nodes": {
+    "user": { "id": "user", "type": "person", "label": "Developer" },
+    "system": { "id": "system", "type": "softwareSystem", "label": "Agent Isles" },
+    "renderer": { "id": "renderer", "type": "container", "label": "Renderer" }
+  },
+  "edges": {
+    "authors": { "id": "authors", "source": "user", "target": "system", "label": "Authors Markdown" },
+    "renders": { "id": "renders", "source": "system", "target": "renderer", "label": "Injects islands" }
+  },
+  "views": {
+    "context": { "id": "context", "title": "System Context", "nodeIds": ["user", "system", "renderer"] }
+  }
+}
+        </agent-flow>
+      </div>
+    </div>
+    <div class="col-12 col-lg-6">
+      <div class="agent-component-pane agent-component-source-card border rounded p-3 h-100">
+        <p class="text-uppercase text-info fw-bold small mb-3">Source Markdown</p>
+        <pre class="agent-component-source mb-0"><code>```agent-flow
+kind: c4
+title: Agent Isles Architecture
+mode: viewer
+---
+{
+  "version": "0.1",
+  "kind": "c4",
+  "title": "Agent Isles Architecture",
+  "nodes": {
+    "user": { "id": "user", "type": "person", "label": "Developer" },
+    "system": { "id": "system", "type": "softwareSystem", "label": "Agent Isles" },
+    "renderer": { "id": "renderer", "type": "container", "label": "Renderer" }
+  },
+  "edges": {
+    "authors": { "id": "authors", "source": "user", "target": "system", "label": "Authors Markdown" },
+    "renders": { "id": "renders", "source": "system", "target": "renderer", "label": "Injects islands" }
+  },
+  "views": {
+    "context": { "id": "context", "title": "System Context", "nodeIds": ["user", "system", "renderer"] }
+  }
+}
+```</code></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
 ### Theme toggle
 
 Use `<agent-theme-toggle>` to let readers switch the entire rendered report between light and dark Bootstrap color modes. The toggle updates the document theme and propagates it to every built-in `<agent-*>` island, including nested tabs, timeline steps, Gantt phases/tasks, status items, actions, and Kanban lanes/cards.

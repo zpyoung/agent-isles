@@ -29,6 +29,57 @@ Writeback uses reserved contract attributes, not general component API. `data-ag
 
 ## Supported components
 
+### `<agent-flow>`
+
+Use for JSON-first, schema-driven diagrams that agents can emit in Markdown and readers can inspect or edit visually. The document format is agnostic (`nodes`, `edges`, `views`); packs provide the vocabulary and validation. Agent Isles ships `c4` as the flagship pack and `flowchart` as the second pack to keep the abstraction honest.
+
+Status: supported.
+
+Authoring guidance:
+
+- Prefer fenced `agent-flow` blocks for source readability. The renderer transforms them into `<agent-flow>` islands.
+- Keep canonical data as JSON. Mermaid, PlantUML, and similar DSLs can be future import/export adapters, not the canonical source.
+- Use `mode="viewer"` for normal reports and `mode="editor"` only when the reader should see palette/inspector controls.
+
+Attributes:
+
+| Attribute | Required | Allowed values | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `kind` | No | `c4`, `flowchart`, or a future pack kind | document `kind`, then `flowchart` | Selects the diagram pack. |
+| `title` | No | Plain text | document `title`, then `Agent flow` | Visible heading. |
+| `mode` | No | `viewer`, `editor` | `viewer` | Controls whether editor chrome is shown. |
+| `view` | No | View id from `document.views` | first view | Selects the rendered view. |
+
+Trusted/sanitized behavior:
+
+- Trusted mode preserves the tag, documented attributes, and child JSON.
+- Sanitized mode allows `kind`, `title`, `mode`, and `view` while stripping event handlers and unsafe raw HTML.
+
+Example:
+
+````markdown
+```agent-flow
+kind: c4
+title: Agent Isles Architecture
+mode: viewer
+---
+{
+  "version": "0.1",
+  "kind": "c4",
+  "nodes": {
+    "user": { "id": "user", "type": "person", "label": "Developer" },
+    "system": { "id": "system", "type": "softwareSystem", "label": "Agent Isles" }
+  },
+  "edges": {
+    "authors": { "id": "authors", "source": "user", "target": "system", "label": "Authors Markdown" }
+  },
+  "views": {
+    "context": { "id": "context", "title": "System Context", "nodeIds": ["user", "system"] }
+  }
+}
+```
+````
+
 ### `<agent-theme-toggle>`
 
 Use for generated reports that should let readers switch the whole rendered artifact between light and dark color modes without hand-editing the HTML artifact.
