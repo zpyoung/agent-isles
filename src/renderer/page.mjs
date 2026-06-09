@@ -62,6 +62,7 @@ export function buildHtmlPage(body, options = {}) {
   const packModuleScripts = buildPackModuleScripts(packAssetRecords, assetMode);
   const componentScript = buildComponentScript(assetMode, missingBundleComment);
   const mermaidScripts = hasMermaidDiagrams(body) ? buildMermaidScripts(assetMode) : '';
+  const tocScript = hasToc ? buildTocScript() : '';
 
   let mainBody;
   if (options.showSource) {
@@ -90,7 +91,7 @@ ${packMetadata}${writebackMetadata}${styles}
   <main class="${mainClass}">
 ${mainBody}
   </main>
-${scripts}${writebackClientScript}${mermaidScripts}${componentScript}${packModuleScripts}
+${scripts}${writebackClientScript}${mermaidScripts}${tocScript}${componentScript}${packModuleScripts}
 </body>
 </html>`;
 }
@@ -381,6 +382,67 @@ function buildMermaidRendererScript() {
       console.warn('Agent Isles Mermaid render failed:', error);
     }
   });
+}());
+  </script>`;
+}
+
+function buildTocScript() {
+  return `
+  <script>
+/* Agent Isles table-of-contents scroll-spy */
+(function () {
+  if (typeof IntersectionObserver === 'undefined') {
+    return;
+  }
+  const nav = document.querySelector('.agent-isles-toc');
+  if (!nav) {
+    return;
+  }
+  const links = Array.from(nav.querySelectorAll('a[href^="#"]'));
+  const linkByTarget = new Map();
+  const targets = [];
+  for (const link of links) {
+    let id;
+    try {
+      id = decodeURIComponent(link.hash.slice(1));
+    } catch {
+      continue;
+    }
+    const target = id && document.getElementById(id);
+    if (target) {
+      linkByTarget.set(target, link);
+      targets.push(target);
+    }
+  }
+  if (targets.length === 0) {
+    return;
+  }
+  let activeLink = null;
+  const setActive = (link) => {
+    if (link === activeLink) {
+      return;
+    }
+    if (activeLink) {
+      activeLink.classList.remove('is-active');
+      activeLink.removeAttribute('aria-current');
+    }
+    activeLink = link;
+    if (activeLink) {
+      activeLink.classList.add('is-active');
+      activeLink.setAttribute('aria-current', 'location');
+    }
+  };
+  const observer = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (entry.isIntersecting) {
+        const link = linkByTarget.get(entry.target);
+        if (link) {
+          setActive(link);
+        }
+      }
+    }
+  }, { rootMargin: '0px 0px -70% 0px', threshold: 0 });
+  targets.forEach((target) => observer.observe(target));
 }());
   </script>`;
 }

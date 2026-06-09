@@ -306,6 +306,35 @@ test('single-heading pages stay single-column with no TOC layout', async () => {
   assert.doesNotMatch(html, /<nav class="agent-isles-toc"/);
 });
 
+test('scroll-spy script is injected when a TOC is present', async () => {
+  const { renderMarkdownString } = await import('../src/render.mjs');
+
+  const { html } = await renderMarkdownString('# Guide\n\n## Alpha\n\nBody.\n\n## Beta\n\nMore body.\n', {
+    assetMode: 'inline',
+    includeUserPacks: false,
+  });
+
+  assert.match(html, /Agent Isles table-of-contents scroll-spy/);
+  assert.match(html, /new IntersectionObserver/);
+});
+
+test('scroll-spy script is absent without a TOC and in source view', async () => {
+  const { renderMarkdownString } = await import('../src/render.mjs');
+
+  const single = await renderMarkdownString('# Guide\n\n## Only Section\n\nBody.\n', {
+    assetMode: 'inline',
+    includeUserPacks: false,
+  });
+  assert.doesNotMatch(single.html, /Agent Isles table-of-contents scroll-spy/);
+
+  const sourceView = await renderMarkdownString('# Guide\n\n## Alpha\n\nBody.\n\n## Beta\n\nMore body.\n', {
+    assetMode: 'inline',
+    includeUserPacks: false,
+    showSource: true,
+  });
+  assert.doesNotMatch(sourceView.html, /Agent Isles table-of-contents scroll-spy/);
+});
+
 test('isles preview starts a localhost directory server and exits cleanly on SIGINT', async () => {
   const root = mkdtempSync(join(tmpdir(), 'agent-isles-preview-cli-'));
   writeFileSync(join(root, 'one.md'), '# CLI Preview\n', 'utf8');
