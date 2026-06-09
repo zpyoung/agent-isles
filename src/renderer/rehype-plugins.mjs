@@ -187,38 +187,6 @@ function formatPosition(position) {
   return ` at line ${start.line}${start.column ? `, column ${start.column}` : ''}`;
 }
 
-export function defaultOutFile(inputPath) {
-  const filePath = resolve(inputPath);
-  const ext = extname(filePath);
-  const baseName = basename(ext ? filePath.slice(0, -ext.length) : filePath);
-  return resolve('dist', `${baseName || 'output'}.html`);
-}
-
-export function normalizeRenderMode(renderMode = RENDER_MODES.TRUSTED) {
-  if (renderMode === RENDER_MODES.TRUSTED || renderMode === RENDER_MODES.SANITIZED) {
-    return renderMode;
-  }
-
-  throw new Error(
-    `Unknown render mode: ${renderMode}. Use "${RENDER_MODES.TRUSTED}" or "${RENDER_MODES.SANITIZED}".`,
-  );
-}
-
-function dropUnsafeRawHtmlElements() {
-  const blockedTagNames = new Set(['script', 'style', 'iframe', 'object', 'embed']);
-
-  return (tree) => {
-    visitChildren(tree, (children, index, node) => {
-      if (node.type === 'element' && blockedTagNames.has(node.tagName)) {
-        children.splice(index, 1);
-        return index;
-      }
-
-      return undefined;
-    });
-  };
-}
-
 export function rehypeAgentHeadingAnchors(options = {}) {
   return (tree) => {
     const toc = options.toc || [];
