@@ -52,14 +52,30 @@ function parseSignalDetail(raw) {
   return {};
 }
 
+const SIGNAL_MAX_STR = 256;   // cap any single string field
+const SIGNAL_MAX_SELECTED = 64; // cap selection list length
+
+function clampStr(value) {
+  return value.length > SIGNAL_MAX_STR ? value.slice(0, SIGNAL_MAX_STR) : value;
+}
+
 export function appendSignalEvent(dir, detail) {
+  // Untrusted input: a signal can arrive from any client that reaches the
+  // localhost endpoint, and `selected`/`text` are surfaced into an agent's
+  // context downstream. Constrain to bounded strings so a hostile or buggy
+  // sender can't inject huge or structured payloads.
   const record = {
     type: detail.type === 'proceed' ? 'proceed' : 'click',
-    choice: typeof detail.choice === 'string' ? detail.choice : null,
-    text: typeof detail.text === 'string' ? detail.text : '',
+    choice: typeof detail.choice === 'string' ? clampStr(detail.choice) : null,
+    text: typeof detail.text === 'string' ? clampStr(detail.text) : '',
     timestamp: Math.floor(Date.now() / 1000),
   };
-  if (Array.isArray(detail.selected)) record.selected = detail.selected;
+  if (Array.isArray(detail.selected)) {
+    record.selected = detail.selected
+      .filter((s) => typeof s === 'string')
+      .slice(0, SIGNAL_MAX_SELECTED)
+      .map(clampStr);
+  }
   mkdirSync(stateDir(dir), { recursive: true });
   appendFileSync(eventsFile(dir), JSON.stringify(record) + '\n');
   return record;
@@ -212,6 +228,19 @@ export async function startLiveServer(dir, options = {}) {
   const signalSockets = new Set();
   mkdirSync(stateDir(dir), { recursive: true });
 
+  // Signal endpoints (POST + WS) can wake and steer a tool-wielding agent, so
+  // reject cross-origin browser requests: a malicious page must not be able to
+  // POST/connect to this localhost server and inject proceed signals. Requests
+  // with no Origin header (curl, native WS clients, the Quirk bridge) are
+  // allowed — only a browser sets Origin, and that's the CSRF/cross-site vector.
+  // Populated once the port is bound (below); no requests arrive before then.
+  let allowedOrigins = null;
+  const originAllowed = (req) => {
+    const origin = req.headers && req.headers.origin;
+    if (!origin) return true;
+    return allowedOrigins ? allowedOrigins.has(origin) : true;
+  };
+
   const server = http.createServer(async (req, res) => {
     try {
       if (req.method === 'GET' && (req.url === '/' || req.url.startsWith('/?'))) {
@@ -231,6 +260,7 @@ export async function startLiveServer(dir, options = {}) {
         return;
       }
       if (req.method === 'POST' && req.url === '/__agent-isles/signal') {
+        if (!originAllowed(req)) { res.writeHead(403); res.end('Forbidden origin'); return; }
         const raw = await readBody(req);
         appendSignalEvent(dir, parseSignalDetail(raw));
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -246,6 +276,7 @@ export async function startLiveServer(dir, options = {}) {
   server.on('upgrade', (req, socket) => {
     try {
       if (req.url !== '/__agent-isles/signal') { socket.destroy(); return; }
+      if (!originAllowed(req)) { socket.destroy(); return; }
       const key = req.headers['sec-websocket-key'];
       if (typeof key !== 'string' || key.length === 0) { socket.destroy(); return; }
       socket.write([
@@ -281,6 +312,17 @@ export async function startLiveServer(dir, options = {}) {
   const port = typeof addr === 'object' && addr ? addr.port : options.port;
   const urlHost = options.urlHost || (host === '127.0.0.1' ? 'localhost' : host);
   const url = `http://${urlHost}:${port}`;
+
+  // Allowed browser origins: the page is served from one of these host:port
+  // combos, so a same-origin click matches; an attacker page on another
+  // host/port does not. (A direct-IP setup beyond these would need its host
+  // added — the documented setups use localhost / --url-host.)
+  allowedOrigins = new Set([
+    `http://localhost:${port}`,
+    `http://127.0.0.1:${port}`,
+    `http://${urlHost}:${port}`,
+    `http://${host}:${port}`,
+  ]);
 
   const infoPayload = {
     type: 'server-started', pid: process.pid, port, host, url,
