@@ -292,6 +292,45 @@ test('preview writeback endpoint is local opt-in and applies checkbox requests',
   });
 });
 
+test('preview writeback rejects cross-origin browser requests', async () => {
+  await withTempWorkspace(async (root) => {
+    const sourcePath = join(root, 'plan.md');
+    const markdown = '- [ ] task\n';
+    writeFileSync(sourcePath, markdown, 'utf8');
+
+    const preview = await startPreviewServer(root, { port: 0, includeUserPacks: false, writeback: true });
+    try {
+      const body = JSON.stringify(checkboxRequest({
+        source: markdown,
+        checked: true,
+        range: markerRange(markdown, '[ ]'),
+        anchorText: '[ ]',
+      }));
+
+      // A cross-site browser POST carries an Origin header that does not match the
+      // preview server, so the file-mutating writeback is refused without writing.
+      const crossOrigin = await fetch(`${preview.url}/__agent-isles/writeback`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', origin: 'http://evil.example' },
+        body,
+      });
+      assert.equal(crossOrigin.status, 403);
+      assert.equal(readFileSync(sourcePath, 'utf8'), markdown, 'source is untouched by a rejected cross-origin request');
+
+      // A same-origin POST (Origin matches the served page) still applies.
+      const sameOrigin = await fetch(`${preview.url}/__agent-isles/writeback`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', origin: preview.url },
+        body,
+      });
+      assert.equal(sameOrigin.status, 200);
+      assert.equal(readFileSync(sourcePath, 'utf8'), '- [x] task\n');
+    } finally {
+      await preview.close();
+    }
+  });
+});
+
 function readAllWritebackMetadata(html) {
   return [...html.matchAll(/data-agent-isles-writeback="([^"]+)"/g)].map((match) => JSON.parse(decodeHtmlAttribute(match[1])));
 }

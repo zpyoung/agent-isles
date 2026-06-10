@@ -35,52 +35,27 @@ test('theme toggle hydrates and switches Bootstrap color mode', async ({ page })
       await expect.poll(() => page.evaluate(() => document.documentElement.getAttribute('data-bs-theme'))).toBe('dark');
     }
 
+    // Every agent-* island must receive the dark attribute on its host element,
+    // since component dark mode keys off :host([data-bs-theme="dark"]). Scan
+    // generically rather than against a hardcoded list so a newly added island
+    // cannot silently regress — agent-flow did exactly that while the toggle
+    // relied on a manually maintained tag list.
     const darkAudit = await page.evaluate(() => {
-      const coreTags = [
-        'agent-decision',
-        'agent-risk',
-        'agent-metric',
-        'agent-delta',
-        'agent-copy-block',
-        'agent-theme-toggle',
-        'agent-dependency-map',
-        'agent-dependency',
-        'agent-tabs',
-        'agent-tab',
-        'agent-timeline',
-        'agent-step',
-        'agent-gantt',
-        'agent-gantt-phase',
-        'agent-gantt-task',
-        'agent-kpi',
-        'agent-status-board',
-        'agent-status-item',
-        'agent-action-list',
-        'agent-action',
-        'agent-kanban',
-        'agent-kanban-lane',
-        'agent-kanban-card',
-      ];
-
-      return coreTags.map((tag) => {
-        const element = document.querySelector(tag);
-        return {
-          tag,
-          present: Boolean(element),
-          hostTheme: element?.getAttribute('data-bs-theme') || '',
-        };
-      });
+      const elements = [...document.querySelectorAll('*')].filter(
+        (element) => element.localName.startsWith('agent-'),
+      );
+      return {
+        total: elements.length,
+        hasFlow: elements.some((element) => element.localName === 'agent-flow'),
+        undimmed: elements
+          .filter((element) => element.getAttribute('data-bs-theme') !== 'dark')
+          .map((element) => element.localName),
+      };
     });
 
-    expect(darkAudit).toEqual(
-      expect.arrayContaining(
-        darkAudit.map(({ tag }) => expect.objectContaining({
-          tag,
-          present: true,
-          hostTheme: 'dark',
-        })),
-      ),
-    );
+    expect(darkAudit.total).toBeGreaterThan(0);
+    expect(darkAudit.hasFlow).toBe(true);
+    expect(darkAudit.undimmed).toEqual([]);
 
     const componentSurfaceAudit = await page.evaluate(() => ({
       pageTheme: document.documentElement.getAttribute('data-bs-theme'),

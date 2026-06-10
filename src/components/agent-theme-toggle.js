@@ -2,32 +2,6 @@ import { LitElement, css, html } from 'lit';
 
 const THEME_STORAGE_KEY = 'agent-isles-theme';
 const THEMES = new Set(['light', 'dark']);
-const AGENT_COMPONENT_TAGS = [
-  'agent-decision',
-  'agent-risk',
-  'agent-metric',
-  'agent-delta',
-  'agent-copy-block',
-  'agent-theme-toggle',
-  'agent-dependency-map',
-  'agent-dependency',
-  'agent-tabs',
-  'agent-tab',
-  'agent-timeline',
-  'agent-step',
-  'agent-gantt',
-  'agent-gantt-phase',
-  'agent-gantt-task',
-  'agent-kpi',
-  'agent-status-board',
-  'agent-status-item',
-  'agent-action-list',
-  'agent-action',
-  'agent-kanban',
-  'agent-kanban-lane',
-  'agent-kanban-card',
-];
-const AGENT_COMPONENT_SELECTOR = AGENT_COMPONENT_TAGS.join(', ');
 let currentTheme = 'light';
 let themeObserver;
 
@@ -217,17 +191,36 @@ function applyDocumentTheme(theme) {
   ensureThemeObserver();
 }
 
-function applyThemeToAgentComponents(root, theme) {
-  if (!root?.querySelectorAll) {
-    return;
-  }
+function isAgentComponentElement(node) {
+  // Match any custom element in the `agent-*` family rather than a hardcoded
+  // tag list. Component-level dark mode relies on `:host([data-bs-theme="dark"])`,
+  // which only matches when the attribute is set on the host element itself, so
+  // every agent island (including ones added after this file was written) must
+  // receive the attribute. A name-prefix check can't drift out of sync the way
+  // an explicit allowlist did.
+  return (
+    node?.nodeType === 1 &&
+    typeof node.localName === 'string' &&
+    node.localName.startsWith('agent-')
+  );
+}
 
-  if (root.matches?.(AGENT_COMPONENT_SELECTOR)) {
+function applyThemeToAgentComponents(root, theme) {
+  if (isAgentComponentElement(root)) {
     root.setAttribute('data-bs-theme', theme);
   }
 
-  for (const element of root.querySelectorAll(AGENT_COMPONENT_SELECTOR)) {
-    element.setAttribute('data-bs-theme', theme);
+  if (typeof root?.querySelectorAll !== 'function') {
+    return;
+  }
+
+  // Theme changes are rare, user-initiated events, so a full element scan of the
+  // affected subtree is acceptable; tag names can't be prefix-matched with a CSS
+  // selector, so filtering in JS is the simplest robust approach.
+  for (const element of root.querySelectorAll('*')) {
+    if (isAgentComponentElement(element)) {
+      element.setAttribute('data-bs-theme', theme);
+    }
   }
 }
 

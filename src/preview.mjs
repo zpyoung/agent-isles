@@ -221,9 +221,25 @@ export async function startPreviewServer(rootDir, options = {}) {
   let closed = false;
   let lastSnapshot = await buildDirectorySnapshot(root);
 
+  // The writeback endpoint patches source files. The preview renders into a
+  // sandboxed iframe (sandbox="allow-scripts"), so its legitimate writeback fetch
+  // carries an opaque `Origin: null`; that, plus the server's own bound origins,
+  // are the only browser origins accepted. This rejects a drive-by cross-site
+  // POST, which carries the attacker page's real Origin, as defense-in-depth. The
+  // primary CSRF guard remains the sha256 sourceVersion check in writeback.mjs: a
+  // blind attacker cannot compute it without already knowing the file contents.
+  // Requests with no Origin header (curl, native clients, tests) are allowed.
+  // Populated once the port is bound; no requests are dispatched before then.
+  let allowedOrigins = null;
+  const isOriginAllowed = (request) => {
+    const origin = request.headers?.origin;
+    if (!origin) return true;
+    return allowedOrigins ? allowedOrigins.has(origin) : true;
+  };
+
   const server = http.createServer(async (request, response) => {
     try {
-      await routePreviewRequest({ request, response, root, options, clients });
+      await routePreviewRequest({ request, response, root, options, clients, isOriginAllowed });
     } catch (error) {
       sendJson(response, 500, {
         error: {
@@ -262,6 +278,17 @@ export async function startPreviewServer(rootDir, options = {}) {
   const actualPort = typeof address === 'object' && address ? address.port : port;
   const url = `http://${hostForUrl(host)}:${actualPort}`;
 
+  // `null` is the opaque origin of the sandboxed preview iframe that issues the
+  // in-app writeback. The host:port entries cover a non-sandboxed same-origin
+  // click; an attacker page on another host or port matches none of these.
+  allowedOrigins = new Set([
+    'null',
+    `http://localhost:${actualPort}`,
+    `http://127.0.0.1:${actualPort}`,
+    `http://[::1]:${actualPort}`,
+    `http://${hostForUrl(host)}:${actualPort}`,
+  ]);
+
   async function close() {
     if (closed) {
       return;
@@ -293,7 +320,7 @@ export async function startPreviewServer(rootDir, options = {}) {
   };
 }
 
-async function routePreviewRequest({ request, response, root, options, clients }) {
+async function routePreviewRequest({ request, response, root, options, clients, isOriginAllowed }) {
   const requestUrl = new URL(request.url || '/', `http://${request.headers.host || '127.0.0.1'}`);
   const compactPath = requestUrl.pathname.split('/').filter(Boolean).join('/');
   const pathname = compactPath ? `/${compactPath}` : '/';
@@ -325,6 +352,10 @@ async function routePreviewRequest({ request, response, root, options, clients }
   }
 
   if (request.method === 'POST' && pathname === '/__agent-isles/writeback' && options.writeback === true) {
+    if (isOriginAllowed && !isOriginAllowed(request)) {
+      sendJson(response, 403, { ok: false, error: { message: 'Writeback rejected: cross-origin request.' } });
+      return;
+    }
     await handleWritebackRequest({ request, response, root });
     return;
   }
