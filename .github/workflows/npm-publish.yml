@@ -1,0 +1,141 @@
+name: Publish npm package on merge
+
+"on":
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run everything but publish with --dry-run and skip tag/release"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write   # push version-bump commit + tag, create GitHub Release
+  id-token: write   # npm trusted publishing (OIDC) + provenance attestation
+
+# Serialize publishes. A second merge while one is running queues; a third
+# supersedes the queued one. Each run re-derives the version from the
+# registry at start, so superseded runs lose nothing.
+concurrency:
+  group: npm-publish-main
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Test, version, publish
+    runs-on: ubuntu-latest
+    # Belt-and-suspenders: GITHUB_TOKEN pushes never trigger workflows, but if
+    # the bump push is ever switched to a PAT this guard still stops the loop.
+    if: ${{ !startsWith(github.event.head_commit.message, 'chore(release):') }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      # Trusted publishing (OIDC) requires npm CLI >= 11.5.1; Node 20 ships 10.x.
+      - name: Upgrade npm for trusted publishing
+        run: npm install -g npm@latest
+
+      - name: Install dependencies
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run tests
+        run: npm test
+
+      - name: Render demo smoke test
+        run: npm run render -- --out dist/demo.html --assets local
+
+      - name: Compute next version from registry
+        id: version
+        run: |
+          set -euo pipefail
+          PKG_NAME="$(node -p "require('./package.json').name")"
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          NEXT_TAG="$(npm view "${PKG_NAME}@next"   version 2>/dev/null || echo "")"
+          LATEST_TAG="$(npm view "${PKG_NAME}@latest" version 2>/dev/null || echo "")"
+
+          # Highest version already on the registry (next or latest channel).
+          PUBLISHED="$(npx --yes semver ${NEXT_TAG:+"$NEXT_TAG"} ${LATEST_TAG:+"$LATEST_TAG"} | tail -n1 || echo "")"
+
+          if [ -z "$PUBLISHED" ]; then
+            # Nothing published yet: publish package.json as-is.
+            NEXT_VERSION="$PKG_VERSION"
+          elif [ "$PKG_VERSION" != "$PUBLISHED" ] && \
+               [ "$(npx --yes semver "$PKG_VERSION" "$PUBLISHED" | tail -n1)" = "$PKG_VERSION" ]; then
+            # package.json was manually bumped AHEAD of the registry
+            # (e.g. 0.2.0-alpha.0, or a stable 0.1.0 for graduation): honor it.
+            NEXT_VERSION="$PKG_VERSION"
+          else
+            # Normal case: increment the alpha counter on the published version.
+            NEXT_VERSION="$(npx --yes semver -i prerelease --preid alpha "$PUBLISHED")"
+          fi
+
+          # Final guard (mirrors the old npm-release.yml check): never overwrite.
+          if npm view "${PKG_NAME}@${NEXT_VERSION}" version >/dev/null 2>&1; then
+            echo "::error::${PKG_NAME}@${NEXT_VERSION} is already published"; exit 1
+          fi
+
+          # Prerelease -> next, stable -> latest (same split as npm-release.yml).
+          case "$NEXT_VERSION" in
+            *-*) DIST_TAG="next" ;;
+            *)   DIST_TAG="latest" ;;
+          esac
+
+          echo "version=${NEXT_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "dist_tag=${DIST_TAG}"    >> "$GITHUB_OUTPUT"
+          echo "Publishing ${PKG_NAME}@${NEXT_VERSION} to dist-tag ${DIST_TAG}"
+
+      - name: Apply version to package.json
+        run: npm version "${{ steps.version.outputs.version }}" --no-git-tag-version
+
+      - name: Verify package contents
+        run: npm run pack:dry-run
+
+      # No NODE_AUTH_TOKEN: auth is via OIDC trusted publishing. Configure the
+      # Trusted Publisher on npmjs.com (package agent-isles -> Settings ->
+      # Trusted Publisher: GitHub Actions, repo zpyoung/agent-isles, workflow
+      # npm-publish.yml). Provenance is attached automatically.
+      - name: Publish to npm
+        env:
+          DRY_RUN: ${{ inputs.dry_run && '--dry-run' || '' }}
+        run: npm publish --access public --tag "${{ steps.version.outputs.dist_tag }}" --provenance $DRY_RUN
+
+      - name: Commit version bump and tag (best effort)
+        if: ${{ !inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.version }}"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          git commit -m "chore(release): v${VERSION} [skip ci]"
+          git tag "v${VERSION}"
+          if ! git push origin "HEAD:main" "v${VERSION}"; then
+            echo "::warning::Could not push bump commit/tag (branch protection or a \
+          newer merge). Safe to ignore: the next run derives its version from the registry."
+          fi
+
+      - name: Create GitHub release
+        if: ${{ !inputs.dry_run }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          PRERELEASE_FLAG=""
+          case "$VERSION" in *-*) PRERELEASE_FLAG="--prerelease" ;; esac
+          gh release create "v${VERSION}" --generate-notes $PRERELEASE_FLAG \
+            --title "v${VERSION}"

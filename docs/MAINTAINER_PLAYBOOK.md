@@ -141,10 +141,18 @@ Autonomous:
 - wiki/docs updates,
 - local tests/builds.
 
+Automated (no approval needed):
+
+- alpha/`next` npm publishes — every merge to `main` auto-publishes an
+  incremented `0.1.0-alpha.N` to the `next` dist-tag via
+  `.github/workflows/npm-publish.yml`, with a matching `vX` tag + GitHub
+  prerelease. The registry is the version source of truth.
+
 Ask Zach first:
 
-- npm publish,
-- creating a GitHub release,
+- graduating to a stable/`latest` release (requires a deliberate PR that sets a
+  non-prerelease `version` in `package.json`),
+- publishing outside the merge automation (manual `npm publish`),
 - deleting public planning artifacts,
 - force-pushing shared branches,
 - destructive repository settings changes.
