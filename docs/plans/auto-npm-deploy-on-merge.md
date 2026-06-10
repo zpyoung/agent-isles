@@ -41,11 +41,11 @@ name: Publish npm package on merge
 
 permissions:
   contents: write   # push version-bump commit + tag, create GitHub Release
-  id-token: write   # npm --provenance attestation
+  id-token: write   # npm trusted publishing (OIDC) + provenance attestation
 
-# Serialize publishes. A second merge while one is running queues; a third
-# supersedes the queued one. Each run re-derives the version from the
-# registry at start, so superseded runs lose nothing.
+# Serialize publishes. With cancel-in-progress disabled, merges queue instead
+# of cancelling one another; each run re-derives the version from the registry
+# at start, so queued runs publish the next free version.
 concurrency:
   group: npm-publish-main
   cancel-in-progress: false
@@ -56,7 +56,7 @@ jobs:
     runs-on: ubuntu-latest
     # Belt-and-suspenders: GITHUB_TOKEN pushes never trigger workflows, but if
     # the bump push is ever switched to a PAT this guard still stops the loop.
-    if: ${{ !startsWith(github.event.head_commit.message, 'chore(release):') }}
+    if: ${{ github.event_name != 'push' || !startsWith(github.event.head_commit.message || '', 'chore(release):') }}
 
     steps:
       - name: Check out repository
@@ -68,6 +68,10 @@ jobs:
           node-version: 20
           cache: npm
           registry-url: https://registry.npmjs.org
+
+      # Trusted publishing (OIDC) requires npm CLI >= 11.5.1; Node 20 ships 10.x.
+      - name: Upgrade npm for trusted publishing
+        run: npm install -g npm@latest
 
       - name: Install dependencies
         env:
@@ -129,14 +133,17 @@ jobs:
       - name: Verify package contents
         run: npm run pack:dry-run
 
+      # No NODE_AUTH_TOKEN: auth is via OIDC trusted publishing. Configure the
+      # Trusted Publisher on npmjs.com (package agent-isles -> Settings ->
+      # Trusted Publisher: GitHub Actions, repo zpyoung/agent-isles, workflow
+      # npm-publish.yml). Provenance is attached automatically.
       - name: Publish to npm
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          DRY_RUN: ${{ inputs.dry_run && '--dry-run' || '' }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
         run: npm publish --access public --tag "${{ steps.version.outputs.dist_tag }}" --provenance $DRY_RUN
 
       - name: Commit version bump and tag (best effort)
-        if: ${{ !inputs.dry_run }}
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.dry_run != 'true' }}
         run: |
           set -euo pipefail
           VERSION="${{ steps.version.outputs.version }}"
@@ -151,7 +158,7 @@ jobs:
           fi
 
       - name: Create GitHub release
-        if: ${{ !inputs.dry_run }}
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.dry_run != 'true' }}
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
@@ -167,14 +174,14 @@ jobs:
 
 - **Version determination**: derived from `npm view <pkg>@next` / `@latest` at run time, with `npx semver` doing the comparison and `-i prerelease --preid alpha` doing the bump. The repo's `package.json` version only matters when it is *ahead* of the registry (manual minor bump or stable graduation) — then it is published verbatim.
 - **No infinite loop**, three independent layers: (1) pushes made with the default `GITHUB_TOKEN` never trigger new workflow runs (GitHub platform rule); (2) `[skip ci]` in the bump commit message; (3) the job-level `if:` guard on `chore(release):` subjects.
-- **Hardening reuse**: identical Playwright pattern as `ci.yml:27-33` and `npm-release.yml:27-33` (`PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` on `npm ci`, then `npx playwright install --with-deps chromium` — required because `npm test` runs Playwright browser tests, `package.json:18-20`); render smoke + `pack:dry-run` as in `npm-release.yml:54-61`; already-published guard folded into the compute step; `--provenance` + `id-token: write` as in `npm-release.yml:7-9,63-73`.
+- **Hardening reuse**: identical Playwright pattern as `ci.yml:27-33` and `npm-release.yml:27-33` (`PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` on `npm ci`, then `npx playwright install --with-deps chromium` — required because `npm test` runs Playwright browser tests, `package.json:18-20`); render smoke + `pack:dry-run` as in `npm-release.yml:54-61`; already-published guard folded into the compute step; `--provenance` + `id-token: write` with npm CLI ≥ 11.5.1 for Trusted Publishing.
 - **dist-tag**: prerelease versions → `next`, stable → `latest`, same split as `npm-release.yml:63-73`. `publishConfig` (`package.json:44-47`) keeps `next` as the safe default for any manual publish.
-- **Concurrency**: `group: npm-publish-main`, `cancel-in-progress: false` — runs queue; the registry-derived version means even a superseded queue entry never causes a collision or a skipped number that matters.
+- **Concurrency**: `group: npm-publish-main`, `cancel-in-progress: false` — runs queue instead of cancelling one another; the registry-derived version means each queued run picks the next free version.
 - **Failure handling**: tests/render/pack failures abort before any version or publish side effect. Publish failure leaves the repo untouched (bump commit/tag are pushed only *after* a successful publish) — just re-run. Bump-push failure is a warning, self-heals next run. "Already published" is a hard `exit 1` only in the pathological case (manual out-of-band publish racing the workflow) — fail loudly is correct there.
 
-### Optional variant: npm Trusted Publishing (OIDC) instead of `NPM_TOKEN`
+### Required npm Trusted Publishing (OIDC) setup
 
-npm supports trusted publishing from GitHub Actions (GA since 2025): configure a Trusted Publisher on the package's npmjs.com settings (owner `zpyoung`, repo `agent-isles`, workflow file `npm-publish.yml`), require npm CLI ≥ 11.5.1 in the job (`npm install -g npm@latest` after `setup-node`, since Node 20 bundles npm 10.x), keep `id-token: write`, and **delete** the `NODE_AUTH_TOKEN` env from the publish step. Provenance is then attached automatically and there is no long-lived secret to rotate. Recommended as a fast-follow once the workflow is proven with the token; the YAML above works unchanged apart from those two edits.
+This workflow is tokenless: there is no `NODE_AUTH_TOKEN`/`NPM_TOKEN` secret in the publish step. Before merging, configure a Trusted Publisher on the package's npmjs.com settings: package `agent-isles`, provider GitHub Actions, owner `zpyoung`, repo `agent-isles`, workflow file `npm-publish.yml`. The workflow declares `id-token: write` and upgrades to npm CLI ≥ 11.5.1 (`npm install -g npm@latest` after `setup-node`, since Node 20 bundles npm 10.x). Provenance is attached automatically and there is no long-lived npm secret to rotate.
 
 ## 4. Supporting config
 
@@ -186,7 +193,7 @@ None required — that is a deliberate advantage of the recommendation. No `.rel
 
 ## 5. Repo setup checklist
 
-- [ ] **`NPM_TOKEN` secret** (already used by `npm-release.yml:66`): confirm it is a **granular automation token** with publish scope limited to `agent-isles`, 2FA-bypass for automation, and note its expiry date (granular tokens expire — set a calendar reminder or move to Trusted Publishing, §3 variant, which eliminates it).
+- [ ] **npm Trusted Publisher**: in npmjs.com package settings for `agent-isles`, add GitHub Actions trusted publishing for owner `zpyoung`, repo `agent-isles`, workflow file `npm-publish.yml`; confirm the package owner/account has permission to publish via that trusted publisher. No `NPM_TOKEN` repository secret is required.
 - [ ] **Actions workflow permissions**: the workflow declares `permissions: contents: write` explicitly, which works regardless of the repo-level default. If the repo/org setting "Workflow permissions" is pinned to *read-only with no per-workflow elevation* (rare), relax it.
 - [ ] **Branch protection / rulesets on `main`**: if "require a pull request" is enforced with no bypass, the bump commit push will fail (the workflow tolerates this — see warning path — but `package.json` on `main` will drift behind the registry). To keep them in sync, add a ruleset bypass for the `github-actions` app, or accept the drift (the registry is the source of truth either way).
 - [ ] **Repo must remain public** for `--provenance` to succeed with the free npm tier.
@@ -221,7 +228,7 @@ Delete `.github/workflows/npm-release.yml`. Rationale:
 | **Two rapid merges double-publish / collide** | `concurrency` group serializes runs; version is computed from the registry at run start, so the queued run always picks the next free number. The final already-published `exit 1` guard catches any out-of-band race. |
 | **Bump push rejected (branch protection / newer merge)** | Push is explicitly best-effort with a `::warning`; correctness is unaffected because the registry, not `package.json`, drives versioning. Add a ruleset bypass for the Actions app if the drift is annoying. |
 | **Provenance failure** (`--provenance` errors if OIDC token unavailable or repo visibility changes) | `id-token: write` is declared at workflow level; repo must stay public. If a provenance outage ever blocks an urgent publish, re-run via `workflow_dispatch` after temporarily removing the flag — never remove it permanently. |
-| **`NPM_TOKEN` expiry/revocation** (granular tokens expire) | Publish step fails cleanly with E401 before any git side effects; rotate the secret, re-run. Better: adopt Trusted Publishing (§3 variant) and delete the secret. |
+| **Trusted Publisher misconfiguration / OIDC auth failure** | Publish step fails cleanly before any git side effects. Fix the npm Trusted Publisher package settings (owner/repo/workflow filename) or GitHub `id-token: write` permission, then re-run. |
 | **Every merge publishes — including docs-only churn** | By design (the stated requirement). If `next` gets noisy, add `paths-ignore: ["docs/**", "**/*.md"]` to the `push` trigger — note this trades away "every merge". |
 | **Alpha→stable graduation mistakes** (accidental stable publish) | A stable version can only reach `latest` via an explicit human-authored `package.json` edit in a reviewed PR — the automation can never *invent* a stable version (`semver -i prerelease` always yields a prerelease). Matches the playbook's "Ask Zach first" boundary in spirit. |
 | **`latest` currently points at the alpha** (`0.1.0-alpha.0`) | Pre-existing registry state, not caused by this plan; first stable publish repoints it. Until then, README/installation docs should keep instructing `npm i agent-isles@next`. |

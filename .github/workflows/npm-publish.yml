@@ -14,9 +14,9 @@ permissions:
   contents: write   # push version-bump commit + tag, create GitHub Release
   id-token: write   # npm trusted publishing (OIDC) + provenance attestation
 
-# Serialize publishes. A second merge while one is running queues; a third
-# supersedes the queued one. Each run re-derives the version from the
-# registry at start, so superseded runs lose nothing.
+# Serialize publishes. With cancel-in-progress disabled, merges queue instead
+# of cancelling one another; each run re-derives the version from the registry
+# at start, so queued runs publish the next free version.
 concurrency:
   group: npm-publish-main
   cancel-in-progress: false
@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     # Belt-and-suspenders: GITHUB_TOKEN pushes never trigger workflows, but if
     # the bump push is ever switched to a PAT this guard still stops the loop.
-    if: ${{ !startsWith(github.event.head_commit.message, 'chore(release):') }}
+    if: ${{ github.event_name != 'push' || !startsWith(github.event.head_commit.message || '', 'chore(release):') }}
 
     steps:
       - name: Check out repository
@@ -110,11 +110,11 @@ jobs:
       # npm-publish.yml). Provenance is attached automatically.
       - name: Publish to npm
         env:
-          DRY_RUN: ${{ inputs.dry_run && '--dry-run' || '' }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
         run: npm publish --access public --tag "${{ steps.version.outputs.dist_tag }}" --provenance $DRY_RUN
 
       - name: Commit version bump and tag (best effort)
-        if: ${{ !inputs.dry_run }}
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.dry_run != 'true' }}
         run: |
           set -euo pipefail
           VERSION="${{ steps.version.outputs.version }}"
@@ -129,7 +129,7 @@ jobs:
           fi
 
       - name: Create GitHub release
-        if: ${{ !inputs.dry_run }}
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.dry_run != 'true' }}
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
