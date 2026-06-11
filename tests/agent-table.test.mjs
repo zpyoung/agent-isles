@@ -1,5 +1,7 @@
 // tests/agent-table.test.mjs — follows tests/agent-flow.test.mjs conventions.
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import test, { mock } from 'node:test';
 
 const FENCED = '\n```agent-table\ntitle: Launch readiness\ncolumns: task:text | status:status | effort:number | spec:url\nsort: effort desc\n---\n| Task | Status | Effort | Spec |\n| - | - | - | - |\n| Writeback API | at-risk | 5 | javascript:alert(1) |\n| Renderer slice | done | 3 | https://github.com/x/pull/138 |\n```\n';
@@ -86,4 +88,21 @@ test('fence position is copied onto <agent-table> and survives rehype-raw (write
     .use(rehypeAgentTable).use(rehypeRaw).use(capture);
   await processor.run(processor.parse(md));
   assert.ok(position?.start?.offset >= 0 && position?.end?.offset > position.start.offset);
+});
+
+test('agent-table component enhances in light DOM and injects controls at runtime only', () => {
+  const source = readFileSync(resolve('src/components/agent-table.js'), 'utf8');
+  assert.match(source, /createRenderRoot\(\)\s*{\s*return this;?\s*}/);  // light DOM, deliberate divergence
+  assert.match(source, /aria-sort/);
+  assert.match(source, /aria-expanded/);
+  assert.doesNotMatch(source, /<details/);                 // group-by must NOT use details/summary
+  assert.match(source, /tbody/i);                          // multi-tbody lanes
+  assert.match(source, /data-sortval/);
+});
+
+test('component bundle registers agent-table; theme-toggle propagation list is untouched', () => {
+  const bundle = readFileSync(resolve('dist/agent-components.js'), 'utf8');
+  assert.match(bundle, /customElements\.define\(["']agent-table["']/);
+  const toggle = readFileSync(resolve('src/components/agent-theme-toggle.js'), 'utf8');
+  assert.doesNotMatch(toggle, /'agent-table'/);            // light DOM inherits the document theme
 });
