@@ -106,3 +106,13 @@ test('component bundle registers agent-table; theme-toggle propagation list is u
   const toggle = readFileSync(resolve('src/components/agent-theme-toggle.js'), 'utf8');
   assert.doesNotMatch(toggle, /'agent-table'/);            // light DOM inherits the document theme
 });
+
+test('theme ships agent-table styles with caption-side override and dark-mode tokens', () => {
+  const css = readFileSync(resolve('src/theme/agent-theme.css'), 'utf8');
+  assert.match(css, /agent-table caption\s*{[^}]*caption-side:\s*top/); // beats Bootstrap reboot's bottom
+  assert.match(css, /\.agent-table-scroll/);
+  assert.match(css, /\.agent-table-pill--green/);
+  assert.match(css, /position:\s*sticky/);                              // sticky first column
+  assert.match(css, /\[data-bs-theme="dark"\][^{]*agent-table/);        // document-level dark selectors
+  assert.match(css, /agent-table\[density="compact"\]/);
+});
