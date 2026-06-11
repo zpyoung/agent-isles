@@ -88,6 +88,90 @@ mode: viewer
   </div>
 </div>
 
+### Data table
+
+Use a fenced `agent-table` block when agent-authored tabular data needs typed columns, status pills, in-browser sort or group-by, and stable per-row citation ids — while keeping the source readable, git-diffable, and fully accessible with no JavaScript.
+
+<div class="agent-component-example my-4" data-agent-components="agent-table">
+  <h4 class="h5 mb-3">Data table</h4>
+  <div class="row g-4 align-items-stretch">
+    <div class="col-12 col-lg-6">
+      <div class="agent-component-pane agent-component-rendered border rounded p-3 bg-light h-100">
+        <p class="text-uppercase text-primary fw-bold small mb-3">Rendered output</p>
+
+```agent-table
+title: Launch readiness
+columns: task:text | owner:text | phase:select | status:status | effort:number | due:date | spec:url | approved:boolean | tags:multi-select
+sort: effort desc
+group-by: status
+---
+| Task | Owner | Phase | Status | Effort | Due | Spec | Approved | Tags |
+| - | - | - | - | - | - | - | - | - |
+| Renderer pipeline | Merlin | build | done | 8 | 2026-06-01 | https://github.com/zpyoung/agent-isles/pull/138 | true | core,pipeline |
+| Writeback API | Zach | ship | at-risk | 5 | 2026-06-15 | ./docs/writeback-contract.md | false | api,writeback |
+| Dark mode CSS | Merlin | build | blocked | 3 | 2026-06-20 | https://github.com/zpyoung/agent-isles/issues/136 | false | theme |
+```
+
+      </div>
+    </div>
+    <div class="col-12 col-lg-6">
+      <div class="agent-component-pane agent-component-source-card border rounded p-3 h-100">
+        <p class="text-uppercase text-info fw-bold small mb-3">Source Markdown</p>
+        <pre class="agent-component-source mb-0"><code>&#96;&#96;&#96;agent-table
+title: Launch readiness
+columns: task:text | owner:text | phase:select | status:status | effort:number | due:date | spec:url | approved:boolean | tags:multi-select
+sort: effort desc
+group-by: status
+---
+| Task | Owner | Phase | Status | Effort | Due | Spec | Approved | Tags |
+| - | - | - | - | - | - | - | - | - |
+| Renderer pipeline | Merlin | build | done | 8 | 2026-06-01 | https://github.com/zpyoung/agent-isles/pull/138 | true | core,pipeline |
+| Writeback API | Zach | ship | at-risk | 5 | 2026-06-15 | ./docs/writeback-contract.md | false | api,writeback |
+| Dark mode CSS | Merlin | build | blocked | 3 | 2026-06-20 | https://github.com/zpyoung/agent-isles/issues/136 | false | theme |
+&#96;&#96;&#96;</code></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+A second, minimal table demonstrates that `data-row-id` prefixes (`t1-`, `t2-`, …) are unique in the server-emitted HTML even when multiple tables appear on the same page:
+
+<div class="agent-component-example my-4" data-agent-components="agent-table">
+  <h4 class="h5 mb-3">Data table — multi-table id uniqueness</h4>
+  <div class="row g-4 align-items-stretch">
+    <div class="col-12 col-lg-6">
+      <div class="agent-component-pane agent-component-rendered border rounded p-3 bg-light h-100">
+        <p class="text-uppercase text-primary fw-bold small mb-3">Rendered output</p>
+
+```agent-table
+title: Reading list
+columns: title:text | url:url | read:boolean
+---
+| Title | URL | Read |
+| - | - | - |
+| Rehype guide | https://github.com/rehypejs/rehype | true |
+| Lit elements | https://lit.dev/docs/ | false |
+```
+
+      </div>
+    </div>
+    <div class="col-12 col-lg-6">
+      <div class="agent-component-pane agent-component-source-card border rounded p-3 h-100">
+        <p class="text-uppercase text-info fw-bold small mb-3">Source Markdown</p>
+        <pre class="agent-component-source mb-0"><code>&#96;&#96;&#96;agent-table
+title: Reading list
+columns: title:text | url:url | read:boolean
+---
+| Title | URL | Read |
+| - | - | - |
+| Rehype guide | https://github.com/rehypejs/rehype | true |
+| Lit elements | https://lit.dev/docs/ | false |
+&#96;&#96;&#96;</code></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
 ### Theme toggle
 
 Use `<agent-theme-toggle>` to let readers switch the entire rendered report between light and dark Bootstrap color modes. The toggle updates the document theme and propagates it to every built-in `<agent-*>` island, including nested tabs, timeline steps, Gantt phases/tasks, status items, actions, and Kanban lanes/cards.

@@ -116,3 +116,14 @@ test('theme ships agent-table styles with caption-side override and dark-mode to
   assert.match(css, /\[data-bs-theme="dark"\][^{]*agent-table/);        // document-level dark selectors
   assert.match(css, /agent-table\[density="compact"\]/);
 });
+
+test('demo documents agent-table and renders it through the full pipeline', async () => {
+  const { renderMarkdownFile } = await import('../src/render.mjs');
+  const demoSource = readFileSync(resolve('examples/demo.md'), 'utf8');
+  assert.match(demoSource, /data-agent-components="agent-table"/);
+  assert.match(demoSource, /```agent-table\ntitle: Launch readiness/);
+  const { html } = await renderMarkdownFile(resolve('examples/demo.md'));
+  assert.match(html, /<agent-table[^>]*title="Launch readiness"/);
+  assert.match(html, /data-row-id="t1-r/);
+  assert.match(html, /data-row-id="t2-r/);   // second table proves server-side id uniqueness
+});
