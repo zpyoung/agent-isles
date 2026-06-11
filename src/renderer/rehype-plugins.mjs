@@ -1,5 +1,6 @@
 import { D2 } from '@terrastruct/d2';
 import { createSourceVersion, sourcePathForWriteback, WRITEBACK_CONTRACT_VERSION } from '../writeback.mjs';
+import { parseAgentTable } from './agent-table.mjs';
 
 export function rehypeAgentMermaid() {
   return (tree) => {
@@ -47,6 +48,44 @@ export function rehypeAgentFlow() {
   return (tree) => {
     transformAgentFlowCodeBlocks(tree);
   };
+}
+
+export function rehypeAgentTable(options = {}) {
+  const warn = options.warn ?? console.warn;
+  return (tree) => {
+    let tableIndex = 0;
+    transformAgentTableCodeBlocks(tree, { warn, counter: () => ++tableIndex });
+  };
+}
+
+function transformAgentTableCodeBlocks(node, context) {
+  if (!Array.isArray(node.children)) {
+    return;
+  }
+
+  for (let index = 0; index < node.children.length; index += 1) {
+    const child = node.children[index];
+    const tableCode = extractLanguageCodeBlock(child, 'agent-table');
+
+    if (tableCode) {
+      const tableIndex = context.counter();
+      const result = parseAgentTable(tableCode.value, { tableIndex });
+
+      for (const message of result.warnings) {
+        context.warn(`[agent-isles] agent-table: ${message}`);
+      }
+
+      if (result.ok) {
+        const replacement = result.node;
+        replacement.position = child.position;
+        node.children[index] = replacement;
+      }
+
+      continue;
+    }
+
+    transformAgentTableCodeBlocks(child, context);
+  }
 }
 
 function transformAgentFlowCodeBlocks(node) {

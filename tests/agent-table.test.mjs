@@ -1,0 +1,68 @@
+// tests/agent-table.test.mjs — follows tests/agent-flow.test.mjs conventions.
+import assert from 'node:assert/strict';
+import test, { mock } from 'node:test';
+
+const FENCED = '\n```agent-table\ntitle: Launch readiness\ncolumns: task:text | status:status | effort:number | spec:url\nsort: effort desc\n---\n| Task | Status | Effort | Spec |\n| - | - | - | - |\n| Writeback API | at-risk | 5 | javascript:alert(1) |\n| Renderer slice | done | 3 | https://github.com/x/pull/138 |\n```\n';
+
+test('agent-table fenced blocks render to a semantic table island', async () => {
+  const { renderMarkdown } = await import('../src/render.mjs');
+  const html = await renderMarkdown(`# Plan\n${FENCED}`);
+  assert.match(html, /<agent-table[^>]*title="Launch readiness"/);
+  assert.match(html, /<caption>Launch readiness<\/caption>/);
+  assert.match(html, /<th scope="col"[^>]*data-key="effort"[^>]*data-type="number"/);
+  assert.match(html, /data-row-id="t1-r1"/);
+  assert.doesNotMatch(html, /<code class="hljs language-agent-table">/);
+  assert.doesNotMatch(html, /<button/);
+});
+
+test('url protocol allowlist is enforced in TRUSTED mode (transform-level, not sanitize)', async () => {
+  const { renderMarkdown } = await import('../src/render.mjs');
+  const html = await renderMarkdown(FENCED); // default mode is trusted — sanitize never runs
+  assert.doesNotMatch(html, /href="javascript:/i);
+  assert.match(html, /javascript:alert\(1\)/);          // inert text survives
+  assert.match(html, /href="https:\/\/github.com\/x\/pull\/138"/);
+});
+
+test('multiple tables get unique server-emitted row-id prefixes', async () => {
+  const { renderMarkdown } = await import('../src/render.mjs');
+  const html = await renderMarkdown(`${FENCED}\n${FENCED}`);
+  assert.match(html, /data-row-id="t1-r1"/);
+  assert.match(html, /data-row-id="t2-r1"/);
+});
+
+test('malformed block falls back to a plain code fence and warns (never crashes)', async () => {
+  const { renderMarkdown } = await import('../src/render.mjs');
+  const warn = mock.method(console, 'warn', () => {});
+  try {
+    const html = await renderMarkdown('```agent-table\ncolumns: a:text\n| no delimiter |\n```\n');
+    assert.match(html, /language-agent-table/);          // left as a code fence
+    assert.doesNotMatch(html, /<agent-table/);
+    assert.equal(warn.mock.calls.length >= 1, true);
+    assert.match(String(warn.mock.calls[0].arguments[0]), /\[agent-isles\] agent-table/);
+  } finally {
+    warn.mock.restore();
+  }
+});
+
+test('fence position is copied onto <agent-table> and survives rehype-raw (writeback-readiness)', async () => {
+  const { unified } = await import('unified');
+  const remarkParse = (await import('remark-parse')).default;
+  const remarkGfm = (await import('remark-gfm')).default;
+  const remarkRehype = (await import('remark-rehype')).default;
+  const rehypeRaw = (await import('rehype-raw')).default;
+  const { rehypeAgentTable } = await import('../src/renderer/rehype-plugins.mjs');
+
+  let position = null;
+  const capture = () => (tree) => {
+    (function find(n) {
+      if (n.tagName === 'agent-table') position = n.position;
+      (n.children || []).forEach(find);
+    })(tree);
+  };
+  const md = `before\n\n${FENCED}`;
+  const processor = unified().use(remarkParse).use(remarkGfm)
+    .use(remarkRehype, { allowDangerousHtml: true })
+    .use(rehypeAgentTable).use(rehypeRaw).use(capture);
+  await processor.run(processor.parse(md));
+  assert.ok(position?.start?.offset >= 0 && position?.end?.offset > position.start.offset);
+});

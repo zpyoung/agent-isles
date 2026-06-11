@@ -21,6 +21,7 @@ import { buildSanitizedSchema, dropUnsafeRawHtmlElements } from './renderer/sani
 import {
   rehypeAgentD2,
   rehypeAgentFlow,
+  rehypeAgentTable,
   rehypeAgentHeadingAnchors,
   rehypeAgentMermaid,
   rehypeAgentWritebackMetadata,
@@ -59,6 +60,7 @@ export async function renderMarkdown(markdown, options = {}) {
     .use(rehypeAgentMermaid)
     .use(rehypeAgentD2)
     .use(rehypeAgentFlow)
+    .use(rehypeAgentTable)
     .use(rehypeRaw)
     .use(rehypeAgentWritebackMetadata, {
       ...options,
