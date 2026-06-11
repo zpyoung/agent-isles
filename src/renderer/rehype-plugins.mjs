@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process';
 import { D2 } from '@terrastruct/d2';
 import { createSourceVersion, sourcePathForWriteback, WRITEBACK_CONTRACT_VERSION } from '../writeback.mjs';
 
@@ -163,19 +164,80 @@ function extractLanguageCodeBlock(node, language) {
   };
 }
 
+// The WASM engine peaks at ~6.5GB RSS per instantiation regardless of diagram
+// size, so renders are cached by source, the native `d2` binary is preferred
+// when on PATH, and WASM work is serialized so at most one engine is alive.
+const D2_SVG_CACHE_LIMIT = 64;
+const d2SvgCache = new Map();
+let d2WasmQueue = Promise.resolve();
+
 async function renderD2Svg(source, position) {
-  const d2 = new D2();
+  let pending = d2SvgCache.get(source);
+  if (!pending) {
+    pending = renderD2SvgUncached(source);
+    d2SvgCache.set(source, pending);
+    pending.catch(() => d2SvgCache.delete(source));
+    if (d2SvgCache.size > D2_SVG_CACHE_LIMIT) {
+      d2SvgCache.delete(d2SvgCache.keys().next().value);
+    }
+  }
 
   try {
-    const result = await d2.compile(source, { noXMLTag: true });
-    return await d2.render(result.diagram, { ...result.renderOptions, noXMLTag: true });
+    return await pending;
   } catch (error) {
     const location = formatPosition(position);
     const message = error?.message || String(error);
     throw new Error(`D2 diagram render failed${location}: ${message}`);
-  } finally {
-    await d2.worker?.terminate?.();
   }
+}
+
+async function renderD2SvgUncached(source) {
+  const nativeSvg = await renderD2WithNativeBinary(source);
+  if (nativeSvg !== null) {
+    return nativeSvg;
+  }
+  return renderD2WithWasmEngine(source);
+}
+
+function renderD2WithNativeBinary(source) {
+  return new Promise((resolvePromise, rejectPromise) => {
+    const child = spawn('d2', ['-', '-'], { stdio: ['pipe', 'pipe', 'pipe'] });
+    let svg = '';
+    let stderr = '';
+    child.stdout.on('data', (chunk) => { svg += chunk; });
+    child.stderr.on('data', (chunk) => { stderr += chunk; });
+    child.on('error', (error) => {
+      if (error.code === 'ENOENT') {
+        resolvePromise(null);
+      } else {
+        rejectPromise(error);
+      }
+    });
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolvePromise(svg.replace(/^\s*<\?xml[^>]*\?>\s*/i, ''));
+      } else {
+        rejectPromise(new Error(stderr.trim() || `d2 exited with code ${code}`));
+      }
+    });
+    child.stdin.on('error', () => {});
+    child.stdin.end(source);
+  });
+}
+
+function renderD2WithWasmEngine(source) {
+  const task = async () => {
+    const d2 = new D2();
+    try {
+      const result = await d2.compile(source, { noXMLTag: true });
+      return await d2.render(result.diagram, { ...result.renderOptions, noXMLTag: true });
+    } finally {
+      await d2.worker?.terminate?.();
+    }
+  };
+  const run = d2WasmQueue.then(task, task);
+  d2WasmQueue = run.then(() => undefined, () => undefined);
+  return run;
 }
 
 function formatPosition(position) {
