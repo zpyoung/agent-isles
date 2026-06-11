@@ -44,6 +44,27 @@ test('malformed block falls back to a plain code fence and warns (never crashes)
   }
 });
 
+test('sanitized mode preserves the agent-table subtree, caption, host attrs, and data-row-id', async () => {
+  const { renderMarkdown } = await import('../src/render.mjs');
+  const grouped = FENCED.replace('sort: effort desc', 'sort: effort desc\ngroup-by: status\ndensity: compact');
+  const html = await renderMarkdown(grouped, { renderMode: 'sanitized' });
+  assert.match(html, /<agent-table[^>]*group-by="status"/);
+  assert.match(html, /density="compact"/);
+  assert.match(html, /<caption>Launch readiness<\/caption>/);     // caption allowlisted
+  assert.match(html, /<table>[\s\S]*<thead>[\s\S]*<tbody>/);
+  assert.match(html, /data-row-id="t1-r1"/);                       // NOT user-content- clobbered
+  assert.doesNotMatch(html, /user-content-/);
+  assert.match(html, /data-sortval/);
+});
+
+test('sanitized mode still suppresses disallowed url protocols and strips active HTML', async () => {
+  const { renderMarkdown } = await import('../src/render.mjs');
+  const html = await renderMarkdown(FENCED, { renderMode: 'sanitized' });
+  assert.doesNotMatch(html, /href="javascript:/i);
+  assert.doesNotMatch(html, /<script>/i);
+  assert.doesNotMatch(html, /<button/);                            // buttons are JS-injected only
+});
+
 test('fence position is copied onto <agent-table> and survives rehype-raw (writeback-readiness)', async () => {
   const { unified } = await import('unified');
   const remarkParse = (await import('remark-parse')).default;
