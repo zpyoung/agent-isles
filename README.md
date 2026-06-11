@@ -435,11 +435,12 @@ server -> user: response
 ```
 ````
 
-D2 diagrams are rendered at build time to SVG and embedded in the generated HTML. The D2 library (`@terrastruct/d2`) is bundled with Agent Isles under the MPL-2.0 license.
+D2 diagrams are rendered at build time to SVG and embedded in the generated HTML. When a native `d2` binary is on `PATH` (for example via `brew install d2`), Agent Isles uses it — it is dramatically faster and lighter. Otherwise rendering falls back to the bundled WASM engine (`@terrastruct/d2`, MPL-2.0), which needs no external tooling but peaks at several GB of memory per render.
 
 **Features:**
 - Build-time SVG generation for deterministic output
-- No client-side rendering or external D2 binary required
+- Native `d2` binary used when available; bundled WASM fallback means no external D2 binary is required
+- Rendered SVG is cached per process, so repeated renders of an unchanged diagram are free
 - Works in both trusted and sanitized render modes
 - SVG output is fully accessible and inspectable
 
