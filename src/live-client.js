@@ -2,8 +2,15 @@
 // forwards selection signals over WebSocket.
 export const LIVE_CLIENT = `
 (function () {
+  var wasConnected = false;
   var es = new EventSource('/events');
   es.addEventListener('live:reload', function () { window.location.reload(); });
+  es.addEventListener('open', function () {
+    // A reconnect after a drop means the server restarted (e.g. pnpm dev) — reload to pick up new code.
+    if (wasConnected) { window.location.reload(); }
+    wasConnected = true;
+  });
+  es.addEventListener('error', function () { /* EventSource auto-reconnects; 'open' handles reload */ });
 
   var signalSocket = null;
   var pendingSignals = [];
