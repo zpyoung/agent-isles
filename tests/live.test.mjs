@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { startLiveServer, resolveNewestScreen, eventsFile } from '../src/live.mjs';
+import { startLiveServer, resolveNewestScreen, eventsFile, injectLiveFrame } from '../src/live.mjs';
 
 async function waitFor(fn, timeoutMs = 4000, stepMs = 50) {
   const start = Date.now();
@@ -175,6 +175,36 @@ test('writing a new screen clears prior events and broadcasts; server-info is wr
     writeFileSync(join(dir, 'screen-2.md'), '# Two'); // newer screen
     assert.ok(await waitFor(() => !existsSync(join(dir, 'state', 'events'))), 'events cleared when newest screen changed');
   } finally { await server.close(); }
+});
+
+test('injectLiveFrame inserts before the real </body>, not a </body> literal inside an inlined script', () => {
+  // Inlined bundles (e.g. mermaid's DOMPurify iframe srcdoc template) contain
+  // literal structural tags as JS string contents. The live frame must target
+  // the real document tags, not the first textual match inside a <script>.
+  const script = '<script>/*mermaid*/ var s = "<head></head><body>"+x+"</body></html>"; foo();</script>';
+  const page = `<!doctype html><html><head><title>t</title></head><body><h1>Doc</h1>${script}</body></html>`;
+
+  const out = injectLiveFrame(page);
+
+  // The inlined script must survive intact — nothing spliced into its body.
+  assert.ok(out.includes(script), 'inlined script was corrupted by injection');
+  // The live client/bar must land after the script closes, not inside it.
+  assert.ok(
+    out.indexOf('id="isles-bar"') > out.lastIndexOf('foo();</script>'),
+    'live bar/client was inserted before the inlined script closed',
+  );
+});
+
+test('injectLiveFrame finds </body> without lowercasing index drift', () => {
+  const page = '<!doctype html><html><head><title>t</title></head><body><p>İ</p></body></html>';
+
+  const out = injectLiveFrame(page);
+
+  assert.ok(
+    out.includes('<p>İ</p><div id="isles-bar"'),
+    'live frame was inserted at a drifted offset after Unicode case mapping',
+  );
+  assert.ok(out.includes('</body></html>'), 'closing body tag was corrupted');
 });
 
 test('close writes server-stopped and removes server-info', async () => {

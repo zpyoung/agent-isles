@@ -140,10 +140,10 @@ test('directory preview provides reading controls and rendered table of contents
     await expect(previewFrame.getByRole('link', { name: 'Readable Width' })).toHaveAttribute('href', '#readable-width');
 
     const pageMetrics = previewFrame.locator('.agent-isles-page');
-    await expect(pageMetrics).toHaveCSS('max-width', '960px');
+    await expect(pageMetrics).toHaveCSS('max-width', '1240px');
 
     await page.getByRole('button', { name: 'Wide width' }).click();
-    await expect(pageMetrics).toHaveCSS('max-width', '1200px');
+    await expect(pageMetrics).toHaveCSS('max-width', '1480px');
 
     await page.getByRole('button', { name: 'Large text' }).click();
     await expect(pageMetrics).toHaveCSS('font-size', '18px');

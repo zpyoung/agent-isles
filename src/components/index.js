@@ -16,3 +16,4 @@ export * from './agent-kanban.js';
 export * from './agent-option-set.js';
 export * from './agent-choice.js';
 export * from './agent-flow.js';
+export * from './agent-proceed.js';
