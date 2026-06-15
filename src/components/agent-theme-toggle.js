@@ -11,6 +11,7 @@ const AGENT_COMPONENT_TAGS = [
   'agent-theme-toggle',
   'agent-dependency-map',
   'agent-dependency',
+  'agent-flow',
   'agent-tabs',
   'agent-tab',
   'agent-timeline',

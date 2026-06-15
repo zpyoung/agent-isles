@@ -61,6 +61,9 @@ export const LIVE_CLIENT = `
     }).catch(function () {});
   }
 
+  // Reconnect-after-drop means the server restarted (e.g. pnpm dev) — reload to
+  // pick up new code. Set on first 'open', acted on for subsequent reconnects.
+  var wasConnected = false;
   var es = new EventSource('/events');
   es.addEventListener('live:advance', function (e) {
     var slug = parseSlug(e);
@@ -72,6 +75,11 @@ export const LIVE_CLIENT = `
     if (slug == null || cur == null || slug === cur) window.location.reload();
   });
   es.addEventListener('live:screens', function () { refreshSidebar(); });
+  es.addEventListener('open', function () {
+    if (wasConnected) { window.location.reload(); }
+    wasConnected = true;
+  });
+  es.addEventListener('error', function () { /* EventSource auto-reconnects; 'open' handles reload */ });
 
   var signalSocket = null;
   var pendingSignals = [];

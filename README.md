@@ -435,11 +435,12 @@ server -> user: response
 ```
 ````
 
-D2 diagrams are rendered at build time to SVG and embedded in the generated HTML. The D2 library (`@terrastruct/d2`) is bundled with Agent Isles under the MPL-2.0 license.
+D2 diagrams are rendered at build time to SVG and embedded in the generated HTML. When a native `d2` binary is on `PATH` (for example via `brew install d2`), Agent Isles uses it — it is dramatically faster and lighter. Otherwise rendering falls back to the bundled WASM engine (`@terrastruct/d2`, MPL-2.0), which needs no external tooling but peaks at several GB of memory per render.
 
 **Features:**
 - Build-time SVG generation for deterministic output
-- No client-side rendering or external D2 binary required
+- Native `d2` binary used when available; bundled WASM fallback means no external D2 binary is required
+- Rendered SVG is cached per process, so repeated renders of an unchanged diagram are free
 - Works in both trusted and sanitized render modes
 - SVG output is fully accessible and inspectable
 
@@ -519,3 +520,18 @@ npm run build
 npm test
 npm run render -- --out dist/demo.html
 ```
+
+## Development: `pnpm dev` (hot reload)
+
+`pnpm dev` is a repo-only supervisor (not part of the published `isles` CLI). It runs a
+serve command, watches `src/**`, rebuilds the component bundle, and hot-reloads the browser.
+
+```bash
+pnpm dev live <dir>          # foreground live server + reload on source change
+pnpm dev preview <dir>       # directory preview + reload on source change
+pnpm dev render <file.md>    # single-file preview server + reload on source change
+```
+
+Flags: `--no-open` (don't launch the browser), `--no-build` (skip the rollup rebuild step).
+Editing component source (`src/components/**`) triggers a rollup rebuild; editing renderer/
+theme/server source restarts the wrapped server; the browser reloads automatically via SSE.
