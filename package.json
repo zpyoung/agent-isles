@@ -16,7 +16,7 @@
   "scripts": {
     "build": "rollup -c",
     "test": "npm run test:unit && npm run test:browser",
-    "test:unit": "npm run build && node --test tests/*.test.mjs",
+    "test:unit": "npm run build && node --test --test-concurrency=2 tests/*.test.mjs",
     "test:browser": "npm run build && npm run render -- --out dist/demo.html --assets local && playwright test",
     "render": "node ./bin/isles.mjs render examples/demo.md",
     "prepack": "npm run build",
