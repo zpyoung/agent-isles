@@ -1,6 +1,7 @@
 node_modules/
 dist/
 coverage/
+.memsearch/
 .DS_Store
 *.log
 .env
