@@ -11,8 +11,21 @@ function run() {
   const stubEventSource = function () { return es; };
   const stubWebSocket = function () { return { addEventListener() {}, readyState: 0 }; };
   stubWebSocket.OPEN = 1;
-  const win = { location: { reload: () => { reloads += 1; } }, setTimeout: () => 0, WebSocket: stubWebSocket };
-  const doc = { addEventListener: () => {} };
+  // The live client now boots a multi-document shell: at startup it inspects the
+  // sidebar (getElementById/querySelectorAll) and derives the current slug from
+  // location.pathname, and opens the signal socket from location.protocol/host.
+  // Provide enough of a DOM/location stub for the IIFE to initialize.
+  const win = {
+    location: { reload: () => { reloads += 1; }, assign: () => {}, pathname: '/', protocol: 'http:', host: 'localhost' },
+    setTimeout: () => 0,
+    WebSocket: stubWebSocket,
+  };
+  const doc = {
+    addEventListener: () => {},
+    getElementById: () => null,
+    querySelector: () => null,
+    querySelectorAll: () => [],
+  };
   // eslint-disable-next-line no-new-func
   new Function('EventSource', 'WebSocket', 'window', 'document', LIVE_CLIENT)(
     stubEventSource, stubWebSocket, win, doc,

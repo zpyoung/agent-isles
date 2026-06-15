@@ -45,7 +45,7 @@ test('live client forwards generic agent-isles:signal events', () => {
     EventSource: EventSourceStub,
     WebSocket: WebSocketStub,
     window: {
-      location: { protocol: 'http:', host: 'localhost:0' },
+      location: { protocol: 'http:', host: 'localhost:0', pathname: '/' },
       setTimeout() {},
       WebSocket: WebSocketStub,
     },
@@ -55,6 +55,7 @@ test('live client forwards generic agent-isles:signal events', () => {
       },
       getElementById() { return null; },
       querySelector() { return null; },
+      querySelectorAll() { return []; },
     },
   };
 

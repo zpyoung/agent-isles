@@ -158,7 +158,7 @@ Behavior:
 - In single-select sets, selecting one choice deselects sibling choices.
 - In multi-select sets, each choice toggles independently.
 - The option set dispatches a composed `agent-isles:select` DOM event with `detail = { choice, text, selected: [ids], multiselect }`.
-- In `isles live` mode, the live client captures selection events and appends JSONL records such as `{"type":"click","choice":"a","text":"...","timestamp":...[,"selected":[...]]}` to `<dir>/state/events`.
+- In `isles live` mode, the live client captures selection events and appends JSONL records such as `{"type":"click","choice":"a","text":"...","timestamp":...[,"selected":[...]][,"screen":"<slug>","screen_file":"<name.md>"]}` to `<dir>/state/events`. When multiple documents are present, each record is stamped with the `screen` slug (and `screen_file`) it originated from; filter by `screen` for per-document interaction state. The file remains a single append-only JSONL stream.
 
 Trusted/sanitized behavior:
 

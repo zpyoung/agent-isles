@@ -74,7 +74,7 @@ function runLiveClientSelect(hasProceed) {
     EventSource: EventSourceStub,
     WebSocket: WebSocketStub,
     window: {
-      location: { protocol: 'http:', host: 'localhost:0' },
+      location: { protocol: 'http:', host: 'localhost:0', pathname: '/' },
       setTimeout() {},
       WebSocket: WebSocketStub,
     },
@@ -84,6 +84,7 @@ function runLiveClientSelect(hasProceed) {
       },
       getElementById(id) { return id === 'isles-indicator' ? bar : null; },
       querySelector(selector) { return selector === 'agent-proceed' && hasProceed ? {} : null; },
+      querySelectorAll() { return []; },
     },
   };
 
