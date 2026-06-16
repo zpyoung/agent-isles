@@ -44,6 +44,10 @@ test('npm publish workflow auto-publishes merge builds with tokenless OIDC', () 
   assert.match(workflow, /npm view "\$\{PKG_NAME\}@latest" version/);
   assert.match(workflow, /npx --yes semver -i prerelease --preid alpha/);
   assert.match(workflow, /run:\s*npm run pack:dry-run/);
+  // The version bump must propagate into the plugin manifests (kept in lockstep
+  // by sync:version), and those files must be part of the release commit.
+  assert.match(workflow, /npm run sync:version/);
+  assert.match(workflow, /git add[\s\S]{0,300}\.claude-plugin\/marketplace\.json/);
   assert.doesNotMatch(workflow, /^\s*NODE_AUTH_TOKEN:|secrets\.NPM_TOKEN|^\s*NPM_TOKEN:/m);
   assert.match(workflow, /github\.event\.inputs\.dry_run == 'true'/);
   assert.match(workflow, /npm publish --access public --tag "\$\{\{ steps\.version\.outputs\.dist_tag \}\}" --provenance \$DRY_RUN/);
