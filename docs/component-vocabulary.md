@@ -678,6 +678,108 @@ Minimal example:
 </div>
 ```
 
+### `<agent-table>`
+
+Use a fenced `agent-table` block for agent-authored tabular data that benefits from typed columns, status pills, in-browser sort or group-by, and stable per-row citation ids — while keeping the source readable and git-diffable and the rendered artifact fully accessible with no JavaScript.
+
+Status: supported.
+
+Authoring guidance:
+
+- Author as a fenced block (`` ```agent-table ``), not as a raw `<agent-table>` element. The renderer transforms the fence into an island.
+- Provide a `columns` header key; all other keys are optional.
+- Use `sort` and `group-by` for the default view; readers can re-sort in the browser without any persistent state change.
+- Keep rows as ordinary GFM Markdown table rows. Cell text supports GFM inline syntax (`**bold**`, `` `code` ``, and inline links). Do not embed raw HTML in cells.
+- Use `density: compact` sparingly — comfortable spacing is the default and the more readable choice for long rows.
+- Multi-table pages get unique server-emitted row-id prefixes (`t1-`, `t2-`, …) so citation badges are stable in the static HTML.
+
+Fenced block header keys:
+
+| Key | Required | Meaning | Default |
+| --- | --- | --- | --- |
+| `columns` | Yes | `key:type` pairs separated by `\|`, positionally mapped to table columns. Unrecognized type tokens fall back to `text`. | — |
+| `title` | No | Accessible `<caption>` for the table. | none |
+| `sort` | No | Initial sort: `<key>` or `<key> asc\|desc`. Applied server-side so the no-JS row order reflects it. | source order |
+| `group-by` | No | Single-value column key to group rows under collapsible lanes (client-side enhancement). Only valid on `text`, `select`, `status`, `boolean`, `date`, or `number` columns; `multi-select` target falls back to ungrouped with a soft warning. | ungrouped |
+| `density` | No | `compact` for tighter row spacing. | comfortable |
+
+Column types:
+
+| Type | Value grammar | Notes |
+| --- | --- | --- |
+| `text` | Any string | Default when no type is specified. |
+| `number` | Parsed with `Number()` | Non-finite values fall back to raw text. Sort uses the numeric value via `data-sortval`. |
+| `status` | Tones `green`/`amber`/`red`/`grey` with aliases such as `g`/`a`/`r`, `done`→green, `at-risk`→amber, `blocked`→red; any unrecognized token renders as a grey pill showing the literal label. | Renders a colored pill with a text label. Reuses `agent-status-board` tone vocabulary. Status is never color-only. |
+| `select` | Single token | Renders as a neutral chip. |
+| `date` | ISO-8601 (`YYYY-MM-DD`, optional time) | Unparseable values fall back to raw text. `data-sortval` uses the ISO string. |
+| `url` | Absolute URL or relative path | Only `http(s):`, `mailto:`, and relative URLs become links. Any other scheme (e.g. `javascript:`) renders as plain text in both trusted and sanitized modes. |
+| `boolean` | `true`, `false`, `yes`, `no`, `x`, or empty | Renders a check or dash glyph plus an accessible text label. |
+| `multi-select` | Comma-separated tokens | Renders multiple chips. Cannot be used with `group-by` (ungrouped + soft warning). |
+
+Row identity:
+
+- Each row receives a `data-row-id` attribute (e.g. `t1-r1`, `t1-r2`) emitted server-side. The prefix (`t1-`, `t2-`) distinguishes tables on the same page; the suffix is source order.
+- A visible citation badge (`#1`, `#2`, …) lets agents and humans reference specific rows by number.
+- Row ids and badge numbers are source-order identity — they never renumber after client-side sort or group-by.
+- `data-row-id` is used instead of `id` so rehype-sanitize's `user-content-` clobber does not change ids between trusted and sanitized renders.
+
+No-JS behavior:
+
+- The server-emitted HTML contains a complete, accessible `<table>` with `<caption>`, `<thead>`, and `<tbody>`.
+- Sort buttons are injected by JavaScript only — the static artifact has no dead controls.
+- Group-by lanes are built client-side. Without JavaScript, readers see the flat (server-sorted) table.
+- The table is fully navigable by keyboard and screen reader before any JavaScript runs.
+
+Group-by mechanism:
+
+- Group-by reorganizes rows into one `<tbody>` per group at upgrade time. Each group is preceded by a header row containing a `<button aria-expanded>` for toggling the group.
+- Uses multiple `<tbody>` elements (valid HTML), never `<details>/<summary>` (which cannot legally wrap `<tr>` elements inside a `<table>`).
+- Group counts are shown in the header row.
+- Collapsing a group toggles `hidden` on that group's `<tbody>`.
+
+Error handling:
+
+- Missing `---` delimiter or unparseable header → plain code fence fallback + build warning.
+- Header valid but body is not a GFM table → plain code fence fallback + build warning.
+- Row/column count mismatch → pad or truncate to the column set with a warning.
+- Unknown column type → treated as `text`.
+- Bad cell value for its declared type → raw-text fallback, no error.
+- `url` cell with a disallowed protocol → plain text, link suppressed (both modes).
+- `group-by` targeting a `multi-select` column → ungrouped + soft warning.
+- Zero rows → typed header + an accessible empty-state row.
+- More than ~200 rows → render all + soft build-time warning nudging toward a dedicated data tool.
+
+Accessibility notes:
+
+- Native `<table>` semantics throughout: `<th scope="col">`, `<caption>`. Each row carries a stable `data-row-id` (`t{table}-r{n}`) and a visible `#n` citation badge rendered as a `<span class="agent-table-rowref">` inside the row's first `<td>` (source-order, never renumbered after sort/group).
+- Sort controls are `<button>` elements injected by JavaScript and expose `aria-sort`.
+- Status and boolean cells carry text labels — never color-only.
+- Group lanes use a `<button aria-expanded>` toggle and multiple `<tbody>` elements, not `role=grid` or shadow-DOM ARIA.
+- The static (pre-JS) artifact is fully navigable.
+
+Trusted/sanitized behavior:
+
+- Trusted mode: the `<agent-table>` element and its full subtree (`<div class="agent-table-scroll">`, `<table>`, `<caption>`, `<thead>`, `<tbody>`, `<tr>`, `<th>`, `<td>`) are preserved with all documented attributes and `data-*` / `aria-*` attributes.
+- Sanitized mode: the same subtree is preserved. Host attributes `title`, `sort`, `group-by`, and `density` are allowed. `data-row-id` and `data-sortval` pass through untouched (sanitizer does not clobber `data-*`). URL protocol suppression is enforced at transform level (before sanitize) so `javascript:` links never appear in either mode.
+- Neither mode emits writeback metadata; the island is read-only in v1.
+
+Example:
+
+````markdown
+```agent-table
+title: Launch readiness
+columns: task:text | owner:text | phase:select | status:status | effort:number | due:date | spec:url | approved:boolean | tags:multi-select
+sort: effort desc
+group-by: status
+---
+| Task | Owner | Phase | Status | Effort | Due | Spec | Approved | Tags |
+| - | - | - | - | - | - | - | - | - |
+| Renderer pipeline | Merlin | build | done | 8 | 2026-06-01 | https://github.com/zpyoung/agent-isles/pull/138 | true | core,pipeline |
+| Writeback API | Zach | ship | at-risk | 5 | 2026-06-15 | ./docs/writeback-contract.md | false | api,writeback |
+| Dark mode CSS | Merlin | build | blocked | 3 | 2026-06-20 | https://github.com/zpyoung/agent-isles/issues/136 | false | theme |
+```
+````
+
 ## Planned components
 
 These names are reserved by the vocabulary so docs, examples, and implementation can converge without inventing new tags later.

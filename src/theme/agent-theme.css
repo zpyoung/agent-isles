@@ -166,6 +166,7 @@ agent-kanban,
 agent-kanban-lane,
 agent-kanban-card,
 agent-flow,
+agent-table,
 .agent-mermaid {
   display: block;
   margin: 1rem 0;
@@ -235,4 +236,383 @@ agent-flow,
 
 .agent-isles-rendered-output > :first-child {
   margin-top: 0;
+}
+
+/* ───── agent-table ───── */
+
+/* Scroll container — horizontal overflow only, no clip on the inline axis */
+.agent-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 0.5rem;
+}
+
+/* Base table */
+agent-table table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--agent-isles-surface);
+  border: 1px solid var(--agent-isles-border);
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+/* Caption — override Bootstrap reboot's `caption-side: bottom` and muted color */
+agent-table caption {
+  caption-side: top;
+  text-align: left;
+  font-weight: 800;
+  font-size: 1rem;
+  color: var(--agent-isles-heading);
+  padding: 0.65rem 0.75rem 0.5rem;
+}
+
+/* Header cells */
+agent-table th {
+  background: var(--agent-isles-surface-muted);
+  border-bottom: 2px solid var(--agent-isles-border);
+  color: var(--agent-isles-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 0.55rem 0.75rem;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Data cells */
+agent-table td {
+  border-bottom: 1px solid var(--agent-isles-border);
+  color: var(--agent-isles-text);
+  padding: 0.55rem 0.75rem;
+  vertical-align: middle;
+}
+
+/* Last row — no trailing border */
+agent-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Zebra striping */
+agent-table tbody tr:nth-child(even) td {
+  background: rgba(0, 0, 0, 0.015);
+}
+
+/* Hover highlight */
+agent-table tbody tr:hover td {
+  background: var(--agent-isles-surface-muted);
+}
+
+/* Compact density variant */
+agent-table[density="compact"] th,
+agent-table[density="compact"] td {
+  padding: 0.3rem 0.55rem;
+  font-size: 0.825rem;
+}
+
+/* ── Per-type cell alignment ── */
+
+/* Number cells: right-align with tabular numerals */
+.agent-table-cell--number {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Date cells */
+.agent-table-cell--date {
+  white-space: nowrap;
+}
+
+/* URL cells */
+.agent-table-cell--url {
+  word-break: break-all;
+}
+
+/* Boolean cells: centered glyph */
+.agent-table-cell--boolean {
+  text-align: center;
+}
+
+/* ── Row reference badge ── */
+.agent-table-rowref {
+  background: var(--agent-isles-surface-muted);
+  border: 1px solid var(--agent-isles-border);
+  border-radius: 0.25rem;
+  color: var(--agent-isles-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.7rem;
+  font-weight: 600;
+  margin-right: 0.35rem;
+  padding: 0.05rem 0.3rem;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+/* ── Empty-state cell ── */
+.agent-table-empty {
+  color: var(--agent-isles-muted);
+  font-style: italic;
+  padding: 1.5rem 0.75rem;
+  text-align: center;
+}
+
+/* ── Status pills (mirrors agent-status-board STATUS_DETAILS palette) ── */
+.agent-table-pill {
+  border-radius: 999px;
+  border-style: solid;
+  border-width: 1px;
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0.2rem 0.6rem;
+  white-space: nowrap;
+}
+
+.agent-table-pill--green {
+  background: #dcfce7;
+  border-color: #bbf7d0;
+  color: #166534;
+}
+
+.agent-table-pill--amber {
+  background: #fef3c7;
+  border-color: #fde68a;
+  color: #92400e;
+}
+
+.agent-table-pill--red {
+  background: #fee2e2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
+.agent-table-pill--grey {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #475569;
+}
+
+/* ── Select / multi-select chips ── */
+.agent-table-chip {
+  background: var(--agent-isles-surface-muted);
+  border: 1px solid var(--agent-isles-border);
+  border-radius: 0.375rem;
+  color: var(--agent-isles-text);
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1;
+  margin: 0.1rem 0.2rem 0.1rem 0;
+  padding: 0.2rem 0.5rem;
+  white-space: nowrap;
+}
+
+/* ── Boolean glyph ── */
+.agent-table-bool {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+/* ── Sort button (injected by component at runtime) ── */
+.agent-table-sort {
+  appearance: none;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  letter-spacing: inherit;
+  padding: 0;
+  text-transform: inherit;
+}
+
+.agent-table-sort:focus-visible {
+  border-radius: 0.2rem;
+  outline: 2px solid var(--agent-isles-focus);
+  outline-offset: 2px;
+}
+
+/* Sort direction indicator via Unicode arrows appended to the button text */
+agent-table th[aria-sort="ascending"] .agent-table-sort::after {
+  content: " ↑";
+  font-size: 0.85em;
+  opacity: 0.75;
+}
+
+agent-table th[aria-sort="descending"] .agent-table-sort::after {
+  content: " ↓";
+  font-size: 0.85em;
+  opacity: 0.75;
+}
+
+/* ── Sticky first column (pins when .agent-table-scroll overflows) ── */
+agent-table th:first-child,
+agent-table td:first-child {
+  left: 0;
+  position: sticky;
+}
+
+/* Ensure sticky header column keeps its header background */
+agent-table th:first-child {
+  background: var(--agent-isles-surface-muted);
+}
+
+/* Sticky body cell uses opaque surface so zebra/hover rows don't bleed through */
+agent-table td:first-child {
+  background: var(--agent-isles-surface);
+}
+
+/* Subtle right-border shadow on the sticky column when scrolled */
+agent-table th:first-child,
+agent-table td:first-child {
+  box-shadow: 1px 0 0 var(--agent-isles-border);
+}
+
+/* ── Group-by tbodies (injected by component at runtime) ── */
+agent-table tbody.agent-table-group-header th {
+  background: var(--agent-isles-surface-muted);
+  border-top: 2px solid var(--agent-isles-border);
+  color: var(--agent-isles-heading);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 0.4rem 0.75rem;
+}
+
+/* Group toggle button */
+.agent-table-group-toggle {
+  appearance: none;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 0;
+}
+
+.agent-table-group-toggle:focus-visible {
+  border-radius: 0.2rem;
+  outline: 2px solid var(--agent-isles-focus);
+  outline-offset: 2px;
+}
+
+.agent-table-group-toggle::before {
+  content: "▾ ";
+  font-size: 0.85em;
+  transition: transform 0.15s ease;
+}
+
+.agent-table-group-toggle[aria-expanded="false"]::before {
+  content: "▸ ";
+}
+
+/* Hidden group bodies */
+tbody.agent-table-group-body[hidden] {
+  display: none;
+}
+
+/* ── Dark mode overrides (document-level selectors, NO :host) ── */
+
+[data-bs-theme="dark"] agent-table table {
+  background: var(--agent-isles-surface);
+  border-color: var(--agent-isles-border);
+}
+
+[data-bs-theme="dark"] agent-table caption {
+  color: var(--agent-isles-heading);
+}
+
+[data-bs-theme="dark"] agent-table th {
+  background: var(--agent-isles-surface-muted);
+  border-bottom-color: var(--agent-isles-border);
+  color: var(--agent-isles-muted);
+}
+
+[data-bs-theme="dark"] agent-table td {
+  border-bottom-color: var(--agent-isles-border);
+  color: var(--agent-isles-text);
+}
+
+[data-bs-theme="dark"] agent-table tbody tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+[data-bs-theme="dark"] agent-table tbody tr:hover td {
+  background: var(--agent-isles-surface-muted);
+}
+
+[data-bs-theme="dark"] agent-table th:first-child {
+  background: var(--agent-isles-surface-muted);
+}
+
+[data-bs-theme="dark"] agent-table th:first-child,
+[data-bs-theme="dark"] agent-table td:first-child {
+  box-shadow: 1px 0 0 var(--agent-isles-border);
+}
+
+/* Dark pills */
+[data-bs-theme="dark"] .agent-table-pill--green {
+  --at-pill-bg: rgba(22, 101, 52, 0.35);
+  --at-pill-border: rgba(34, 197, 94, 0.4);
+  --at-pill-text: #86efac;
+  background: var(--at-pill-bg);
+  border-color: var(--at-pill-border);
+  color: var(--at-pill-text);
+}
+
+[data-bs-theme="dark"] .agent-table-pill--amber {
+  --at-pill-bg: rgba(120, 53, 15, 0.35);
+  --at-pill-border: rgba(245, 158, 11, 0.4);
+  --at-pill-text: #fcd34d;
+  background: var(--at-pill-bg);
+  border-color: var(--at-pill-border);
+  color: var(--at-pill-text);
+}
+
+[data-bs-theme="dark"] .agent-table-pill--red {
+  --at-pill-bg: rgba(127, 29, 29, 0.35);
+  --at-pill-border: rgba(220, 38, 38, 0.4);
+  --at-pill-text: #fca5a5;
+  background: var(--at-pill-bg);
+  border-color: var(--at-pill-border);
+  color: var(--at-pill-text);
+}
+
+[data-bs-theme="dark"] .agent-table-pill--grey {
+  --at-pill-bg: rgba(30, 41, 59, 0.6);
+  --at-pill-border: rgba(148, 163, 184, 0.3);
+  --at-pill-text: #94a3b8;
+  background: var(--at-pill-bg);
+  border-color: var(--at-pill-border);
+  color: var(--at-pill-text);
+}
+
+/* Dark chips */
+[data-bs-theme="dark"] .agent-table-chip {
+  background: var(--agent-isles-surface-muted);
+  border-color: var(--agent-isles-border);
+  color: var(--agent-isles-text);
+}
+
+/* Dark row-ref badge */
+[data-bs-theme="dark"] .agent-table-rowref {
+  background: var(--agent-isles-surface-muted);
+  border-color: var(--agent-isles-border);
+  color: var(--agent-isles-muted);
+}
+
+/* Dark group header */
+[data-bs-theme="dark"] agent-table tbody.agent-table-group-header th {
+  background: var(--agent-isles-surface-muted);
+  border-top-color: var(--agent-isles-border);
+  color: var(--agent-isles-heading);
+}
+
+/* Dark sticky body cell — opaque so scrolled content is occluded */
+[data-bs-theme="dark"] agent-table td:first-child {
+  background: var(--agent-isles-surface);
 }
