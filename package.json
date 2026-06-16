@@ -22,7 +22,9 @@
     "dev": "node ./scripts/dev.mjs",
     "prepack": "npm run build",
     "pack:dry-run": "npm pack --dry-run",
-    "local": "node ./bin/isles.mjs"
+    "local": "node ./bin/isles.mjs",
+    "sync:version": "node ./scripts/sync-plugin-version.mjs",
+    "version": "npm run sync:version && git add plugins/agent-isles/.claude-plugin/plugin.json .claude-plugin/marketplace.json"
   },
   "keywords": [
     "markdown",

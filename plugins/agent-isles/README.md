@@ -2,7 +2,7 @@
 
 This plugin lets Claude Code install, update, render, and author Agent Isles documents from inside a project.
 
-Version: `0.1.0-alpha.0`. The plugin version intentionally tracks the `agent-isles` npm package version.
+Version: `0.1.0-alpha.1`. The plugin version intentionally tracks the `agent-isles` npm package version.
 
 ## Install from this repository marketplace
 
