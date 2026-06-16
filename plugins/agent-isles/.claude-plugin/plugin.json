@@ -1,6 +1,6 @@
 {
   "name": "agent-isles",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0-alpha.2",
   "description": "Claude Code skills and diagnostics for installing, updating, rendering, and authoring Agent Isles Markdown reports.",
   "author": {
     "name": "Zach Young"
