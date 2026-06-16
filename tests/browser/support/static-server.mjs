@@ -26,7 +26,14 @@ export async function serveDist() {
   return {
     origin: `http://127.0.0.1:${address.port}`,
     close: () => new Promise((resolveClose, rejectClose) => {
+      // server.close() only fires its callback once every connection ends.
+      // Chromium keeps idle HTTP keep-alive sockets pooled against this
+      // server, so without forcibly destroying them close() hangs until the
+      // browser context is torn down — the intermittent multi-minute test
+      // timeouts. closeAllConnections() (Node 18.2+) drops those sockets so
+      // close() resolves immediately. Mirrors src/live.mjs teardown.
       server.close((error) => (error ? rejectClose(error) : resolveClose()));
+      server.closeAllConnections?.();
     }),
   };
 }
