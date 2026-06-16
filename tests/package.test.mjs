@@ -71,7 +71,9 @@ function runNpm(args, options = {}) {
 }
 
 test('package metadata defines a guarded npm prerelease path', () => {
-  assert.equal(packageJson.version, '0.1.0-alpha.0');
+  // Auto-publish increments the alpha counter on every release, so match the
+  // guarded prerelease shape rather than a frozen version string.
+  assert.match(packageJson.version, /^\d+\.\d+\.\d+-alpha\.\d+$/);
   assert.deepEqual(packageJson.files, [
     'bin/',
     'src/',
