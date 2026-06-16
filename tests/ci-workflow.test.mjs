@@ -14,7 +14,7 @@ test('GitHub Actions CI runs install, tests, and render smoke on Node 20', () =>
   assert.match(workflow, /^name:\s*CI/m);
   assert.match(workflow, /^\s*push:/m);
   assert.match(workflow, /^\s*pull_request:/m);
-  assert.match(workflow, /uses:\s*actions\/setup-node@v4/);
+  assert.match(workflow, /uses:\s*actions\/setup-node@v6/);
   assert.match(workflow, /node-version:\s*20/);
   assert.match(workflow, /run:\s*npm ci/);
   assert.match(workflow, /run:\s*npm test/);
@@ -34,7 +34,7 @@ test('npm publish workflow auto-publishes merge builds with tokenless OIDC', () 
   assert.match(workflow, /^\s*id-token:\s*write/m);
   assert.match(workflow, /cancel-in-progress:\s*false/);
   assert.match(workflow, /github\.event\.head_commit\.message \|\| ''/);
-  assert.match(workflow, /uses:\s*actions\/setup-node@v4/);
+  assert.match(workflow, /uses:\s*actions\/setup-node@v6/);
   assert.match(workflow, /registry-url:\s*https:\/\/registry\.npmjs\.org/);
   assert.match(workflow, /run:\s*npm install -g npm@latest/);
   assert.match(workflow, /run:\s*npm ci/);
@@ -44,6 +44,10 @@ test('npm publish workflow auto-publishes merge builds with tokenless OIDC', () 
   assert.match(workflow, /npm view "\$\{PKG_NAME\}@latest" version/);
   assert.match(workflow, /npx --yes semver -i prerelease --preid alpha/);
   assert.match(workflow, /run:\s*npm run pack:dry-run/);
+  // The version bump must propagate into the plugin manifests (kept in lockstep
+  // by sync:version), and those files must be part of the release commit.
+  assert.match(workflow, /npm run sync:version/);
+  assert.match(workflow, /git add[\s\S]{0,300}\.claude-plugin\/marketplace\.json/);
   assert.doesNotMatch(workflow, /^\s*NODE_AUTH_TOKEN:|secrets\.NPM_TOKEN|^\s*NPM_TOKEN:/m);
   assert.match(workflow, /github\.event\.inputs\.dry_run == 'true'/);
   assert.match(workflow, /npm publish --access public --tag "\$\{\{ steps\.version\.outputs\.dist_tag \}\}" --provenance \$DRY_RUN/);
