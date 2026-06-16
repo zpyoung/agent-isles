@@ -14,7 +14,7 @@ test('GitHub Actions CI runs install, tests, and render smoke on Node 20', () =>
   assert.match(workflow, /^name:\s*CI/m);
   assert.match(workflow, /^\s*push:/m);
   assert.match(workflow, /^\s*pull_request:/m);
-  assert.match(workflow, /uses:\s*actions\/setup-node@v4/);
+  assert.match(workflow, /uses:\s*actions\/setup-node@v6/);
   assert.match(workflow, /node-version:\s*20/);
   assert.match(workflow, /run:\s*npm ci/);
   assert.match(workflow, /run:\s*npm test/);
@@ -34,7 +34,7 @@ test('npm publish workflow auto-publishes merge builds with tokenless OIDC', () 
   assert.match(workflow, /^\s*id-token:\s*write/m);
   assert.match(workflow, /cancel-in-progress:\s*false/);
   assert.match(workflow, /github\.event\.head_commit\.message \|\| ''/);
-  assert.match(workflow, /uses:\s*actions\/setup-node@v4/);
+  assert.match(workflow, /uses:\s*actions\/setup-node@v6/);
   assert.match(workflow, /registry-url:\s*https:\/\/registry\.npmjs\.org/);
   assert.match(workflow, /run:\s*npm install -g npm@latest/);
   assert.match(workflow, /run:\s*npm ci/);

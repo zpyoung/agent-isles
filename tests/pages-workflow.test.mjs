@@ -24,7 +24,7 @@ test('GitHub Pages workflow publishes the rendered source-view demo from dist', 
   assert.match(workflow, /npm test/);
   assert.match(workflow, /npm run render -- --show-source --out dist\/demo\.html/);
   assert.match(workflow, /cp dist\/demo\.html dist\/index\.html/);
-  assert.match(workflow, /upload-pages-artifact@v3/);
+  assert.match(workflow, /upload-pages-artifact@v5/);
   assert.match(workflow, /path:\s*dist/);
   assert.match(workflow, /deploy-pages@v5/);
   assert.equal(existsSync('.github/workflows/pages.yml'), false, 'expected static.yml to be the only Pages deploy workflow');
