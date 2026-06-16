@@ -20,6 +20,8 @@ import {
   validateMarkdownInput as modularValidateMarkdownInput,
 } from '../src/renderer/input.mjs';
 import {
+  defaultOutFile as legacyRehypeDefaultOutFile,
+  normalizeRenderMode as legacyRehypeNormalizeRenderMode,
   rehypeAgentD2,
   rehypeAgentHeadingAnchors,
   rehypeAgentMermaid,
@@ -49,6 +51,8 @@ test('focused renderer modules expose cohesive responsibilities', () => {
   assert.equal(typeof rehypeAgentD2, 'function');
   assert.equal(typeof rehypeAgentHeadingAnchors, 'function');
   assert.equal(typeof rehypeAgentWritebackMetadata, 'function');
+  assert.equal(legacyRehypeDefaultOutFile, modularDefaultOutFile);
+  assert.equal(legacyRehypeNormalizeRenderMode, modularNormalizeRenderMode);
   assert.equal(typeof buildHtmlPage, 'function');
   assert.equal(typeof hasMermaidDiagrams, 'function');
   assert.equal(typeof buildSanitizedSchema, 'function');

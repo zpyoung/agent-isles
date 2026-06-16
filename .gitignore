@@ -2,6 +2,7 @@ node_modules/
 dist/
 coverage/
 .quirk/
+.memsearch/
 .DS_Store
 *.log
 .env

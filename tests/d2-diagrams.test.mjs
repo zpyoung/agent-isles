@@ -1,5 +1,27 @@
 import assert from 'node:assert/strict';
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
+
+function makeD2Stub() {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-d2-stub-'));
+  const countFile = join(dir, 'invocations.log');
+  const script = [
+    '#!/bin/sh',
+    'cat > /dev/null',
+    `printf 'invoked\\n' >> "${countFile}"`,
+    `printf '<?xml version="1.0" encoding="utf-8"?>\\n<svg xmlns="http://www.w3.org/2000/svg"><!-- STUB-NATIVE-D2 --><text>stub</text></svg>'`,
+    '',
+  ].join('\n');
+  writeFileSync(join(dir, 'd2'), script);
+  chmodSync(join(dir, 'd2'), 0o755);
+  return { dir, countFile };
+}
+
+function countStubInvocations(countFile) {
+  return readFileSync(countFile, 'utf8').trim().split('\n').length;
+}
 
 test('renderMarkdown converts a D2 fence into an SVG diagram', async () => {
   const { renderMarkdown } = await import('../src/render.mjs');
@@ -77,6 +99,58 @@ function hello() {
   assert.match(html, /hljs-keyword/);
   assert.match(html, /function/);
   assert.match(html, /hello/);
+});
+
+test('prefers a native d2 binary on PATH over the WASM engine', async (t) => {
+  const { renderMarkdown } = await import('../src/render.mjs');
+  const stub = makeD2Stub();
+  const originalPath = process.env.PATH;
+  process.env.PATH = `${stub.dir}:${originalPath}`;
+  t.after(() => {
+    process.env.PATH = originalPath;
+    rmSync(stub.dir, { recursive: true, force: true });
+  });
+
+  const html = await renderMarkdown('```d2\nstub_native_case -> works\n```\n');
+
+  assert.match(html, /STUB-NATIVE-D2/);
+  assert.doesNotMatch(html, /<\?xml/);
+  assert.strictEqual(countStubInvocations(stub.countFile), 1);
+});
+
+test('caches rendered SVG for identical d2 source within a process', async (t) => {
+  const { renderMarkdown } = await import('../src/render.mjs');
+  const stub = makeD2Stub();
+  const originalPath = process.env.PATH;
+  process.env.PATH = `${stub.dir}:${originalPath}`;
+  t.after(() => {
+    process.env.PATH = originalPath;
+    rmSync(stub.dir, { recursive: true, force: true });
+  });
+
+  const markdown = '```d2\ncached_case -> hit\n```\n';
+  const first = await renderMarkdown(markdown);
+  const second = await renderMarkdown(markdown);
+
+  assert.match(first, /STUB-NATIVE-D2/);
+  assert.match(second, /STUB-NATIVE-D2/);
+  assert.strictEqual(countStubInvocations(stub.countFile), 1);
+});
+
+test('falls back to the WASM engine when no d2 binary is on PATH', async (t) => {
+  const { renderMarkdown } = await import('../src/render.mjs');
+  const emptyDir = mkdtempSync(join(tmpdir(), 'isles-d2-nopath-'));
+  const originalPath = process.env.PATH;
+  process.env.PATH = emptyDir;
+  t.after(() => {
+    process.env.PATH = originalPath;
+    rmSync(emptyDir, { recursive: true, force: true });
+  });
+
+  const html = await renderMarkdown('```d2\nwasm_fallback_case -> engine\n```\n');
+
+  assert.match(html, /<figure class="beoe d2">/);
+  assert.match(html, /<text[^>]*>wasm_fallback_case<\/text>/);
 });
 
 test('invalid D2 input reports a clear render diagnostic', async () => {

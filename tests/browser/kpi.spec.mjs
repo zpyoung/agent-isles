@@ -10,7 +10,7 @@ test('KPI cards hydrate with accessible labels', async ({ page }) => {
   page.on('pageerror', (error) => consoleErrors.push(error.message));
 
   try {
-    await page.goto(`${server.origin}/demo.html`);
+    await page.goto(`${server.origin}/demo.html`, { waitUntil: 'domcontentloaded' });
 
     await expect.poll(() => page.evaluate(() => Boolean(customElements.get('agent-kpi')))).toBe(true);
 

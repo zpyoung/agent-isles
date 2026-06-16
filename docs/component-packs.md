@@ -111,6 +111,39 @@ isles render examples/pack-demo.md \
 
 The rendered HTML keeps the third-party `<demo-widget>` island and references copied `demo-widget.js` / `demo-widget.css` assets from the output asset directory.
 
+## Live signals from pack components
+
+In `isles live` mode, pack components can emit interaction signals to the agent the same way core
+islands do: dispatch a composed, bubbling DOM event and the injected live client forwards it to the
+server, which appends a JSONL record to `<dir>/state/events`.
+
+Three document-level event names are forwarded:
+
+- `agent-isles:select` — selection updates; recorded as `type:"click"` (what `<agent-option-set>` uses).
+- `agent-isles:proceed` — an advance/commit signal; recorded as `type:"proceed"` (what `<agent-proceed>` uses).
+- `agent-isles:signal` — **generic channel for custom components.** The record's `type` comes from
+  `detail.type`.
+
+```js
+this.dispatchEvent(new CustomEvent('agent-isles:signal', {
+  detail: { type: 'quirk-rating', choice: 'stars-4', selected: ['stars-4'], text: '4 stars' },
+  bubbles: true,
+  composed: true,
+}));
+```
+
+Server-side constraints (applied to every signal, regardless of source):
+
+- `detail.type` must match `^[a-z][a-z0-9-]{0,31}$` (short lowercase token, e.g. `quirk-rating`);
+  anything else is recorded as `click`. Prefix custom types with your pack name to avoid collisions.
+- `choice` / `text` must be strings and are clamped to 256 chars; `selected` keeps at most 64 string
+  items, each clamped. Other detail fields are dropped.
+- Cross-origin browser requests to the signal endpoint are rejected; only the served page (or
+  non-browser local clients) can append events.
+
+Consumers tail `<dir>/state/events` — e.g. a host can block on a `proceed` record, or watch for its
+own pack-defined types.
+
 ## Security boundary and V1 non-goals
 
 Component packs are trusted code. Even sanitized Markdown mode still injects pack module/style assets into the generated HTML. Only load packs from reviewed local/project/user sources.

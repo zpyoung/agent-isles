@@ -45,6 +45,7 @@ test('theme toggle hydrates and switches Bootstrap color mode', async ({ page })
         'agent-theme-toggle',
         'agent-dependency-map',
         'agent-dependency',
+        'agent-flow',
         'agent-tabs',
         'agent-tab',
         'agent-timeline',
@@ -82,16 +83,28 @@ test('theme toggle hydrates and switches Bootstrap color mode', async ({ page })
       ),
     );
 
-    const componentSurfaceAudit = await page.evaluate(() => ({
-      pageTheme: document.documentElement.getAttribute('data-bs-theme'),
-      ganttLane: getComputedStyle(document.querySelector('agent-gantt-phase')?.shadowRoot?.querySelector('.lane')).backgroundImage,
-      kanbanLane: getComputedStyle(document.querySelector('agent-kanban-lane')?.shadowRoot?.querySelector('.lane')).backgroundColor,
-      kanbanHeading: getComputedStyle(document.querySelector('agent-kanban-lane')?.shadowRoot?.querySelector('.lane-heading')).color,
-    }));
+    const flowHostTheme = await page.evaluate(() => document.querySelector('agent-flow')?.getAttribute('data-bs-theme'));
+    expect(flowHostTheme).toBe('dark');
+
+    const componentSurfaceAudit = await page.evaluate(() => {
+      const readShadowStyle = (hostSelector, shadowSelector, property) => {
+        const target = document.querySelector(hostSelector)?.shadowRoot?.querySelector(shadowSelector);
+        return target ? getComputedStyle(target)[property] : null;
+      };
+
+      return {
+        pageTheme: document.documentElement.getAttribute('data-bs-theme'),
+        ganttLane: readShadowStyle('agent-gantt-phase', '.lane', 'backgroundImage'),
+        kanbanLane: readShadowStyle('agent-kanban-lane', '.lane', 'backgroundColor'),
+        kanbanHeading: readShadowStyle('agent-kanban-lane', '.lane-heading', 'color'),
+        flowSurface: readShadowStyle('agent-flow', '.flow', 'backgroundColor'),
+      };
+    });
     expect(componentSurfaceAudit).toEqual(expect.objectContaining({
       pageTheme: 'dark',
       kanbanLane: 'rgba(15, 23, 42, 0.78)',
       kanbanHeading: 'rgb(248, 250, 252)',
+      flowSurface: 'rgb(15, 23, 42)',
     }));
     expect(componentSurfaceAudit.ganttLane).toContain('rgba(15, 23, 42, 0.88)');
 
