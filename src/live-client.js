@@ -148,12 +148,13 @@ export const LIVE_CLIENT = `
 (function () {
   if (!document.documentElement || !document.documentElement.style) return;
 
-  var READING_KEY = 'agent-isles-live-settings';
+  var SETTINGS_KEY = 'agent-isles-live-settings';
   var THEME_KEY = 'agent-isles-theme';
   var THEME_EVENT = 'agent-isles-theme-change';
   var DEFAULTS = { themeMode: 'auto', width: '960px', fontSize: '16px', lineHeight: '1.7' };
-  // Kept in sync with AGENT_COMPONENT_SELECTOR in src/components/agent-theme-toggle.js.
-  var THEME_TAGS = 'agent-decision,agent-risk,agent-metric,agent-status-board,agent-tabs,agent-tab,agent-choice,agent-option-set,agent-proceed,agent-kanban,agent-table,agent-theme-toggle';
+  // Mirrors AGENT_COMPONENT_TAGS in src/components/agent-theme-toggle.js — keep in sync.
+  var THEME_TAGS = 'agent-decision, agent-risk, agent-metric, agent-delta, agent-copy-block, agent-theme-toggle, agent-dependency-map, agent-dependency, agent-flow, agent-tabs, agent-tab, agent-timeline, agent-step, agent-gantt, agent-gantt-phase, agent-gantt-task, agent-kpi, agent-status-board, agent-status-item, agent-action-list, agent-action, agent-kanban, agent-kanban-lane, agent-kanban-card';
+  var suppressThemeEvent = false;
 
   function lsGet(key) { try { return window.localStorage.getItem(key); } catch (_) { return null; } }
   function lsSet(key, value) { try { window.localStorage.setItem(key, value); } catch (_) {} }
@@ -164,7 +165,7 @@ export const LIVE_CLIENT = `
 
   function load() {
     var parsed = null;
-    var raw = lsGet(READING_KEY);
+    var raw = lsGet(SETTINGS_KEY);
     try { parsed = raw ? JSON.parse(raw) : null; } catch (_) { parsed = null; }
     var src = parsed || memory || {};
     return {
@@ -177,7 +178,7 @@ export const LIVE_CLIENT = `
 
   function save(s) {
     memory = s;
-    lsSet(READING_KEY, JSON.stringify(s));
+    lsSet(SETTINGS_KEY, JSON.stringify(s));
   }
 
   function effectiveTheme(mode) {
@@ -202,7 +203,11 @@ export const LIVE_CLIENT = `
     // Mirror the resolved value to the legacy key so a present <agent-theme-toggle> reflects state.
     if (lsGet(THEME_KEY) !== resolved) lsSet(THEME_KEY, resolved);
     if (broadcast) {
+      // Suppress our own listener so broadcasting a resolved theme (e.g. Auto -> light)
+      // does not flip themeMode away from its real value.
+      suppressThemeEvent = true;
       document.dispatchEvent(new CustomEvent(THEME_EVENT, { detail: { theme: resolved } }));
+      suppressThemeEvent = false;
     }
   }
 
@@ -219,6 +224,13 @@ export const LIVE_CLIENT = `
     setPressed(panel, 'theme', s.themeMode);
     setPressed(panel, 'width', s.width);
     setPressed(panel, 'font-size', s.fontSize);
+  }
+
+  function adoptTheme(mode) {
+    state.themeMode = mode;
+    save(state);
+    applyTheme(state, false);
+    syncControls(state);
   }
 
   var state = load();
@@ -244,7 +256,7 @@ export const LIVE_CLIENT = `
         state.lineHeight = btn.getAttribute('data-line-height') || state.lineHeight;
         save(state); applyReading(state); syncControls(state);
       } else if (btn.id === 'isles-settings-reset') {
-        lsRemove(READING_KEY);
+        lsRemove(SETTINGS_KEY);
         memory = null;
         state = { themeMode: DEFAULTS.themeMode, width: DEFAULTS.width, fontSize: DEFAULTS.fontSize, lineHeight: DEFAULTS.lineHeight };
         applyReading(state); applyTheme(state, true); syncControls(state);
@@ -271,13 +283,25 @@ export const LIVE_CLIENT = `
     init();
   }
 
-  // Cross-tab/window sync: re-apply when either key changes elsewhere.
+  // In-tab interop: adopt theme changes from a legacy <agent-theme-toggle>.
+  // suppressThemeEvent skips our own broadcasts (see applyTheme).
+  document.addEventListener(THEME_EVENT, function (e) {
+    if (suppressThemeEvent) return;
+    var t = e && e.detail && e.detail.theme;
+    if ((t === 'light' || t === 'dark') && state.themeMode !== t) adoptTheme(t);
+  });
+
+  // Cross-tab/window sync: settings key reloads full state; theme key adopts the new theme.
   window.addEventListener('storage', function (e) {
-    if (e.key !== READING_KEY && e.key !== THEME_KEY) return;
-    state = load();
-    applyReading(state);
-    applyTheme(state, false);
-    syncControls(state);
+    if (e.key === SETTINGS_KEY) {
+      state = load();
+      applyReading(state);
+      applyTheme(state, false);
+      syncControls(state);
+    } else if (e.key === THEME_KEY) {
+      var t = e.newValue;
+      if ((t === 'light' || t === 'dark') && state.themeMode !== t) adoptTheme(t);
+    }
   });
 
   // Track live system-theme changes while in Auto.
