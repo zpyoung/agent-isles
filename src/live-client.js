@@ -144,4 +144,148 @@ export const LIVE_CLIENT = `
     sendSignal(e.detail || {});
   });
 })();
+
+(function () {
+  if (!document.documentElement || !document.documentElement.style) return;
+
+  var READING_KEY = 'agent-isles-live-settings';
+  var THEME_KEY = 'agent-isles-theme';
+  var THEME_EVENT = 'agent-isles-theme-change';
+  var DEFAULTS = { themeMode: 'auto', width: '960px', fontSize: '16px', lineHeight: '1.7' };
+  // Kept in sync with AGENT_COMPONENT_SELECTOR in src/components/agent-theme-toggle.js.
+  var THEME_TAGS = 'agent-decision,agent-risk,agent-metric,agent-status-board,agent-tabs,agent-tab,agent-choice,agent-option-set,agent-proceed,agent-kanban,agent-table,agent-theme-toggle';
+
+  function lsGet(key) { try { return window.localStorage.getItem(key); } catch (_) { return null; } }
+  function lsSet(key, value) { try { window.localStorage.setItem(key, value); } catch (_) {} }
+  function lsRemove(key) { try { window.localStorage.removeItem(key); } catch (_) {} }
+
+  // In-memory fallback used when localStorage throws (file://, private mode).
+  var memory = null;
+
+  function load() {
+    var parsed = null;
+    var raw = lsGet(READING_KEY);
+    try { parsed = raw ? JSON.parse(raw) : null; } catch (_) { parsed = null; }
+    var src = parsed || memory || {};
+    return {
+      themeMode: src.themeMode || DEFAULTS.themeMode,
+      width: src.width || DEFAULTS.width,
+      fontSize: src.fontSize || DEFAULTS.fontSize,
+      lineHeight: src.lineHeight || DEFAULTS.lineHeight,
+    };
+  }
+
+  function save(s) {
+    memory = s;
+    lsSet(READING_KEY, JSON.stringify(s));
+  }
+
+  function effectiveTheme(mode) {
+    if (mode === 'light' || mode === 'dark') return mode;
+    return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+  }
+
+  function applyReading(s) {
+    var root = document.documentElement;
+    root.style.setProperty('--agent-isles-page-max-width', s.width);
+    root.style.setProperty('--agent-isles-page-font-size', s.fontSize);
+    root.style.setProperty('--agent-isles-page-line-height', s.lineHeight);
+  }
+
+  function applyTheme(s, broadcast) {
+    var resolved = effectiveTheme(s.themeMode);
+    var root = document.documentElement;
+    root.setAttribute('data-bs-theme', resolved);
+    root.style.colorScheme = resolved;
+    var nodes = document.querySelectorAll(THEME_TAGS);
+    for (var i = 0; i < nodes.length; i++) nodes[i].setAttribute('data-bs-theme', resolved);
+    // Mirror the resolved value to the legacy key so a present <agent-theme-toggle> reflects state.
+    if (lsGet(THEME_KEY) !== resolved) lsSet(THEME_KEY, resolved);
+    if (broadcast) {
+      document.dispatchEvent(new CustomEvent(THEME_EVENT, { detail: { theme: resolved } }));
+    }
+  }
+
+  function setPressed(panel, attr, value) {
+    var btns = panel.querySelectorAll('[data-' + attr + ']');
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].setAttribute('aria-pressed', btns[i].getAttribute('data-' + attr) === value ? 'true' : 'false');
+    }
+  }
+
+  function syncControls(s) {
+    var panel = document.getElementById('isles-settings');
+    if (!panel) return;
+    setPressed(panel, 'theme', s.themeMode);
+    setPressed(panel, 'width', s.width);
+    setPressed(panel, 'font-size', s.fontSize);
+  }
+
+  var state = load();
+  applyReading(state);
+  applyTheme(state, false);
+
+  function init() {
+    var panel = document.getElementById('isles-settings');
+    if (!panel) return;
+    syncControls(state);
+
+    panel.addEventListener('click', function (e) {
+      var btn = e.target && e.target.closest ? e.target.closest('button') : null;
+      if (!btn || !panel.contains(btn)) return;
+      if (btn.hasAttribute('data-theme')) {
+        state.themeMode = btn.getAttribute('data-theme');
+        save(state); applyTheme(state, true); syncControls(state);
+      } else if (btn.hasAttribute('data-width')) {
+        state.width = btn.getAttribute('data-width');
+        save(state); applyReading(state); syncControls(state);
+      } else if (btn.hasAttribute('data-font-size')) {
+        state.fontSize = btn.getAttribute('data-font-size');
+        state.lineHeight = btn.getAttribute('data-line-height') || state.lineHeight;
+        save(state); applyReading(state); syncControls(state);
+      } else if (btn.id === 'isles-settings-reset') {
+        lsRemove(READING_KEY);
+        memory = null;
+        state = { themeMode: DEFAULTS.themeMode, width: DEFAULTS.width, fontSize: DEFAULTS.fontSize, lineHeight: DEFAULTS.lineHeight };
+        applyReading(state); applyTheme(state, true); syncControls(state);
+      }
+    });
+
+    // Arrow-key navigation within a segmented group.
+    panel.addEventListener('keydown', function (e) {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      var group = e.target && e.target.closest ? e.target.closest('.isles-seg') : null;
+      if (!group) return;
+      var btns = Array.prototype.slice.call(group.querySelectorAll('button'));
+      var idx = btns.indexOf(e.target);
+      if (idx === -1) return;
+      e.preventDefault();
+      var next = e.key === 'ArrowRight' ? (idx + 1) % btns.length : (idx - 1 + btns.length) % btns.length;
+      btns[next].focus();
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
+  // Cross-tab/window sync: re-apply when either key changes elsewhere.
+  window.addEventListener('storage', function (e) {
+    if (e.key !== READING_KEY && e.key !== THEME_KEY) return;
+    state = load();
+    applyReading(state);
+    applyTheme(state, false);
+    syncControls(state);
+  });
+
+  // Track live system-theme changes while in Auto.
+  if (window.matchMedia) {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    var onSystemChange = function () { if (state.themeMode === 'auto') applyTheme(state, false); };
+    if (mq.addEventListener) mq.addEventListener('change', onSystemChange);
+    else if (mq.addListener) mq.addListener(onSystemChange);
+  }
+})();
 `;
