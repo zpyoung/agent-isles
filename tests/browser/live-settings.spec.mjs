@@ -79,6 +79,9 @@ test('selecting Auto in one tab stays Auto in another (THEME_KEY mirror not adop
   try {
     const page1 = await context.newPage();
     const page2 = await context.newPage();
+    // Pin the system scheme so Auto resolves deterministically (CI may default to dark).
+    await page1.emulateMedia({ colorScheme: 'light' });
+    await page2.emulateMedia({ colorScheme: 'light' });
     await page1.goto(server.url + '/');
     await page2.goto(server.url + '/');
 

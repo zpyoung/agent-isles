@@ -152,6 +152,9 @@ export const LIVE_CLIENT = `
   var THEME_KEY = 'agent-isles-theme';
   var THEME_EVENT = 'agent-isles-theme-change';
   var DEFAULTS = { themeMode: 'auto', width: '960px', fontSize: '16px', lineHeight: '1.7' };
+  var WIDTHS = { '760px': 1, '960px': 1, '1200px': 1 };
+  // Font-size -> canonical line-height pairs (mirrors the reading controls in preview.mjs).
+  var TEXT_PAIRS = { '15px': '1.65', '16px': '1.7', '18px': '1.75' };
   // Mirrors AGENT_COMPONENT_TAGS in src/components/agent-theme-toggle.js — keep in sync.
   var THEME_TAGS = 'agent-decision, agent-risk, agent-metric, agent-delta, agent-copy-block, agent-theme-toggle, agent-dependency-map, agent-dependency, agent-flow, agent-tabs, agent-tab, agent-timeline, agent-step, agent-gantt, agent-gantt-phase, agent-gantt-task, agent-kpi, agent-status-board, agent-status-item, agent-action-list, agent-action, agent-kanban, agent-kanban-lane, agent-kanban-card';
   var suppressThemeEvent = false;
@@ -175,11 +178,15 @@ export const LIVE_CLIENT = `
     // Use memory only when localStorage actually failed — never to resurrect a key
     // that another tab legitimately removed (Reset).
     var src = parsed || (lsOk ? null : memory) || {};
+    // Snap persisted values to known presets so a corrupt or hand-edited entry can't
+    // break layout or leave the segmented controls with no pressed state. line-height
+    // is derived from font-size so the pair can never drift apart.
+    var fontSize = TEXT_PAIRS[src.fontSize] ? src.fontSize : DEFAULTS.fontSize;
     return {
       themeMode: normalizeMode(src.themeMode),
-      width: src.width || DEFAULTS.width,
-      fontSize: src.fontSize || DEFAULTS.fontSize,
-      lineHeight: src.lineHeight || DEFAULTS.lineHeight,
+      width: WIDTHS[src.width] ? src.width : DEFAULTS.width,
+      fontSize: fontSize,
+      lineHeight: TEXT_PAIRS[fontSize],
     };
   }
 

@@ -1,7 +1,7 @@
 # Live View Settings Menu — Design
 
 - **Date:** 2026-06-23
-- **Status:** Approved (pending implementation plan)
+- **Status:** Implemented (plan at [docs/quirk/plans/2026-06-23-live-view-settings-menu.md](../plans/2026-06-23-live-view-settings-menu.md))
 - **Scope:** Add a viewer-facing settings menu to the Agent Isles "live" view chrome.
 
 ## Overview
@@ -97,12 +97,15 @@ Anchor Positioning).
   `<agent-theme-toggle>` island stays in sync.
 - The settings module applies the theme itself (so it works with no toggle island
   present): set `data-bs-theme` + `style.colorScheme` on `document.documentElement`,
-  and set `data-bs-theme` on all `agent-*` elements, with a `MutationObserver` for
-  late-loaded components. This is a small, self-contained re-implementation of
-  `applyDocumentTheme` / `applyThemeToAgentComponents` from
-  [agent-theme-toggle.js:212-233](../../../src/components/agent-theme-toggle.js) — the
-  one real cost of the no-component approach. (Future option: extract a shared helper
-  to remove the duplication.)
+  and set `data-bs-theme` on every component matching the canonical
+  `AGENT_COMPONENT_TAGS` list (mirrored from
+  [agent-theme-toggle.js:5-30](../../../src/components/agent-theme-toggle.js)). This is a
+  small, self-contained re-implementation of `applyDocumentTheme` /
+  `applyThemeToAgentComponents` — the one real cost of the no-component approach.
+  (Future option: extract a shared helper to remove the duplication.) Unlike the
+  toggle, the live module does **not** install a `MutationObserver`: the live view
+  re-renders the whole page on every `live:reload` / `live:advance`, so components are
+  static within a page lifetime and a one-shot pass on each theme change is sufficient.
 - **Auto** = follow `prefers-color-scheme` live (subscribe to the media query). The
   mode (`"auto"`) is stored in the `agent-isles-live-settings` JSON; the *effective*
   light/dark value is mirrored to `agent-isles-theme` so a present toggle reflects the
@@ -111,8 +114,12 @@ Anchor Positioning).
 
 ### Cross-tab sync, fallback, reset
 
-- **Cross-tab sync:** a `window` `storage` listener re-applies settings when either key
-  changes in another tab/window.
+- **Cross-tab sync:** a `window` `storage` listener re-applies settings when the
+  `agent-isles-live-settings` key changes in another tab/window. The `agent-isles-theme`
+  key is treated as a **one-way mirror only** and is deliberately *not* adopted on
+  `storage` — adopting it would convert another tab's `auto` into its resolved literal.
+  Same-tab legacy `<agent-theme-toggle>` changes are picked up via the
+  `agent-isles-theme-change` event instead.
 - **localStorage failure** (file://, private mode, locked-down contexts): read/write
   wrapped in `try/catch`, falling back to in-memory state, mirroring the toggle's
   existing pattern ([agent-theme-toggle.js:196-210](../../../src/components/agent-theme-toggle.js)).

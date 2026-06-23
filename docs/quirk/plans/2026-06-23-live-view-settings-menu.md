@@ -405,9 +405,12 @@ Insert a second, self-contained IIFE between `})();` and the closing `` ` `` so 
     init();
   }
 
-  // Cross-tab/window sync: re-apply when either key changes elsewhere.
+  // Cross-tab/window sync. Only the settings key drives gear state across tabs;
+  // agent-isles-theme is a one-way mirror for a legacy <agent-theme-toggle> and is
+  // deliberately NOT adopted here (adopting it would convert another tab's 'auto' into
+  // its resolved literal). Same-tab toggle changes are handled by the THEME_EVENT listener.
   window.addEventListener('storage', function (e) {
-    if (e.key !== READING_KEY && e.key !== THEME_KEY) return;
+    if (e.key !== READING_KEY) return;
     state = load();
     applyReading(state);
     applyTheme(state, false);
