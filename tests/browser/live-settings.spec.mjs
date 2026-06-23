@@ -67,3 +67,31 @@ test('theme control sets data-bs-theme; reset returns reading prefs to defaults'
     await server.close();
   }
 });
+
+const themeMode = (page) => page.evaluate(() => {
+  const raw = localStorage.getItem('agent-isles-live-settings');
+  return raw ? JSON.parse(raw).themeMode : null;
+});
+
+test('selecting Auto in one tab stays Auto in another (THEME_KEY mirror not adopted)', async ({ context }) => {
+  const dir = makeDir('isles-set-sync-');
+  const server = await startLiveServer(dir, { port: 0 });
+  try {
+    const page1 = await context.newPage();
+    const page2 = await context.newPage();
+    await page1.goto(server.url + '/');
+    await page2.goto(server.url + '/');
+
+    // Pin both tabs to Dark from tab 1 and confirm it propagates.
+    await page1.locator('#isles-settings-btn').click();
+    await page1.locator('#isles-settings button[data-theme="dark"]').click();
+    await expect.poll(() => theme(page2)).toBe('dark');
+
+    // Switch tab 1 back to Auto; tab 2 must also land on Auto — not the resolved literal.
+    await page1.locator('#isles-settings button[data-theme="auto"]').click();
+    await expect.poll(() => themeMode(page1)).toBe('auto');
+    await expect.poll(() => themeMode(page2)).toBe('auto');
+  } finally {
+    await server.close();
+  }
+});
