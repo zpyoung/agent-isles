@@ -156,20 +156,27 @@ export const LIVE_CLIENT = `
   var THEME_TAGS = 'agent-decision, agent-risk, agent-metric, agent-delta, agent-copy-block, agent-theme-toggle, agent-dependency-map, agent-dependency, agent-flow, agent-tabs, agent-tab, agent-timeline, agent-step, agent-gantt, agent-gantt-phase, agent-gantt-task, agent-kpi, agent-status-board, agent-status-item, agent-action-list, agent-action, agent-kanban, agent-kanban-lane, agent-kanban-card';
   var suppressThemeEvent = false;
 
-  function lsGet(key) { try { return window.localStorage.getItem(key); } catch (_) { return null; } }
-  function lsSet(key, value) { try { window.localStorage.setItem(key, value); } catch (_) {} }
-  function lsRemove(key) { try { window.localStorage.removeItem(key); } catch (_) {} }
+  var lsOk = true;
+  function lsGet(key) { try { return window.localStorage.getItem(key); } catch (_) { lsOk = false; return null; } }
+  function lsSet(key, value) { try { window.localStorage.setItem(key, value); } catch (_) { lsOk = false; } }
+  function lsRemove(key) { try { window.localStorage.removeItem(key); } catch (_) { lsOk = false; } }
 
-  // In-memory fallback used when localStorage throws (file://, private mode).
+  // In-memory fallback used ONLY when localStorage is unavailable (file://, private mode).
   var memory = null;
+
+  function normalizeMode(m) {
+    return (m === 'light' || m === 'dark' || m === 'auto') ? m : DEFAULTS.themeMode;
+  }
 
   function load() {
     var parsed = null;
     var raw = lsGet(SETTINGS_KEY);
     try { parsed = raw ? JSON.parse(raw) : null; } catch (_) { parsed = null; }
-    var src = parsed || memory || {};
+    // Use memory only when localStorage actually failed — never to resurrect a key
+    // that another tab legitimately removed (Reset).
+    var src = parsed || (lsOk ? null : memory) || {};
     return {
-      themeMode: src.themeMode || DEFAULTS.themeMode,
+      themeMode: normalizeMode(src.themeMode),
       width: src.width || DEFAULTS.width,
       fontSize: src.fontSize || DEFAULTS.fontSize,
       lineHeight: src.lineHeight || DEFAULTS.lineHeight,
@@ -204,10 +211,14 @@ export const LIVE_CLIENT = `
     if (lsGet(THEME_KEY) !== resolved) lsSet(THEME_KEY, resolved);
     if (broadcast) {
       // Suppress our own listener so broadcasting a resolved theme (e.g. Auto -> light)
-      // does not flip themeMode away from its real value.
+      // does not flip themeMode away from its real value. try/finally so a throwing
+      // listener can't leave the flag stuck (which would ignore all later theme events).
       suppressThemeEvent = true;
-      document.dispatchEvent(new CustomEvent(THEME_EVENT, { detail: { theme: resolved } }));
-      suppressThemeEvent = false;
+      try {
+        document.dispatchEvent(new CustomEvent(THEME_EVENT, { detail: { theme: resolved } }));
+      } finally {
+        suppressThemeEvent = false;
+      }
     }
   }
 
@@ -297,6 +308,7 @@ export const LIVE_CLIENT = `
   // literal. Same-tab legacy-toggle changes are handled by the THEME_EVENT listener.
   window.addEventListener('storage', function (e) {
     if (e.key !== SETTINGS_KEY) return;
+    if (e.newValue === null) memory = null; // another tab reset — drop any stale fallback
     state = load();
     applyReading(state);
     applyTheme(state, false);
@@ -306,7 +318,7 @@ export const LIVE_CLIENT = `
   // Track live system-theme changes while in Auto.
   if (window.matchMedia) {
     var mq = window.matchMedia('(prefers-color-scheme: dark)');
-    var onSystemChange = function () { if (state.themeMode === 'auto') applyTheme(state, false); };
+    var onSystemChange = function () { if (state.themeMode === 'auto') applyTheme(state, true); };
     if (mq.addEventListener) mq.addEventListener('change', onSystemChange);
     else if (mq.addListener) mq.addListener(onSystemChange);
   }

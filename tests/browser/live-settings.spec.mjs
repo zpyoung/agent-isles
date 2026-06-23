@@ -91,6 +91,9 @@ test('selecting Auto in one tab stays Auto in another (THEME_KEY mirror not adop
     await page1.locator('#isles-settings button[data-theme="auto"]').click();
     await expect.poll(() => themeMode(page1)).toBe('auto');
     await expect.poll(() => themeMode(page2)).toBe('auto');
+    // Tab 2 must actually re-apply the resolved Auto theme (light by default), proving it
+    // reacted to the storage event rather than merely sharing localStorage.
+    await expect.poll(() => theme(page2)).toBe('light');
   } finally {
     await server.close();
   }
