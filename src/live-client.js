@@ -291,17 +291,16 @@ export const LIVE_CLIENT = `
     if ((t === 'light' || t === 'dark') && state.themeMode !== t) adoptTheme(t);
   });
 
-  // Cross-tab/window sync: settings key reloads full state; theme key adopts the new theme.
+  // Cross-tab/window sync. Only the settings key drives gear state across tabs.
+  // THEME_KEY is a one-way mirror for a legacy <agent-theme-toggle> and must NOT be
+  // adopted here: doing so would convert another tab's 'auto' into its resolved
+  // literal. Same-tab legacy-toggle changes are handled by the THEME_EVENT listener.
   window.addEventListener('storage', function (e) {
-    if (e.key === SETTINGS_KEY) {
-      state = load();
-      applyReading(state);
-      applyTheme(state, false);
-      syncControls(state);
-    } else if (e.key === THEME_KEY) {
-      var t = e.newValue;
-      if ((t === 'light' || t === 'dark') && state.themeMode !== t) adoptTheme(t);
-    }
+    if (e.key !== SETTINGS_KEY) return;
+    state = load();
+    applyReading(state);
+    applyTheme(state, false);
+    syncControls(state);
   });
 
   // Track live system-theme changes while in Auto.
