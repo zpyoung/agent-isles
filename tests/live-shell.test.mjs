@@ -61,3 +61,18 @@ test('buildSidebar includes data-mtime for updated-badge tracking', () => {
   assert.match(html, /data-mtime="123"/);
   assert.match(html, /data-mtime="456"/);
 });
+
+test('injectLiveFrame emits the settings gear button and popover panel', () => {
+  const out = injectLiveFrame(PAGE, { screens: [{ slug: 'a', name: 'a.md', title: 'A' }], activeSlug: 'a' });
+  // Gear trigger in the header, wired to the popover, labelled for screen readers.
+  assert.match(out, /id="isles-settings-btn"[^>]*popovertarget="isles-settings"/);
+  assert.match(out, /aria-label="Settings"/);
+  // The popover panel itself.
+  assert.match(out, /id="isles-settings"[^>]*popover/);
+  // One representative control per group + the footer actions.
+  assert.match(out, /data-theme="auto"/);
+  assert.match(out, /data-width="960px"/);
+  assert.match(out, /data-font-size="18px" data-line-height="1.75"/);
+  assert.match(out, /id="isles-settings-reset"/);
+  assert.match(out, /id="isles-settings-close"[^>]*popovertargetaction="hide"/);
+});
