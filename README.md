@@ -313,11 +313,29 @@ browser to get:
 
 Rendering happens **client-side**: the server serves raw Markdown plus a small JSON
 tree, and the reader bundle (`dist/isles-reader.js`) renders it in the browser. This
-keeps the same experience available in a plain browser today and in a planned
-standalone desktop app (a Rust + TypeScript / Tauri shell that wraps the same server
-and reader). The agent-screen workflow — pushing screens into a watched folder and
-capturing island selection/proceed signals — continues to work through the same
-reader.
+keeps the same experience available in a plain browser today and, via the native
+server below, in a standalone desktop app. The agent-screen workflow — pushing screens
+into a watched folder and capturing island selection/proceed signals — continues to
+work through the same reader.
+
+### Native reader server (Rust)
+
+The same reader is also served by a small Rust crate, `crates/isles-server`, so it can
+run as a standalone binary or be wrapped by a Tauri desktop shell (no browser required).
+The Rust server **reuses the exact same frontend** — it embeds `dist/isles-reader.js` and
+the reader shell and serves the identical `/__agent-isles/tree`, `/__agent-isles/raw`,
+`/events`, and signal routes — so no Markdown rendering is reimplemented in Rust.
+
+```bash
+npm run build                 # emit dist/isles-reader.js + dist/reader-shell.html (embedded at compile time)
+cargo run -p isles-server -- ./docs      # serve a folder
+cargo run -p isles-server -- README.md   # serve a single file
+cargo test -p isles-server               # route + source-resolution parity tests
+```
+
+This is Phase 2 of the reader: the Rust + TypeScript split (thin Rust backend, the
+existing TypeScript/Lit frontend) is what lets one codebase run both in the browser and
+as a native desktop app. The Tauri shell crate (`crates/isles-app`) is the next slice.
 
 ## Ephemeral previews (`isles preview`)
 

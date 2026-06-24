@@ -16,7 +16,7 @@
     "examples/demo.md"
   ],
   "scripts": {
-    "build": "rollup -c",
+    "build": "rollup -c && node scripts/build-reader-shell.mjs",
     "test": "npm run test:unit && npm run test:browser",
     "test:unit": "npm run build && node --test --test-concurrency=2 tests/*.test.mjs",
     "test:browser": "npm run build && npm run render -- --out dist/demo.html --assets local && playwright test",
