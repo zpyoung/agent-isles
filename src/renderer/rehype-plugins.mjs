@@ -1,163 +1,30 @@
+// Node-only rehype/remark plugins: D2 diagram rendering (spawns the `d2` binary
+// or a WASM engine), writeback metadata, and source task-marker collection.
+// Browser-safe island transforms live in ./rehype-islands.mjs and are
+// re-exported here so src/render.mjs and tests keep a single import surface.
 import { spawn } from 'node:child_process';
 import { D2 } from '@terrastruct/d2';
 import { createSourceVersion, sourcePathForWriteback, WRITEBACK_CONTRACT_VERSION } from '../writeback.mjs';
-import { parseAgentTable } from './agent-table.mjs';
+import {
+  extractLanguageCodeBlock,
+  visitChildren,
+  readStringProperty,
+} from './rehype-islands.mjs';
 
 export { defaultOutFile, normalizeRenderMode } from './input.mjs';
 
-export function rehypeAgentMermaid() {
-  return (tree) => {
-    transformMermaidCodeBlocks(tree);
-  };
-}
-
-function transformMermaidCodeBlocks(node) {
-  if (!Array.isArray(node.children)) {
-    return;
-  }
-
-  for (let index = 0; index < node.children.length; index += 1) {
-    const child = node.children[index];
-    const mermaidCode = extractLanguageCodeBlock(child, 'mermaid');
-
-    if (mermaidCode) {
-      node.children[index] = {
-        type: 'element',
-        tagName: 'figure',
-        properties: { className: ['agent-mermaid'], dataAgentMermaid: true },
-        children: [
-          {
-            type: 'element',
-            tagName: 'pre',
-            properties: { className: ['mermaid'], dataAgentMermaidSource: true },
-            children: [{ type: 'text', value: mermaidCode.value }],
-          },
-        ],
-      };
-      continue;
-    }
-
-    transformMermaidCodeBlocks(child);
-  }
-}
+// Browser-safe island transforms — single import surface for existing callers.
+export {
+  rehypeAgentMermaid,
+  rehypeAgentFlow,
+  rehypeAgentTable,
+  rehypeAgentHeadingAnchors,
+} from './rehype-islands.mjs';
 
 export function rehypeAgentD2() {
   return async (tree) => {
     await transformD2CodeBlocks(tree);
   };
-}
-
-export function rehypeAgentFlow() {
-  return (tree) => {
-    transformAgentFlowCodeBlocks(tree);
-  };
-}
-
-export function rehypeAgentTable(options = {}) {
-  const warn = options.warn ?? console.warn;
-  return (tree) => {
-    let tableIndex = 0;
-    transformAgentTableCodeBlocks(tree, { warn, counter: () => ++tableIndex });
-  };
-}
-
-function transformAgentTableCodeBlocks(node, context) {
-  if (!Array.isArray(node.children)) {
-    return;
-  }
-
-  for (let index = 0; index < node.children.length; index += 1) {
-    const child = node.children[index];
-    const tableCode = extractLanguageCodeBlock(child, 'agent-table');
-
-    if (tableCode) {
-      const tableIndex = context.counter();
-      const result = parseAgentTable(tableCode.value, { tableIndex });
-
-      for (const message of result.warnings) {
-        context.warn(`[agent-isles] agent-table: ${message}`);
-      }
-
-      if (result.ok) {
-        const replacement = result.node;
-        replacement.position = child.position;
-        node.children[index] = replacement;
-      }
-
-      continue;
-    }
-
-    transformAgentTableCodeBlocks(child, context);
-  }
-}
-
-function transformAgentFlowCodeBlocks(node) {
-  if (!Array.isArray(node.children)) {
-    return;
-  }
-
-  for (let index = 0; index < node.children.length; index += 1) {
-    const child = node.children[index];
-    const flowCode = extractLanguageCodeBlock(child, 'agent-flow');
-
-    if (flowCode) {
-      const { attributes, documentSource } = parseAgentFlowCodeBlock(flowCode.value);
-      node.children[index] = {
-        type: 'element',
-        tagName: 'agent-flow',
-        properties: attributes,
-        children: [{ type: 'text', value: documentSource }],
-      };
-      continue;
-    }
-
-    transformAgentFlowCodeBlocks(child);
-  }
-}
-
-function parseAgentFlowCodeBlock(source) {
-  const lines = String(source || '').replace(/\r\n?/g, '\n').split('\n');
-  const separatorIndex = lines.findIndex((line) => line.trim() === '---');
-  const attributes = {};
-  let bodyLines = lines;
-
-  if (separatorIndex >= 0) {
-    for (const line of lines.slice(0, separatorIndex)) {
-      const match = /^\s*([A-Za-z][A-Za-z0-9_-]*)\s*:\s*(.*?)\s*$/.exec(line);
-      if (!match) {
-        continue;
-      }
-      const key = match[1].toLowerCase();
-      const value = match[2];
-      if (['kind', 'title', 'mode', 'view'].includes(key) && value) {
-        attributes[key] = normalizeAgentFlowAttribute(key, value);
-      }
-    }
-    bodyLines = lines.slice(separatorIndex + 1);
-  }
-
-  const documentSource = bodyLines.join('\n').trim();
-  if (!attributes.kind) {
-    const documentKind = readAgentFlowDocumentKind(documentSource);
-    if (documentKind) attributes.kind = documentKind;
-  }
-  if (!attributes.mode) attributes.mode = 'viewer';
-
-  return { attributes, documentSource };
-}
-
-function readAgentFlowDocumentKind(documentSource) {
-  try {
-    const document = JSON.parse(documentSource);
-    return typeof document.kind === 'string' && document.kind.trim() ? document.kind.trim().toLowerCase() : '';
-  } catch {
-    return '';
-  }
-}
-
-function normalizeAgentFlowAttribute(key, value) {
-  const trimmed = value.trim();
-  return ['kind', 'mode'].includes(key) ? trimmed.toLowerCase() : trimmed;
 }
 
 async function transformD2CodeBlocks(node) {
@@ -182,27 +49,6 @@ async function transformD2CodeBlocks(node) {
 
     await transformD2CodeBlocks(child);
   }
-}
-
-function extractLanguageCodeBlock(node, language) {
-  if (node?.type !== 'element' || node.tagName !== 'pre') {
-    return null;
-  }
-
-  const codeNode = node.children?.find((child) => child.type === 'element' && child.tagName === 'code');
-  const classNames = codeNode?.properties?.className || [];
-  const languageClassName = `language-${language}`;
-  const hasLanguage = Array.isArray(classNames)
-    ? classNames.includes(languageClassName)
-    : String(classNames).split(/\s+/).includes(languageClassName);
-
-  if (!hasLanguage) {
-    return null;
-  }
-
-  return {
-    value: codeNode.children?.map((child) => child.value || '').join('') || '',
-  };
 }
 
 // The WASM engine peaks at ~6.5GB RSS per instantiation regardless of diagram
@@ -288,95 +134,6 @@ function formatPosition(position) {
   }
 
   return ` at line ${start.line}${start.column ? `, column ${start.column}` : ''}`;
-}
-
-export function rehypeAgentHeadingAnchors(options = {}) {
-  return (tree) => {
-    const toc = options.toc || [];
-    const seenIds = new Map();
-
-    visitChildren(tree, (children, index, node) => {
-      if (node?.type !== 'element' || !/^h[1-6]$/.test(node.tagName)) {
-        return undefined;
-      }
-
-      const text = plainText(node).replace(/\s+/g, ' ').trim();
-      if (!text) {
-        return undefined;
-      }
-
-      node.properties ||= {};
-      const level = Number(node.tagName.slice(1));
-      const existingId = readStringProperty(node.properties, 'id');
-      const id = existingId || uniqueHeadingId(slugifyHeading(text), seenIds);
-
-      if (level <= 3) {
-        toc.push({ id, text, level });
-      }
-
-      if (!existingId) {
-        children.splice(index, 0, {
-          type: 'element',
-          tagName: 'span',
-          properties: { id, className: ['agent-isles-heading-anchor'], ariaHidden: 'true' },
-          children: [],
-        });
-        return index + 2;
-      }
-
-      return undefined;
-    });
-  };
-}
-
-function plainText(node) {
-  if (!node) {
-    return '';
-  }
-  if (node.type === 'text') {
-    return node.value || '';
-  }
-  if (!Array.isArray(node.children)) {
-    return '';
-  }
-  return node.children.map(plainText).join('');
-}
-
-function slugifyHeading(text) {
-  const slug = String(text)
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9\s-]/g, '')
-    .trim()
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-');
-
-  return slug || 'section';
-}
-
-function uniqueHeadingId(baseId, seenIds) {
-  const count = seenIds.get(baseId) || 0;
-  seenIds.set(baseId, count + 1);
-  return count === 0 ? baseId : `${baseId}-${count + 1}`;
-}
-
-function visitChildren(node, visitor) {
-  if (!Array.isArray(node.children)) {
-    return;
-  }
-
-  for (let index = 0; index < node.children.length; index += 1) {
-    const child = node.children[index];
-    const nextIndex = visitor(node.children, index, child, node);
-
-    if (typeof nextIndex === 'number') {
-      index = nextIndex - 1;
-      continue;
-    }
-
-    visitChildren(child, visitor);
-  }
 }
 
 export function rehypeAgentWritebackMetadata(options = {}) {
@@ -580,17 +337,6 @@ function stripWritebackProperties(properties = {}) {
   delete properties.dataAgentIslesWritebackOp;
   delete properties['data-agent-isles-writeback'];
   delete properties.dataAgentIslesWriteback;
-}
-
-function readStringProperty(properties = {}, propertyName) {
-  const value = properties[propertyName];
-  if (typeof value === 'string') {
-    return value;
-  }
-  if (typeof value === 'number') {
-    return String(value);
-  }
-  return null;
 }
 
 function isAgentComponentTag(tagName) {
