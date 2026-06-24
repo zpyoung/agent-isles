@@ -144,4 +144,190 @@ export const LIVE_CLIENT = `
     sendSignal(e.detail || {});
   });
 })();
+
+(function () {
+  if (!document.documentElement || !document.documentElement.style) return;
+
+  var SETTINGS_KEY = 'agent-isles-live-settings';
+  var THEME_KEY = 'agent-isles-theme';
+  var THEME_EVENT = 'agent-isles-theme-change';
+  var DEFAULTS = { themeMode: 'auto', width: '960px', fontSize: '16px', lineHeight: '1.7' };
+  var WIDTHS = { '760px': 1, '960px': 1, '1200px': 1 };
+  // Font-size -> canonical line-height pairs (mirrors the reading controls in preview.mjs).
+  var TEXT_PAIRS = { '15px': '1.65', '16px': '1.7', '18px': '1.75' };
+  // Mirrors AGENT_COMPONENT_TAGS in src/components/agent-theme-toggle.js — keep in sync.
+  var THEME_TAGS = 'agent-decision, agent-risk, agent-metric, agent-delta, agent-copy-block, agent-theme-toggle, agent-dependency-map, agent-dependency, agent-flow, agent-tabs, agent-tab, agent-timeline, agent-step, agent-gantt, agent-gantt-phase, agent-gantt-task, agent-kpi, agent-status-board, agent-status-item, agent-action-list, agent-action, agent-kanban, agent-kanban-lane, agent-kanban-card';
+  var suppressThemeEvent = false;
+
+  var lsOk = true;
+  function lsGet(key) { try { return window.localStorage.getItem(key); } catch (_) { lsOk = false; return null; } }
+  function lsSet(key, value) { try { window.localStorage.setItem(key, value); } catch (_) { lsOk = false; } }
+  function lsRemove(key) { try { window.localStorage.removeItem(key); } catch (_) { lsOk = false; } }
+
+  // In-memory fallback used ONLY when localStorage is unavailable (file://, private mode).
+  var memory = null;
+
+  function normalizeMode(m) {
+    return (m === 'light' || m === 'dark' || m === 'auto') ? m : DEFAULTS.themeMode;
+  }
+
+  function load() {
+    var parsed = null;
+    var raw = lsGet(SETTINGS_KEY);
+    try { parsed = raw ? JSON.parse(raw) : null; } catch (_) { parsed = null; }
+    // Use memory only when localStorage actually failed — never to resurrect a key
+    // that another tab legitimately removed (Reset).
+    var src = parsed || (lsOk ? null : memory) || {};
+    // Snap persisted values to known presets so a corrupt or hand-edited entry can't
+    // break layout or leave the segmented controls with no pressed state. line-height
+    // is derived from font-size so the pair can never drift apart.
+    var fontSize = TEXT_PAIRS[src.fontSize] ? src.fontSize : DEFAULTS.fontSize;
+    return {
+      themeMode: normalizeMode(src.themeMode),
+      width: WIDTHS[src.width] ? src.width : DEFAULTS.width,
+      fontSize: fontSize,
+      lineHeight: TEXT_PAIRS[fontSize],
+    };
+  }
+
+  function save(s) {
+    memory = s;
+    lsSet(SETTINGS_KEY, JSON.stringify(s));
+  }
+
+  function effectiveTheme(mode) {
+    if (mode === 'light' || mode === 'dark') return mode;
+    return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+  }
+
+  function applyReading(s) {
+    var root = document.documentElement;
+    root.style.setProperty('--agent-isles-page-max-width', s.width);
+    root.style.setProperty('--agent-isles-page-font-size', s.fontSize);
+    root.style.setProperty('--agent-isles-page-line-height', s.lineHeight);
+  }
+
+  function applyTheme(s, broadcast) {
+    var resolved = effectiveTheme(s.themeMode);
+    var root = document.documentElement;
+    root.setAttribute('data-bs-theme', resolved);
+    root.style.colorScheme = resolved;
+    var nodes = document.querySelectorAll(THEME_TAGS);
+    for (var i = 0; i < nodes.length; i++) nodes[i].setAttribute('data-bs-theme', resolved);
+    // Mirror the resolved value to the legacy key so a present <agent-theme-toggle> reflects state.
+    if (lsGet(THEME_KEY) !== resolved) lsSet(THEME_KEY, resolved);
+    if (broadcast) {
+      // Suppress our own listener so broadcasting a resolved theme (e.g. Auto -> light)
+      // does not flip themeMode away from its real value. try/finally so a throwing
+      // listener can't leave the flag stuck (which would ignore all later theme events).
+      suppressThemeEvent = true;
+      try {
+        document.dispatchEvent(new CustomEvent(THEME_EVENT, { detail: { theme: resolved } }));
+      } finally {
+        suppressThemeEvent = false;
+      }
+    }
+  }
+
+  function setPressed(panel, attr, value) {
+    var btns = panel.querySelectorAll('[data-' + attr + ']');
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].setAttribute('aria-pressed', btns[i].getAttribute('data-' + attr) === value ? 'true' : 'false');
+    }
+  }
+
+  function syncControls(s) {
+    var panel = document.getElementById('isles-settings');
+    if (!panel) return;
+    setPressed(panel, 'theme', s.themeMode);
+    setPressed(panel, 'width', s.width);
+    setPressed(panel, 'font-size', s.fontSize);
+  }
+
+  function adoptTheme(mode) {
+    state.themeMode = mode;
+    save(state);
+    applyTheme(state, false);
+    syncControls(state);
+  }
+
+  var state = load();
+  applyReading(state);
+  applyTheme(state, false);
+
+  function init() {
+    var panel = document.getElementById('isles-settings');
+    if (!panel) return;
+    syncControls(state);
+
+    panel.addEventListener('click', function (e) {
+      var btn = e.target && e.target.closest ? e.target.closest('button') : null;
+      if (!btn || !panel.contains(btn)) return;
+      if (btn.hasAttribute('data-theme')) {
+        state.themeMode = btn.getAttribute('data-theme');
+        save(state); applyTheme(state, true); syncControls(state);
+      } else if (btn.hasAttribute('data-width')) {
+        state.width = btn.getAttribute('data-width');
+        save(state); applyReading(state); syncControls(state);
+      } else if (btn.hasAttribute('data-font-size')) {
+        state.fontSize = btn.getAttribute('data-font-size');
+        state.lineHeight = btn.getAttribute('data-line-height') || state.lineHeight;
+        save(state); applyReading(state); syncControls(state);
+      } else if (btn.id === 'isles-settings-reset') {
+        lsRemove(SETTINGS_KEY);
+        memory = null;
+        state = { themeMode: DEFAULTS.themeMode, width: DEFAULTS.width, fontSize: DEFAULTS.fontSize, lineHeight: DEFAULTS.lineHeight };
+        applyReading(state); applyTheme(state, true); syncControls(state);
+      }
+    });
+
+    // Arrow-key navigation within a segmented group.
+    panel.addEventListener('keydown', function (e) {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      var group = e.target && e.target.closest ? e.target.closest('.isles-seg') : null;
+      if (!group) return;
+      var btns = Array.prototype.slice.call(group.querySelectorAll('button'));
+      var idx = btns.indexOf(e.target);
+      if (idx === -1) return;
+      e.preventDefault();
+      var next = e.key === 'ArrowRight' ? (idx + 1) % btns.length : (idx - 1 + btns.length) % btns.length;
+      btns[next].focus();
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
+  // In-tab interop: adopt theme changes from a legacy <agent-theme-toggle>.
+  // suppressThemeEvent skips our own broadcasts (see applyTheme).
+  document.addEventListener(THEME_EVENT, function (e) {
+    if (suppressThemeEvent) return;
+    var t = e && e.detail && e.detail.theme;
+    if ((t === 'light' || t === 'dark') && state.themeMode !== t) adoptTheme(t);
+  });
+
+  // Cross-tab/window sync. Only the settings key drives gear state across tabs.
+  // THEME_KEY is a one-way mirror for a legacy <agent-theme-toggle> and must NOT be
+  // adopted here: doing so would convert another tab's 'auto' into its resolved
+  // literal. Same-tab legacy-toggle changes are handled by the THEME_EVENT listener.
+  window.addEventListener('storage', function (e) {
+    if (e.key !== SETTINGS_KEY) return;
+    if (e.newValue === null) memory = null; // another tab reset — drop any stale fallback
+    state = load();
+    applyReading(state);
+    applyTheme(state, false);
+    syncControls(state);
+  });
+
+  // Track live system-theme changes while in Auto.
+  if (window.matchMedia) {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    var onSystemChange = function () { if (state.themeMode === 'auto') applyTheme(state, true); };
+    if (mq.addEventListener) mq.addEventListener('change', onSystemChange);
+    else if (mq.addListener) mq.addListener(onSystemChange);
+  }
+})();
 `;
