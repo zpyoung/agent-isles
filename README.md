@@ -202,6 +202,8 @@ isles packs resolve <file.md> [--pack <path>]... [--no-user-packs]
 isles watch <file.md> [--out <file.html>] [--mode trusted|sanitized] [--assets cdn|local|inline] [--show-source] [--pack <path>]... [--no-user-packs]
 isles preview (--stdin | <file.md>) [--open] [--mode trusted|sanitized] [--safe|--sanitize] [--show-source] [--pack <path>]... [--no-user-packs]
 isles preview <dir> [--port <port>] [--writeback] [--mode trusted|sanitized] [--show-source] [--pack <path>]... [--no-user-packs]
+isles live <file.md|dir> [--port <port>] [--host <host>] [--url-host <host>] [--idle-timeout <min>]
+isles live <file.md|dir> --stop
 ```
 
 Ephemeral preview mode renders one Markdown document from stdin or a file to an inline-asset temp HTML file and prints a `file://` URL:
@@ -285,6 +287,37 @@ node ./bin/isles.mjs render examples/demo.md --out dist/demo.html --assets inlin
 **Security boundary**: Inline mode only inlines trusted, locally resolvable assets — the built-in runtime and component-pack `style`/`module` files declared in a pack manifest that point at files inside the pack directory. It never fetches remote pack assets and never executes arbitrary user-authored JavaScript beyond the existing trusted/raw-HTML model: producing a single portable file does **not** make untrusted Markdown safe to render in `trusted` mode, and the raw-HTML and component-pack boundaries remain security-sensitive regardless of asset mode. If a declared pack asset cannot be resolved locally, inline rendering **fails fast** with an error naming the pack and asset path rather than silently emitting incomplete HTML — fix the asset or fall back to `--assets local`/`--assets cdn`.
 
 `isles watch` renders immediately and rebuilds when the Markdown source changes, and accepts the same `--mode`, `--assets` (including `inline`), `--show-source`, and `--pack` options as `isles render`, so watch rebuilds can also produce single-file inline output. It remains source-driven: browser interactions in the generated HTML do not write back to the Markdown file.
+
+## Live reader (`isles live`)
+
+`isles live` opens a Markdown file or a folder in a localhost live reader — a full
+Markdown reading experience that also understands the Agent Isles island convention:
+
+```bash
+isles live README.md        # read a single file
+isles live ./docs           # browse a folder (recursive directory tree)
+isles live ./docs --stop    # stop the background server for that path
+```
+
+It launches a background server and prints a JSON line with the URL. Open it in a
+browser to get:
+
+- a recursive, collapsible **directory tree** of every `.md`/`.markdown` file (a single
+  file opens as a tree of one);
+- a per-document **table of contents**, document **search**, and **theme/reading
+  controls** (light/dark/auto, width, text size) persisted in the browser;
+- full Markdown rendering with code highlighting, Mermaid diagrams, and the
+  `<agent-*>` component islands;
+- **live reload** over Server-Sent Events: edits to the open file re-render in place,
+  and newly created files appear in the tree.
+
+Rendering happens **client-side**: the server serves raw Markdown plus a small JSON
+tree, and the reader bundle (`dist/isles-reader.js`) renders it in the browser. This
+keeps the same experience available in a plain browser today and in a planned
+standalone desktop app (a Rust + TypeScript / Tauri shell that wraps the same server
+and reader). The agent-screen workflow — pushing screens into a watched folder and
+capturing island selection/proceed signals — continues to work through the same
+reader.
 
 ## Ephemeral previews (`isles preview`)
 
