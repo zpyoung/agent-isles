@@ -49,6 +49,7 @@ const expectedPublishedFiles = [
   'src/pack-loader.mjs',
   'src/pack-resolver.mjs',
   'src/preview.mjs',
+  'src/reader/render-browser.mjs',
   'src/reader/sources.mjs',
   'src/render.mjs',
   'src/renderer/agent-table.mjs',
