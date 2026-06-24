@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { existsSync, mkdtempSync, readFileSync, writeFileSync, utimesSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, utimesSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -446,5 +446,39 @@ test('served client includes the updated-badge logic', async () => {
     const body = (await get(server.url + '/a')).body;
     assert.match(body, /isles-updated/);
     assert.match(body, /data-mtime=/);
+  } finally { await server.close(); }
+});
+
+test('GET /__agent-isles/tree returns a recursive nested document tree', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-live-tree-'));
+  writeFileSync(join(dir, 'root.md'), '# Root');
+  mkdirSync(join(dir, 'guides'));
+  writeFileSync(join(dir, 'guides', 'intro.md'), '# Intro');
+  const server = await startLiveServer(dir, { port: 0 });
+  try {
+    const res = await get(server.url + '/__agent-isles/tree');
+    assert.equal(res.status, 200);
+    const data = JSON.parse(res.body);
+    assert.deepEqual(data.docs.map((d) => d.slug).sort(), ['guides/intro', 'root']);
+    // Folder node nests its file child.
+    const folder = data.tree.find((n) => n.type === 'dir' && n.name === 'guides');
+    assert.ok(folder, 'guides folder present in tree');
+    assert.deepEqual(folder.children.map((c) => c.slug), ['guides/intro']);
+  } finally { await server.close(); }
+});
+
+test('GET /__agent-isles/raw returns raw Markdown for a slug and 404s otherwise', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-live-raw-'));
+  writeFileSync(join(dir, 'doc.md'), '# Doc\n\nRAW_BODY_UNIQUE');
+  const server = await startLiveServer(dir, { port: 0 });
+  try {
+    const ok = await get(server.url + '/__agent-isles/raw?slug=doc');
+    assert.equal(ok.status, 200);
+    assert.match(ok.body, /RAW_BODY_UNIQUE/);
+    assert.doesNotMatch(ok.body, /<h1/); // raw, not rendered
+    const missing = await get(server.url + '/__agent-isles/raw?slug=nope');
+    assert.equal(missing.status, 404);
+    const traversal = await get(server.url + '/__agent-isles/raw?slug=..%2Fsecret');
+    assert.equal(traversal.status, 404);
   } finally { await server.close(); }
 });

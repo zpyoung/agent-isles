@@ -17,6 +17,7 @@ import {
 import { join } from 'node:path';
 import { renderMarkdownString } from './render.mjs';
 import { listScreens, listScreenFiles, resolveSlug, readFileNoFollow } from './live-docs.mjs';
+import { listReaderDocs, buildDocTree, resolveDocSlug } from './reader/sources.mjs';
 import { injectLiveFrame } from './live-shell.mjs';
 
 export { injectLiveFrame };
@@ -266,6 +267,38 @@ export async function startLiveServer(dir, options = {}) {
         const newest = newestOf(screens);
         res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ screens, newest: newest ? newest.slug : null }));
+        return;
+      }
+      // Reader tree: the recursive folder/file document set for the reader SPA.
+      // Additive alongside /screens (which stays flat for the agent-screen flow).
+      if (req.method === 'GET' && pathname === '/__agent-isles/tree') {
+        const { docs, truncated } = listReaderDocs(dir);
+        const tree = buildDocTree(docs);
+        const slim = docs.map(({ slug, name, title, relPath, dir: subdir, mtimeMs }) => (
+          { slug, name, title, relPath, dir: subdir, mtimeMs }
+        ));
+        let newest = null;
+        let newestMtime = -1;
+        for (const d of docs) if (d.mtimeMs > newestMtime) { newestMtime = d.mtimeMs; newest = d.slug; }
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ tree, docs: slim, newest, truncated }));
+        return;
+      }
+      // Raw Markdown for a document, by reader slug, for client-side rendering.
+      // Reads with O_NOFOLLOW via resolveDocSlug → never serves outside the root.
+      if (req.method === 'GET' && pathname === '/__agent-isles/raw') {
+        let slug = null;
+        try { slug = new URL(req.url, 'http://localhost').searchParams.get('slug'); } catch {}
+        const match = resolveDocSlug(dir, slug || '');
+        if (!match) { res.writeHead(404); res.end('Not found'); return; }
+        let markdown;
+        try { markdown = readFileNoFollow(match.file); } catch { res.writeHead(404); res.end('Not found'); return; }
+        res.writeHead(200, {
+          'Content-Type': 'text/markdown; charset=utf-8',
+          'Cache-Control': 'no-cache, no-transform',
+          'X-Agent-Isles-Slug': match.slug,
+        });
+        res.end(markdown);
         return;
       }
       if (req.method === 'POST' && pathname === '/__agent-isles/signal') {
