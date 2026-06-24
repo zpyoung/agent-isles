@@ -483,7 +483,7 @@ pub fn build_doc_tree(docs: &[Doc]) -> Value {
         insert(dir_children, &path, &segments[1..], doc);
     }
 
-    fn sort_and_emit(children: &mut Vec<Node>) -> Value {
+    fn sort_and_emit(children: &mut [Node]) -> Value {
         children.sort_by(|a, b| {
             let rank = |n: &Node| match n {
                 Node::Dir { .. } => 0,

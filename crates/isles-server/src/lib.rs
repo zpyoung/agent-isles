@@ -11,6 +11,9 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use axum::Router;
+use notify::Watcher;
+use tokio::net::TcpListener;
 use tokio::sync::broadcast;
 
 pub mod server;
@@ -30,8 +33,28 @@ pub struct ServeConfig {
     pub url_host: Option<String>,
 }
 
-/// Bind, start watching, and serve until Ctrl-C / SIGTERM. Prints the URL.
-pub async fn serve(config: ServeConfig) -> std::io::Result<()> {
+/// A bound-and-listening server: the URL plus the resources that must outlive
+/// the bind (the file watcher and the serving task). Dropping it stops serving.
+pub struct ServerHandle {
+    pub url: String,
+    _watcher: Option<Box<dyn Watcher + Send>>,
+    task: tokio::task::JoinHandle<std::io::Result<()>>,
+}
+
+impl Drop for ServerHandle {
+    fn drop(&mut self) {
+        self.task.abort();
+    }
+}
+
+struct Prepared {
+    listener: TcpListener,
+    app: Router,
+    url: String,
+    watcher: Option<Box<dyn Watcher + Send>>,
+}
+
+async fn prepare(config: ServeConfig) -> std::io::Result<Prepared> {
     let ServeConfig {
         source,
         host,
@@ -43,8 +66,7 @@ pub async fn serve(config: ServeConfig) -> std::io::Result<()> {
 
     let (tx, _rx) = broadcast::channel::<watch::SseEvent>(256);
 
-    // Keep the watcher guard alive for the process lifetime.
-    let _watcher = match watch::spawn(root.clone(), reader_file.clone(), tx.clone()) {
+    let watcher = match watch::spawn(root.clone(), reader_file.clone(), tx.clone()) {
         Ok(w) => Some(w),
         Err(e) => {
             eprintln!("isles-server: file watching disabled ({e}); live reload will not fire");
@@ -58,7 +80,7 @@ pub async fn serve(config: ServeConfig) -> std::io::Result<()> {
             format!("bad host/port: {e}"),
         )
     })?;
-    let listener = tokio::net::TcpListener::bind(addr).await?;
+    let listener = TcpListener::bind(addr).await?;
     let bound = listener.local_addr()?;
 
     let shown_host = url_host.unwrap_or_else(|| {
@@ -84,16 +106,57 @@ pub async fn serve(config: ServeConfig) -> std::io::Result<()> {
         allowed_origins,
     });
     let app = router(state);
+    Ok(Prepared {
+        listener,
+        app,
+        url,
+        watcher,
+    })
+}
 
-    println!(
-        "Agent Isles reader serving {} at {}",
-        source_label(&source),
-        url
-    );
-
+/// Bind, start watching, and serve until Ctrl-C / SIGTERM (foreground). Prints
+/// the URL. Used by the `isles-server` binary.
+pub async fn serve(config: ServeConfig) -> std::io::Result<()> {
+    let label = source_label(&config.source);
+    let Prepared {
+        listener,
+        app,
+        url,
+        watcher: _watcher,
+    } = prepare(config).await?;
+    println!("Agent Isles reader serving {label} at {url}");
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
         .await
+}
+
+/// Bind and start serving on a background task, returning the URL immediately.
+/// The returned handle keeps the watcher and serving task alive; drop it to
+/// stop. Used by the Tauri shell, which opens a window at `handle.url`.
+pub async fn serve_in_background(
+    source: ReaderSource,
+    host: &str,
+    port: u16,
+) -> std::io::Result<ServerHandle> {
+    let prepared = prepare(ServeConfig {
+        source,
+        host: host.to_string(),
+        port,
+        url_host: None,
+    })
+    .await?;
+    let Prepared {
+        listener,
+        app,
+        url,
+        watcher,
+    } = prepared;
+    let task = tokio::spawn(async move { axum::serve(listener, app).await });
+    Ok(ServerHandle {
+        url,
+        _watcher: watcher,
+        task,
+    })
 }
 
 fn source_label(source: &ReaderSource) -> String {

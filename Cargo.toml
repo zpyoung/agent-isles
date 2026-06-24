@@ -6,10 +6,10 @@
 # `isles live` reader exposes — no Markdown rendering is reimplemented in Rust.
 #
 #   crates/isles-server  thin HTTP server + file watcher (browser + Tauri sidecar)
-#   crates/isles-app     Tauri desktop shell (added in a follow-up slice)
+#   crates/isles-app     Tauri desktop shell wrapping isles-server in a window
 [workspace]
 resolver = "2"
-members = ["crates/isles-server"]
+members = ["crates/isles-server", "crates/isles-app"]
 
 [workspace.package]
 version = "0.1.0"

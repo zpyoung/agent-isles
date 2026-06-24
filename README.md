@@ -333,9 +333,26 @@ cargo run -p isles-server -- README.md   # serve a single file
 cargo test -p isles-server               # route + source-resolution parity tests
 ```
 
+### Desktop app (Tauri)
+
+`crates/isles-app` is a [Tauri](https://tauri.app) shell that launches the same
+`isles-server` in-process and opens it in a native window — no browser required. It
+reuses the identical frontend, so the desktop and browser experiences are the same.
+
+```bash
+npm run build                 # build the embedded frontend first
+cargo run -p isles-app -- ./docs   # open a folder in a native window
+cargo build -p isles-app           # build the desktop binary
+```
+
+Building the desktop app needs the platform webview toolchain (on Linux:
+`libwebkit2gtk-4.1-dev`, `libgtk-3-dev`, `libayatana-appindicator3-dev`, `librsvg2-dev`;
+macOS and Windows use their system webviews). The `Rust` CI workflow installs these and
+runs `cargo fmt`/`clippy`/`test` plus the Tauri build on every push and PR.
+
 This is Phase 2 of the reader: the Rust + TypeScript split (thin Rust backend, the
 existing TypeScript/Lit frontend) is what lets one codebase run both in the browser and
-as a native desktop app. The Tauri shell crate (`crates/isles-app`) is the next slice.
+as a native desktop app.
 
 ## Ephemeral previews (`isles preview`)
 

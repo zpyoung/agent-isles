@@ -1,0 +1,20 @@
+[package]
+name = "isles-app"
+description = "Tauri desktop shell for the Agent Isles Markdown reader"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "isles-app"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+isles-server = { path = "../isles-server" }
+tauri = { version = "2", features = [] }
+tokio = { version = "1", features = ["rt-multi-thread"] }
+url = "2"
