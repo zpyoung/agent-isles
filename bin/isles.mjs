@@ -11,12 +11,13 @@ import {
 } from '../src/render.mjs';
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, openSync, readFileSync, rmSync, statSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CONFIG_FILE, getUserConfigDir, PackResolutionError, resolvePackInputs } from '../src/pack-resolver.mjs';
 import { watchMarkdownFile } from '../src/watch.mjs';
 import { previewMarkdown, startPreviewServer } from '../src/preview.mjs';
 import { runLiveForeground, stopLive } from '../src/live.mjs';
+import { isMarkdownFile } from '../src/reader/sources.mjs';
 
 const USAGE = `Agent Isles — Markdown seas, component islands.
 
@@ -27,15 +28,15 @@ Usage:
   isles watch <file.md> [--out <file.html>] [--mode trusted|sanitized] [--assets cdn|local|inline] [--show-source] [--pack <path>]... [--no-user-packs]
   isles preview (--stdin | <file.md>) [--open] [--mode trusted|sanitized] [--safe|--sanitize] [--show-source] [--pack <path>]... [--no-user-packs]
   isles preview <dir> [--port <port>] [--writeback] [--mode trusted|sanitized] [--show-source] [--pack <path>]... [--no-user-packs]
-  isles live <dir> [--port <port>] [--host <host>] [--url-host <host>] [--idle-timeout <min>] [--owner-pid <pid>]
-  isles live <dir> --stop
+  isles live <file.md|dir> [--port <port>] [--host <host>] [--url-host <host>] [--idle-timeout <min>] [--owner-pid <pid>]
+  isles live <file.md|dir> --stop
 
 Commands:
   render         Render Markdown to browser-ready HTML
   packs resolve  Print resolved component packs, sources, asset outputs, and sanitizer permissions
   watch          Render immediately and rebuild when the Markdown file changes
   preview        Render ephemeral Markdown to a temp HTML file, or serve a localhost directory preview
-  live           Serve live agent screens in the background, or stop a live server
+  live           Open a Markdown file or folder in the live reader (browse, render, live-reload), or stop a live server
 
 Options:
   --assets cdn|local|inline   Use CDN assets (default), copy local offline assets, or inline all assets into single HTML file
@@ -75,7 +76,7 @@ if (command === 'render') {
 
 async function runLive(args) {
   const parsed = { dir: undefined, port: undefined, host: undefined, urlHost: undefined,
-    idleTimeoutMinutes: undefined, ownerPid: undefined, stop: false, serve: false };
+    idleTimeoutMinutes: undefined, ownerPid: undefined, readerFile: undefined, stop: false, serve: false };
   const needVal = (i, name) => {
     const v = args[i + 1];
     if (v === undefined || v === '' || v.startsWith('-')) { console.error(`${name} requires a value`); process.exit(2); }
@@ -102,12 +103,27 @@ async function runLive(args) {
     }
     if (a === '--stop') { parsed.stop = true; continue; }
     if (a === '--__serve') { parsed.serve = true; continue; }
+    // Internal: passed parent→daemon child to scope the reader to a single file.
+    if (a === '--reader-file') { parsed.readerFile = needVal(i, '--reader-file'); i += 1; continue; }
     if (a.startsWith('-')) { console.error(`Unknown live option: ${a}`); process.exit(2); }
     if (!parsed.dir) { parsed.dir = a; continue; }
     console.error(`Unexpected extra argument: ${a}`); process.exit(2);
   }
-  if (!parsed.dir) { console.error('Missing <dir> for live.\n'); console.error(USAGE); process.exit(2); }
-  const dir = resolve(parsed.dir);
+  if (!parsed.dir) { console.error('Missing <file|dir> for live.\n'); console.error(USAGE); process.exit(2); }
+
+  // Accept a single Markdown file or a folder. A file scopes the reader to that
+  // file and serves from its parent dir; a missing path is treated as a folder
+  // to be created (agents start `live` on a dir before pushing screens).
+  let dir = resolve(parsed.dir);
+  let readerFile = parsed.readerFile || null;
+  if (!parsed.serve && existsSync(dir) && statSync(dir).isFile()) {
+    if (!isMarkdownFile(dir)) {
+      console.error(`Not a Markdown file: ${dir}\nExpected .md, .markdown, .mkd, or .mdx, or pass a folder.`);
+      process.exit(2);
+    }
+    readerFile = basename(dir);
+    dir = dirname(dir);
+  }
 
   if (parsed.stop) { stopLive(dir); process.exit(0); }
 
@@ -116,6 +132,7 @@ async function runLive(args) {
     await runLiveForeground(dir, {
       port: parsed.port, host: parsed.host, urlHost: parsed.urlHost,
       idleTimeoutMinutes: parsed.idleTimeoutMinutes, ownerPid: parsed.ownerPid,
+      reader: true, readerFile,
     });
     return;
   }
@@ -147,6 +164,7 @@ async function runLive(args) {
   if (parsed.urlHost) childArgs.push('--url-host', parsed.urlHost);
   if (parsed.idleTimeoutMinutes !== undefined) childArgs.push('--idle-timeout', String(parsed.idleTimeoutMinutes));
   if (parsed.ownerPid !== undefined) childArgs.push('--owner-pid', String(parsed.ownerPid));
+  if (readerFile) childArgs.push('--reader-file', readerFile);
   const errFd = openSync(join(stateD, 'server-error.log'), 'a');
   const child = spawn(process.execPath, childArgs, { detached: true, stdio: ['ignore', errFd, errFd] });
   child.unref();

@@ -12,6 +12,8 @@ const expectedPublishedFiles = [
   'bin/isles.mjs',
   'dist/agent-components.js',
   'dist/agent-components.js.map',
+  'dist/isles-reader.js',
+  'dist/isles-reader.js.map',
   'examples/demo.md',
   'package.json',
   'src/agent-flow/core/document.js',
@@ -49,6 +51,7 @@ const expectedPublishedFiles = [
   'src/pack-loader.mjs',
   'src/pack-resolver.mjs',
   'src/preview.mjs',
+  'src/reader/reader-entry.js',
   'src/reader/render-browser.mjs',
   'src/reader/sources.mjs',
   'src/render.mjs',
@@ -83,6 +86,8 @@ test('package metadata defines a guarded npm prerelease path', () => {
     'src/',
     'dist/agent-components.js',
     'dist/agent-components.js.map',
+    'dist/isles-reader.js',
+    'dist/isles-reader.js.map',
     'examples/demo.md',
   ]);
   assert.equal(packageJson.scripts.prepack, 'npm run build');

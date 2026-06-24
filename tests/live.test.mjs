@@ -467,6 +467,50 @@ test('GET /__agent-isles/tree returns a recursive nested document tree', async (
   } finally { await server.close(); }
 });
 
+test('reader mode serves the SPA shell at / and the reader bundle route', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-live-reader-shell-'));
+  writeFileSync(join(dir, 'a.md'), '# A');
+  const server = await startLiveServer(dir, { port: 0, reader: true });
+  try {
+    const root = await get(server.url + '/');
+    assert.equal(root.status, 200);
+    assert.match(root.body, /__agent-isles\/reader\.js/);
+    assert.doesNotMatch(root.body, /Waiting for the agent/); // not the agent-screen page
+    const bundle = await get(server.url + '/__agent-isles/reader.js');
+    assert.equal(bundle.status, 200);
+    assert.ok(bundle.body.length > 1000);
+  } finally { await server.close(); }
+});
+
+test('reader mode deep-links a known slug and 404s an unknown one', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-live-reader-deep-'));
+  writeFileSync(join(dir, 'alpha.md'), '# Alpha');
+  const server = await startLiveServer(dir, { port: 0, reader: true });
+  try {
+    const known = await get(server.url + '/alpha');
+    assert.equal(known.status, 200);
+    assert.match(known.body, /__ISLES_INITIAL_SLUG="alpha"/);
+    const unknown = await get(server.url + '/missing');
+    assert.equal(unknown.status, 404);
+  } finally { await server.close(); }
+});
+
+test('reader mode with readerFile scopes the tree and raw to one file', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-live-reader-file-'));
+  writeFileSync(join(dir, 'one.md'), '# One\n\nONE_BODY');
+  writeFileSync(join(dir, 'two.md'), '# Two\n\nTWO_BODY');
+  const server = await startLiveServer(dir, { port: 0, reader: true, readerFile: 'one.md' });
+  try {
+    const tree = JSON.parse((await get(server.url + '/__agent-isles/tree')).body);
+    assert.deepEqual(tree.docs.map((d) => d.slug), ['one']);
+    const rawOne = await get(server.url + '/__agent-isles/raw?slug=one');
+    assert.equal(rawOne.status, 200);
+    assert.match(rawOne.body, /ONE_BODY/);
+    const rawTwo = await get(server.url + '/__agent-isles/raw?slug=two');
+    assert.equal(rawTwo.status, 404); // sibling file is out of scope
+  } finally { await server.close(); }
+});
+
 test('GET /__agent-isles/raw returns raw Markdown for a slug and 404s otherwise', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'isles-live-raw-'));
   writeFileSync(join(dir, 'doc.md'), '# Doc\n\nRAW_BODY_UNIQUE');
