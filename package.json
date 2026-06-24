@@ -1,6 +1,6 @@
 {
   "name": "agent-isles",
-  "version": "0.1.0-alpha.4",
+  "version": "0.1.0-alpha.5",
   "description": "Markdown seas, component islands: render agent-authored Markdown with Bootstrap and Lit Web Components.",
   "type": "module",
   "bin": {
