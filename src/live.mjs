@@ -234,7 +234,9 @@ export async function startLiveServer(dir, options = {}) {
   const readerDocs = () => {
     const result = listReaderDocs(dir);
     if (!readerFile) return result;
-    return { docs: result.docs.filter((d) => d.relPath === readerFile), truncated: false };
+    // Preserve the scan's truncated flag: a scoped view must not claim the tree
+    // was complete when the underlying walk hit MAX_DOCS/MAX_DEPTH.
+    return { docs: result.docs.filter((d) => d.relPath === readerFile), truncated: result.truncated };
   };
   mkdirSync(stateDir(dir), { recursive: true });
 

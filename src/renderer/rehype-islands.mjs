@@ -234,7 +234,9 @@ function slugifyHeading(text) {
   const slug = String(text)
     .toLowerCase()
     .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
+    // Strip combining diacritics (Unicode combining-marks block). Written with
+    // explicit escapes so the range can't be corrupted by copy/paste/encoding.
+    .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9\s-]/g, '')
     .trim()
     .replace(/\s+/g, '-')

@@ -138,10 +138,19 @@ function injectStyle() {
 // ── Reader state ────────────────────────────────────────────────────────────
 const state = { docs: [], tree: [], bySlug: new Map(), active: null, baseline: new Map(), settings: loadSettings() };
 
-function slugFromHash() {
-  const h = window.location.hash.replace(/^#/, '');
-  if (!h) return null;
-  try { return decodeURIComponent(h); } catch { return h; }
+// Path-based deep links: the server serves the reader shell for /<slug> and
+// seeds __ISLES_INITIAL_SLUG, so navigation updates the pathname (not the hash).
+// This keeps reload / copy-link-address / "open in new tab" pointing at the
+// current document. Nested slugs (a/b) are encoded per segment so the literal
+// "/" survives for the server's whole-path decodeURIComponent.
+function docHref(slug) {
+  return '/' + String(slug).split('/').map(encodeURIComponent).join('/');
+}
+
+function slugFromPath() {
+  const p = window.location.pathname.replace(/^\/+/, '');
+  if (!p) return null;
+  try { return decodeURIComponent(p); } catch { return p; }
 }
 
 function renderTree() {
@@ -155,14 +164,15 @@ function renderTree() {
   const renderNodes = (nodes) => {
     const items = nodes.filter(matches).map((node) => {
       if (node.type === 'dir') {
-        const open = filter ? ' open' : ' open';
-        return `<li class="isles-folder${open}"><button type="button">${esc(node.name)}</button><ul>${renderNodes(node.children)}</ul></li>`;
+        // Folders render expanded; the header button toggles them closed. (Search
+        // never collapses, so matches stay visible.)
+        return `<li class="isles-folder open"><button type="button">${esc(node.name)}</button><ul>${renderNodes(node.children)}</ul></li>`;
       }
       const active = node.slug === state.active ? ' class="active"' : '';
       const base = state.baseline.get(node.slug);
       const updated = base !== undefined && node.slug !== state.active && node.mtimeMs > base
         ? '<span class="isles-updated">●</span>' : '';
-      return `<li><a href="#${encodeURIComponent(node.slug)}"${active} data-slug="${esc(node.slug)}" title="${esc(node.title || node.name)}">${esc(node.name)}${updated}</a></li>`;
+      return `<li><a href="${esc(docHref(node.slug))}"${active} data-slug="${esc(node.slug)}" title="${esc(node.title || node.name)}">${esc(node.name)}${updated}</a></li>`;
     }).join('');
     return items;
   };
@@ -250,14 +260,14 @@ async function renderActive() {
 async function navigate(slug, { push = false } = {}) {
   if (!slug || !state.bySlug.has(slug)) return;
   state.active = slug;
-  if (push && slugFromHash() !== slug) window.location.hash = encodeURIComponent(slug);
+  if (push && slugFromPath() !== slug) window.history.pushState({ slug }, '', docHref(slug));
   renderTree();
   await renderActive();
 }
 
 function pickInitial(data) {
-  const fromHash = slugFromHash();
-  if (fromHash && state.bySlug.has(fromHash)) return fromHash;
+  const fromPath = slugFromPath();
+  if (fromPath && state.bySlug.has(fromPath)) return fromPath;
   const seeded = window.__ISLES_INITIAL_SLUG;
   if (typeof seeded === 'string' && state.bySlug.has(seeded)) return seeded;
   if (data && data.newest && state.bySlug.has(data.newest)) return data.newest;
@@ -360,7 +370,7 @@ async function start() {
   renderTree();
   state.active = pickInitial(data);
   await renderActive();
-  window.addEventListener('hashchange', () => { const s = slugFromHash(); if (s && s !== state.active) navigate(s); });
+  window.addEventListener('popstate', () => { const s = slugFromPath(); if (s && s !== state.active) navigate(s); });
   document.getElementById('isles-sidebar')?.addEventListener('click', (e) => {
     const a = e.target && e.target.closest ? e.target.closest('a[data-slug]') : null;
     if (!a) return;

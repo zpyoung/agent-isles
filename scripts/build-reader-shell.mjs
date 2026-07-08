@@ -17,4 +17,6 @@ const outFile = join(root, 'dist', 'reader-shell.html');
 const html = buildReaderShell({ assetMode: 'inline' });
 mkdirSync(dirname(outFile), { recursive: true });
 writeFileSync(outFile, html);
-console.log(`wrote ${outFile} (${html.length} bytes)`);
+// stderr, not stdout: this runs as part of `npm run build` / `prepack`, and
+// `npm pack --json` captures stdout — a stdout line here corrupts that JSON.
+console.error(`wrote ${outFile} (${html.length} bytes)`);

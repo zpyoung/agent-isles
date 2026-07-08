@@ -302,8 +302,8 @@ isles live ./docs --stop    # stop the background server for that path
 It launches a background server and prints a JSON line with the URL. Open it in a
 browser to get:
 
-- a recursive, collapsible **directory tree** of every `.md`/`.markdown` file (a single
-  file opens as a tree of one);
+- a recursive, collapsible **directory tree** of every `.md`/`.markdown` file when a
+  folder holds more than one document (a lone file opens straight into the reading pane);
 - a per-document **table of contents**, document **search**, and **theme/reading
   controls** (light/dark/auto, width, text size) persisted in the browser;
 - full Markdown rendering with code highlighting, Mermaid diagrams, and the
