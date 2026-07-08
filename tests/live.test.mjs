@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { existsSync, mkdtempSync, readFileSync, writeFileSync, utimesSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, utimesSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -446,5 +446,83 @@ test('served client includes the updated-badge logic', async () => {
     const body = (await get(server.url + '/a')).body;
     assert.match(body, /isles-updated/);
     assert.match(body, /data-mtime=/);
+  } finally { await server.close(); }
+});
+
+test('GET /__agent-isles/tree returns a recursive nested document tree', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-live-tree-'));
+  writeFileSync(join(dir, 'root.md'), '# Root');
+  mkdirSync(join(dir, 'guides'));
+  writeFileSync(join(dir, 'guides', 'intro.md'), '# Intro');
+  const server = await startLiveServer(dir, { port: 0 });
+  try {
+    const res = await get(server.url + '/__agent-isles/tree');
+    assert.equal(res.status, 200);
+    const data = JSON.parse(res.body);
+    assert.deepEqual(data.docs.map((d) => d.slug).sort(), ['guides/intro', 'root']);
+    // Folder node nests its file child.
+    const folder = data.tree.find((n) => n.type === 'dir' && n.name === 'guides');
+    assert.ok(folder, 'guides folder present in tree');
+    assert.deepEqual(folder.children.map((c) => c.slug), ['guides/intro']);
+  } finally { await server.close(); }
+});
+
+test('reader mode serves the SPA shell at / and the reader bundle route', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-live-reader-shell-'));
+  writeFileSync(join(dir, 'a.md'), '# A');
+  const server = await startLiveServer(dir, { port: 0, reader: true });
+  try {
+    const root = await get(server.url + '/');
+    assert.equal(root.status, 200);
+    assert.match(root.body, /__agent-isles\/reader\.js/);
+    assert.doesNotMatch(root.body, /Waiting for the agent/); // not the agent-screen page
+    const bundle = await get(server.url + '/__agent-isles/reader.js');
+    assert.equal(bundle.status, 200);
+    assert.ok(bundle.body.length > 1000);
+  } finally { await server.close(); }
+});
+
+test('reader mode deep-links a known slug and 404s an unknown one', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-live-reader-deep-'));
+  writeFileSync(join(dir, 'alpha.md'), '# Alpha');
+  const server = await startLiveServer(dir, { port: 0, reader: true });
+  try {
+    const known = await get(server.url + '/alpha');
+    assert.equal(known.status, 200);
+    assert.match(known.body, /__ISLES_INITIAL_SLUG="alpha"/);
+    const unknown = await get(server.url + '/missing');
+    assert.equal(unknown.status, 404);
+  } finally { await server.close(); }
+});
+
+test('reader mode with readerFile scopes the tree and raw to one file', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-live-reader-file-'));
+  writeFileSync(join(dir, 'one.md'), '# One\n\nONE_BODY');
+  writeFileSync(join(dir, 'two.md'), '# Two\n\nTWO_BODY');
+  const server = await startLiveServer(dir, { port: 0, reader: true, readerFile: 'one.md' });
+  try {
+    const tree = JSON.parse((await get(server.url + '/__agent-isles/tree')).body);
+    assert.deepEqual(tree.docs.map((d) => d.slug), ['one']);
+    const rawOne = await get(server.url + '/__agent-isles/raw?slug=one');
+    assert.equal(rawOne.status, 200);
+    assert.match(rawOne.body, /ONE_BODY/);
+    const rawTwo = await get(server.url + '/__agent-isles/raw?slug=two');
+    assert.equal(rawTwo.status, 404); // sibling file is out of scope
+  } finally { await server.close(); }
+});
+
+test('GET /__agent-isles/raw returns raw Markdown for a slug and 404s otherwise', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-live-raw-'));
+  writeFileSync(join(dir, 'doc.md'), '# Doc\n\nRAW_BODY_UNIQUE');
+  const server = await startLiveServer(dir, { port: 0 });
+  try {
+    const ok = await get(server.url + '/__agent-isles/raw?slug=doc');
+    assert.equal(ok.status, 200);
+    assert.match(ok.body, /RAW_BODY_UNIQUE/);
+    assert.doesNotMatch(ok.body, /<h1/); // raw, not rendered
+    const missing = await get(server.url + '/__agent-isles/raw?slug=nope');
+    assert.equal(missing.status, 404);
+    const traversal = await get(server.url + '/__agent-isles/raw?slug=..%2Fsecret');
+    assert.equal(traversal.status, 404);
   } finally { await server.close(); }
 });

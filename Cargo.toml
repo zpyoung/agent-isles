@@ -1,0 +1,18 @@
+# Agent Isles — Rust workspace (Phase 2 of the live Markdown reader).
+#
+# The reader frontend (client-side renderer + Lit islands + UI) is built by the
+# Node toolchain into dist/isles-reader.js and dist/reader-shell.html. These
+# crates only *serve* that frontend over the same HTTP/SSE/WS contract the Node
+# `isles live` reader exposes — no Markdown rendering is reimplemented in Rust.
+#
+#   crates/isles-server  thin HTTP server + file watcher (browser + Tauri sidecar)
+#   crates/isles-app     Tauri desktop shell wrapping isles-server in a window
+[workspace]
+resolver = "2"
+members = ["crates/isles-server", "crates/isles-app"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/zpyoung/agent-isles"

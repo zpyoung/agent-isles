@@ -35,17 +35,30 @@ The first usable vertical slice now exists:
 ```bash
 isles render examples/demo.md
 isles watch examples/demo.md
+isles live examples/demo.md   # or a folder: isles live examples/
 ```
 
 Core implementation surfaces:
 
 - `bin/isles.mjs` CLI entrypoint
 - `src/render.mjs` Markdown renderer
+- `src/renderer/rehype-islands.mjs` browser-safe island transforms (shared by the Node
+  renderer and the client reader); `src/renderer/rehype-plugins.mjs` keeps the Node-only
+  plugins (D2, writeback, task markers)
 - `src/watch.mjs` live rebuild workflow
+- `src/live.mjs` background live server (agent-screen mode + reader mode)
+- `src/reader/` the live Markdown reader: `sources.mjs` (file/folder → safe recursive
+  doc tree), `render-browser.mjs` (client-side renderer), `reader-entry.js` (SPA bundled
+  to `dist/isles-reader.js`)
 - `src/components/` Lit component bundle
 - `src/theme/agent-theme.css` theme and layout styles
 - `examples/demo.md` public demo source
 - `tests/` unit and browser smoke coverage
+
+`isles live <file|dir>` is a full Markdown reader (recursive tree, TOC, search, themes,
+live reload) that renders client-side and still supports the agent-screen push/signal
+flow. A planned Phase 2 adds a Rust + TypeScript / Tauri shell that serves the same
+reader as a standalone desktop app or in the browser.
 
 ## Naming/API preferences
 

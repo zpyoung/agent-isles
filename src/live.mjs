@@ -14,10 +14,15 @@ import {
   watch as fsWatch,
   writeFileSync,
 } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { renderMarkdownString } from './render.mjs';
+import { buildReaderShell } from './renderer/page.mjs';
 import { listScreens, listScreenFiles, resolveSlug, readFileNoFollow } from './live-docs.mjs';
+import { listReaderDocs, buildDocTree, resolveDocSlug } from './reader/sources.mjs';
 import { injectLiveFrame } from './live-shell.mjs';
+
+const READER_BUNDLE_PATH = join(dirname(fileURLToPath(import.meta.url)), '..', 'dist', 'isles-reader.js');
 
 export { injectLiveFrame };
 
@@ -221,6 +226,18 @@ export async function startLiveServer(dir, options = {}) {
   const clients = new Set();
   const signalSockets = new Set();
   let closing = false;
+  // Reader mode: serve the client-rendered reader SPA at `/` instead of the
+  // server-rendered agent-screen page. readerFile scopes the tree to a single
+  // file (file-mode `isles live <file.md>`). Both default off for back-compat.
+  const readerMode = options.reader === true;
+  const readerFile = typeof options.readerFile === 'string' ? options.readerFile : null;
+  const readerDocs = () => {
+    const result = listReaderDocs(dir);
+    if (!readerFile) return result;
+    // Preserve the scan's truncated flag: a scoped view must not claim the tree
+    // was complete when the underlying walk hit MAX_DOCS/MAX_DEPTH.
+    return { docs: result.docs.filter((d) => d.relPath === readerFile), truncated: result.truncated };
+  };
   mkdirSync(stateDir(dir), { recursive: true });
 
   // Signal endpoints (POST + WS) can wake and steer a tool-wielding agent, so
@@ -245,9 +262,26 @@ export async function startLiveServer(dir, options = {}) {
     try {
       const pathname = req.url.split('?')[0];
       if (req.method === 'GET' && pathname === '/') {
+        if (readerMode) {
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+          res.end(buildReaderShell({ assetMode: 'inline' }));
+          return;
+        }
         const page = await renderNewest(dir);
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(page);
+        return;
+      }
+      // Reader SPA bundle (client renderer + components + UI), served to the shell.
+      if (readerMode && req.method === 'GET' && pathname === '/__agent-isles/reader.js') {
+        let bundle;
+        try { bundle = readFileSync(READER_BUNDLE_PATH); }
+        catch { res.writeHead(404); res.end('Reader bundle missing — run `npm run build`.'); return; }
+        res.writeHead(200, {
+          'Content-Type': 'text/javascript; charset=utf-8',
+          'Cache-Control': 'no-cache, no-transform',
+        });
+        res.end(bundle);
         return;
       }
       if (req.method === 'GET' && pathname === '/events') {
@@ -268,6 +302,38 @@ export async function startLiveServer(dir, options = {}) {
         res.end(JSON.stringify({ screens, newest: newest ? newest.slug : null }));
         return;
       }
+      // Reader tree: the recursive folder/file document set for the reader SPA.
+      // Additive alongside /screens (which stays flat for the agent-screen flow).
+      if (req.method === 'GET' && pathname === '/__agent-isles/tree') {
+        const { docs, truncated } = readerDocs();
+        const tree = buildDocTree(docs);
+        const slim = docs.map(({ slug, name, title, relPath, dir: subdir, mtimeMs }) => (
+          { slug, name, title, relPath, dir: subdir, mtimeMs }
+        ));
+        let newest = null;
+        let newestMtime = -1;
+        for (const d of docs) if (d.mtimeMs > newestMtime) { newestMtime = d.mtimeMs; newest = d.slug; }
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ tree, docs: slim, newest, truncated }));
+        return;
+      }
+      // Raw Markdown for a document, by reader slug, for client-side rendering.
+      // Reads with O_NOFOLLOW via resolveDocSlug → never serves outside the root.
+      if (req.method === 'GET' && pathname === '/__agent-isles/raw') {
+        let slug = null;
+        try { slug = new URL(req.url, 'http://localhost').searchParams.get('slug'); } catch {}
+        const match = resolveDocSlug(dir, slug || '');
+        if (!match || (readerFile && match.relPath !== readerFile)) { res.writeHead(404); res.end('Not found'); return; }
+        let markdown;
+        try { markdown = readFileNoFollow(match.file); } catch { res.writeHead(404); res.end('Not found'); return; }
+        res.writeHead(200, {
+          'Content-Type': 'text/markdown; charset=utf-8',
+          'Cache-Control': 'no-cache, no-transform',
+          'X-Agent-Isles-Slug': match.slug,
+        });
+        res.end(markdown);
+        return;
+      }
       if (req.method === 'POST' && pathname === '/__agent-isles/signal') {
         if (!originAllowed(req)) { res.writeHead(403); res.end('Forbidden origin'); return; }
         const raw = await readBody(req);
@@ -284,11 +350,22 @@ export async function startLiveServer(dir, options = {}) {
           slug = null;
         }
         if (slug) {
-          const page = await renderBySlug(dir, slug);
-          if (page) {
-            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-            res.end(page);
-            return;
+          if (readerMode) {
+            // Deep-link: serve the shell seeded with the requested doc, or 404
+            // if it does not resolve (preserves the /<unknown> → 404 contract).
+            const match = resolveDocSlug(dir, slug);
+            if (match && (!readerFile || match.relPath === readerFile)) {
+              res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+              res.end(buildReaderShell({ assetMode: 'inline', initialSlug: match.slug }));
+              return;
+            }
+          } else {
+            const page = await renderBySlug(dir, slug);
+            if (page) {
+              res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+              res.end(page);
+              return;
+            }
           }
         }
       }

@@ -1,5 +1,7 @@
 node_modules/
 dist/
+target/
+crates/isles-app/gen/schemas/
 coverage/
 .quirk/
 .memsearch/

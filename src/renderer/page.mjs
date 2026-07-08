@@ -100,6 +100,41 @@ export function hasMermaidDiagrams(html) {
   return String(html).includes('data-agent-mermaid');
 }
 
+// Build the shell HTML for the client-rendered Markdown reader. It ships the
+// same page assets as buildHtmlPage (Bootstrap, highlight.js CSS, the Agent
+// Isles theme, the Mermaid runtime) but an empty body: the reader bundle
+// (dist/isles-reader.js) builds the chrome and renders documents client-side,
+// and it defines the island components itself, so the component bundle is NOT
+// included here (that would double-register custom elements).
+export function buildReaderShell(options = {}) {
+  const assetMode = normalizeAssetMode(options.assetMode || 'inline');
+  const title = options.title || 'Agent Isles Reader';
+  const readerScriptSrc = options.readerScriptSrc || '/__agent-isles/reader.js';
+  const theme = readTheme();
+  const styles = buildStyles(assetMode);
+  const scripts = buildScripts(assetMode, '');
+  const mermaidRuntime = buildMermaidRuntimeScript(assetMode);
+  const initialSlug = typeof options.initialSlug === 'string' && options.initialSlug
+    ? `\n  <script>window.__ISLES_INITIAL_SLUG=${JSON.stringify(options.initialSlug).replace(/</g, '\\u003c')};</script>`
+    : '';
+  const readerScript = `\n  <script type="module" src="${escapeHtml(readerScriptSrc)}"></script>`;
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${escapeHtml(title)}</title>
+${styles}
+  <style>${theme}</style>
+</head>
+<body>
+${scripts}
+${mermaidRuntime}${initialSlug}${readerScript}
+</body>
+</html>`;
+}
+
 function buildTableOfContents(toc = []) {
   const headings = toc.filter((entry) => entry.level >= 2 && entry.level <= 3);
   if (headings.length < 2) {
