@@ -5,7 +5,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { startLiveServer, resolveNewestScreen, eventsFile, injectLiveFrame } from '../src/live.mjs';
+import {
+  startLiveServer, resolveNewestScreen, eventsFile, injectLiveFrame, __internal,
+} from '../src/live.mjs';
+
+const { parseHoldSeconds, parseSinceSeconds, agentScreenMatches } = __internal;
 
 async function waitFor(fn, timeoutMs = 4000, stepMs = 50) {
   const start = Date.now();
@@ -42,6 +46,80 @@ function openSse(url) {
   req.on('response', (res) => { res.setEncoding('utf8'); res.on('data', (c) => { state.text += c; }); });
   req.on('error', () => {});
   return state;
+}
+
+// GET an agent long-poll route. `token`/`origin` set the matching headers when
+// they are strings (omit to send none). Resolves once the response completes —
+// including when the socket is force-closed after headers (shutdown 503), so the
+// captured status survives a truncated body.
+function agentGet(baseUrl, path, { token, origin } = {}) {
+  return new Promise((resolvePromise, reject) => {
+    const u = new URL(baseUrl + path);
+    const headers = {};
+    if (typeof token === 'string') headers.Authorization = `Bearer ${token}`;
+    if (typeof origin === 'string') headers.Origin = origin;
+    let settled = false;
+    const req = http.get({ hostname: u.hostname, port: u.port, path: u.pathname + u.search, headers }, (res) => {
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', (c) => { body += c; });
+      // Resolve on end OR close/error: the shutdown path force-closes the socket
+      // right after the 503 head+body are sent, and we still want the captured
+      // status (from headers) rather than treating a truncated body as a failure.
+      const done = () => { if (settled) return; settled = true; resolvePromise({ status: res.statusCode, body }); };
+      res.on('end', done);
+      res.on('close', done);
+      res.on('error', done);
+    });
+    req.on('error', (e) => { if (!settled) { settled = true; reject(e); } });
+    // No legit agent GET here waits more than a few hundred ms before responding,
+    // so a long stall means a hang — fail fast instead of blocking the runner.
+    req.setTimeout(20000, () => { req.destroy(new Error('agentGet timed out')); });
+  });
+}
+
+const AGENT_EVENTS = '/__agent-isles/agent/events';
+
+// Minimal WebSocket client for the signal twin: complete the upgrade handshake
+// and return the raw socket. No Origin header, so the server's origin gate lets
+// it through — the real browser client connects the same way.
+function openSignalWs(baseUrl) {
+  const u = new URL(baseUrl);
+  const req = http.request({
+    hostname: u.hostname, port: u.port, path: '/__agent-isles/signal',
+    headers: {
+      Connection: 'Upgrade', Upgrade: 'websocket',
+      'Sec-WebSocket-Key': Buffer.from('agent-isles-test').toString('base64'),
+      'Sec-WebSocket-Version': '13',
+    },
+  });
+  return new Promise((resolvePromise, reject) => {
+    let settled = false;
+    req.on('upgrade', (_res, socket) => { if (!settled) { settled = true; resolvePromise(socket); } });
+    // A normal HTTP response instead of a 101 (e.g. an auth/route regression)
+    // would otherwise never resolve — fail fast rather than hang the runner.
+    req.on('response', (res) => {
+      if (settled) return;
+      settled = true; req.destroy();
+      reject(new Error(`WS upgrade refused: HTTP ${res.statusCode}`));
+    });
+    req.on('error', (e) => { if (!settled) { settled = true; reject(e); } });
+    req.setTimeout(10000, () => {
+      if (settled) return;
+      settled = true; req.destroy();
+      reject(new Error('WS upgrade timed out'));
+    });
+    req.end();
+  });
+}
+
+// Encode a masked client→server text frame (payloads here are small, < 126 bytes).
+function encodeWsTextFrame(str) {
+  const payload = Buffer.from(str, 'utf8');
+  const mask = Buffer.from([0x12, 0x34, 0x56, 0x78]);
+  const masked = Buffer.alloc(payload.length);
+  for (let i = 0; i < payload.length; i += 1) masked[i] = payload[i] ^ mask[i % 4];
+  return Buffer.concat([Buffer.from([0x81, 0x80 | payload.length]), mask, masked]);
 }
 
 test('resolveNewestScreen picks the most recently modified top-level .md', () => {
@@ -524,5 +602,306 @@ test('GET /__agent-isles/raw returns raw Markdown for a slug and 404s otherwise'
     assert.equal(missing.status, 404);
     const traversal = await get(server.url + '/__agent-isles/raw?slug=..%2Fsecret');
     assert.equal(traversal.status, 404);
+  } finally { await server.close(); }
+});
+
+// --- Agent long-poll endpoint (docs/plans/agent-events-long-poll.md) ---
+
+test('agent/events returns a queued proceed record, then drains it', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-agent-queued-'));
+  writeFileSync(join(dir, 's.md'), '# x');
+  const server = await startLiveServer(dir, { port: 0 });
+  try {
+    await postJson(server.url + '/__agent-isles/signal', { type: 'proceed', choice: 'go', text: 'Go' });
+    const r1 = await agentGet(server.url, AGENT_EVENTS + '?hold=0', { token: server.token });
+    assert.equal(r1.status, 200);
+    const rec = JSON.parse(r1.body);
+    assert.equal(rec.type, 'proceed');
+    assert.equal(rec.choice, 'go');
+    assert.equal(rec.text, 'Go');
+    const r2 = await agentGet(server.url, AGENT_EVENTS + '?hold=0', { token: server.token });
+    assert.equal(r2.status, 204);
+    assert.equal(r2.body, '');
+  } finally { await server.close(); }
+});
+
+test('agent/events parks a request and resolves the instant a proceed arrives', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-agent-park-'));
+  writeFileSync(join(dir, 's.md'), '# x');
+  const server = await startLiveServer(dir, { port: 0 });
+  try {
+    const pending = agentGet(server.url, AGENT_EVENTS + '?hold=5', { token: server.token });
+    assert.ok(await waitFor(() => server._heldAgentRequests.size === 1), 'request parked');
+    const t0 = Date.now();
+    await postJson(server.url + '/__agent-isles/signal', { type: 'proceed', choice: 'go' });
+    const r = await pending;
+    // Push-resolution, not hold-expiry: a click must wake the parked request in
+    // milliseconds, well under the 5s hold. (5s window vs <1s bound → not flaky.)
+    assert.ok(Date.now() - t0 < 1000, 'resolved on push, not at hold expiry');
+    assert.equal(r.status, 200);
+    assert.equal(JSON.parse(r.body).choice, 'go');
+  } finally { await server.close(); }
+});
+
+test('agent/events 204s on hold expiry and retains a click posted afterward', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-agent-retain-'));
+  writeFileSync(join(dir, 's.md'), '# x');
+  const server = await startLiveServer(dir, { port: 0 });
+  try {
+    const r1 = await agentGet(server.url, AGENT_EVENTS + '?hold=0.2', { token: server.token });
+    assert.equal(r1.status, 204); // nothing arrived within the hold window
+    await postJson(server.url + '/__agent-isles/signal', { type: 'proceed', choice: 'later' });
+    const r2 = await agentGet(server.url, AGENT_EVENTS + '?hold=0', { token: server.token });
+    assert.equal(r2.status, 200); // the between-invocations click was not lost
+    assert.equal(JSON.parse(r2.body).choice, 'later');
+  } finally { await server.close(); }
+});
+
+test('agent/events since filter uses >= (equal delivered, older filtered out)', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-agent-since-'));
+  writeFileSync(join(dir, 's.md'), '# x');
+  const server = await startLiveServer(dir, { port: 0 });
+  try {
+    await postJson(server.url + '/__agent-isles/signal', { type: 'proceed', choice: 'c' });
+    const t = JSON.parse(readFileSync(eventsFile(dir), 'utf8').trim().split('\n').pop()).timestamp;
+    // Record older than the filter → no match, not consumed.
+    const older = await agentGet(server.url, `${AGENT_EVENTS}?hold=0&since=${t + 1000}`, { token: server.token });
+    assert.equal(older.status, 204);
+    // Equal timestamp still delivers (>=, not >).
+    const equal = await agentGet(server.url, `${AGENT_EVENTS}?hold=0&since=${t}`, { token: server.token });
+    assert.equal(equal.status, 200);
+    assert.equal(JSON.parse(equal.body).choice, 'c');
+  } finally { await server.close(); }
+});
+
+test('agent/events screen filter matches slug or filename; unstamped matches any', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-agent-screen-'));
+  writeFileSync(join(dir, 'screen-2.md'), '# Two');
+  const server = await startLiveServer(dir, { port: 0 });
+  try {
+    await postJson(server.url + '/__agent-isles/signal', { type: 'proceed', choice: 'a', screen: 'screen-2' });
+    const miss = await agentGet(server.url, AGENT_EVENTS + '?hold=0&screen=other', { token: server.token });
+    assert.equal(miss.status, 204); // mismatched stamp → no delivery, record retained
+    const byFile = await agentGet(server.url, AGENT_EVENTS + '?hold=0&screen=screen-2.md', { token: server.token });
+    assert.equal(byFile.status, 200); // matches screen_file
+
+    await postJson(server.url + '/__agent-isles/signal', { type: 'proceed', choice: 'b', screen: 'screen-2' });
+    const bySlug = await agentGet(server.url, AGENT_EVENTS + '?hold=0&screen=screen-2', { token: server.token });
+    assert.equal(bySlug.status, 200); // matches screen slug
+    assert.equal(JSON.parse(bySlug.body).choice, 'b');
+
+    await postJson(server.url + '/__agent-isles/signal', { type: 'proceed', choice: 'c' }); // no screen stamp
+    const anyFilter = await agentGet(server.url, AGENT_EVENTS + '?hold=0&screen=whatever', { token: server.token });
+    assert.equal(anyFilter.status, 200); // unstamped record matches any filter
+    assert.equal(JSON.parse(anyFilter.body).choice, 'c');
+  } finally { await server.close(); }
+});
+
+test('agent/events delivers the newest of two clicks and consumes both', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-agent-newest-'));
+  writeFileSync(join(dir, 's.md'), '# x');
+  const server = await startLiveServer(dir, { port: 0 });
+  try {
+    await postJson(server.url + '/__agent-isles/signal', { type: 'proceed', choice: 'first' });
+    await postJson(server.url + '/__agent-isles/signal', { type: 'proceed', choice: 'second' });
+    const r1 = await agentGet(server.url, AGENT_EVENTS + '?hold=0', { token: server.token });
+    assert.equal(r1.status, 200);
+    assert.equal(JSON.parse(r1.body).choice, 'second'); // latest wins
+    const r2 = await agentGet(server.url, AGENT_EVENTS + '?hold=0', { token: server.token });
+    assert.equal(r2.status, 204); // the superseded click was consumed too
+  } finally { await server.close(); }
+});
+
+test('adding a new screen clears the agent queue (stale click cannot satisfy a wait)', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-agent-advance-'));
+  writeFileSync(join(dir, 'screen-1.md'), '# One');
+  const server = await startLiveServer(dir, { port: 0, watch: true });
+  try {
+    await postJson(server.url + '/__agent-isles/signal', { type: 'proceed', choice: 'stale', screen: 'screen-1' });
+    assert.ok(existsSync(eventsFile(dir)));
+    writeFileSync(join(dir, 'screen-2.md'), '# Two');
+    assert.ok(await waitFor(() => !existsSync(eventsFile(dir))), 'events cleared on new screen');
+    const r = await agentGet(server.url, AGENT_EVENTS + '?hold=0', { token: server.token });
+    assert.equal(r.status, 204);
+  } finally { await server.close(); }
+});
+
+test('agent routes reject a missing/wrong token with 401 and any Origin with 403', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-agent-auth-'));
+  writeFileSync(join(dir, 's.md'), '# x');
+  const server = await startLiveServer(dir, { port: 0 });
+  try {
+    assert.equal((await agentGet(server.url, AGENT_EVENTS + '?hold=0', {})).status, 401);
+    assert.equal((await agentGet(server.url, AGENT_EVENTS + '?hold=0', { token: 'wrong' })).status, 401);
+    const withOrigin = await agentGet(server.url, AGENT_EVENTS + '?hold=0', { token: server.token, origin: 'http://evil.example' });
+    assert.equal(withOrigin.status, 403);
+    // health enforces the same and reports pid.
+    assert.equal((await agentGet(server.url, '/__agent-isles/agent/health', {})).status, 401);
+    const health = await agentGet(server.url, '/__agent-isles/agent/health', { token: server.token });
+    assert.equal(health.status, 200);
+    assert.deepEqual(JSON.parse(health.body), { ok: true, pid: process.pid });
+  } finally { await server.close(); }
+});
+
+test('server-info includes a hex token and keeps existing fields unchanged', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-agent-info-'));
+  writeFileSync(join(dir, 's.md'), '# x');
+  const server = await startLiveServer(dir, { port: 0 });
+  try {
+    const info = JSON.parse(readFileSync(join(dir, 'state', 'server-info'), 'utf8'));
+    assert.match(info.token, /^[0-9a-f]{32}$/);
+    assert.equal(info.token, server.token);
+    assert.equal(info.type, 'server-started');
+    assert.equal(info.screen_dir, dir);
+    assert.equal(info.state_dir, join(dir, 'state'));
+    assert.equal(typeof info.port, 'number');
+    assert.equal(info.pid, process.pid);
+  } finally { await server.close(); }
+});
+
+test('a click broadcasts live:signal on the SSE channel', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-agent-broadcast-'));
+  writeFileSync(join(dir, 's.md'), '# x');
+  const server = await startLiveServer(dir, { port: 0 });
+  const sse = openSse(server.url + '/events');
+  try {
+    assert.ok(await waitFor(() => sse.text.includes('event: live:ready')));
+    await postJson(server.url + '/__agent-isles/signal', { type: 'proceed', choice: 'go', text: 'Go' });
+    assert.ok(await waitFor(() => sse.text.includes('event: live:signal')), 'live:signal broadcast');
+    assert.match(sse.text, /event: live:signal\ndata: {.*"choice":"go".*}/);
+  } finally { sse.req.destroy(); await server.close(); }
+});
+
+test('non-proceed signals are broadcast and written but never queued', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-agent-nonproceed-'));
+  writeFileSync(join(dir, 's.md'), '# x');
+  const server = await startLiveServer(dir, { port: 0 });
+  const sse = openSse(server.url + '/events');
+  try {
+    assert.ok(await waitFor(() => sse.text.includes('event: live:ready')));
+    await postJson(server.url + '/__agent-isles/signal', { type: 'quirk-rating', choice: '5' });
+    const rec = JSON.parse(readFileSync(eventsFile(dir), 'utf8').trim().split('\n')[0]);
+    assert.equal(rec.type, 'quirk-rating'); // still written to the file
+    assert.ok(await waitFor(() => sse.text.includes('event: live:signal')), 'still broadcast');
+    const r = await agentGet(server.url, AGENT_EVENTS + '?hold=0', { token: server.token });
+    assert.equal(r.status, 204); // but not queued for the agent
+  } finally { sse.req.destroy(); await server.close(); }
+});
+
+test('idle check reports idle with no clients and no holds', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-agent-idle-'));
+  writeFileSync(join(dir, 's.md'), '# x');
+  const server = await startLiveServer(dir, { port: 0, idleTimeoutMinutes: 0 });
+  try {
+    await sleep(20);
+    assert.equal(server._idleShouldStop(), true);
+  } finally { await server.close(); }
+});
+
+test('an open agent hold blocks idle shutdown and receives 503 on close', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-agent-hold-idle-'));
+  writeFileSync(join(dir, 's.md'), '# x');
+  const server = await startLiveServer(dir, { port: 0, idleTimeoutMinutes: 0 });
+  const pending = agentGet(server.url, AGENT_EVENTS + '?hold=5', { token: server.token });
+  try {
+    assert.ok(await waitFor(() => server._heldAgentRequests.size === 1), 'request parked');
+    await sleep(20);
+    assert.equal(server._idleShouldStop(), false); // the open hold counts as an active client
+    await server.close();
+    const r = await pending;
+    assert.equal(r.status, 503); // held request released at shutdown
+  } finally { await server.close(); }
+});
+
+test('parseHoldSeconds: default 100, clamps to [0,110], non-finite falls back', () => {
+  for (const raw of [undefined, null, '', 'abc', 'NaN']) assert.equal(parseHoldSeconds(raw), 100);
+  assert.equal(parseHoldSeconds('0'), 0);
+  assert.equal(parseHoldSeconds('50'), 50);
+  assert.equal(parseHoldSeconds('0.2'), 0.2);
+  assert.equal(parseHoldSeconds('110'), 110);
+  assert.equal(parseHoldSeconds('200'), 110);  // upper clamp keeps holds under the 120s kill
+  assert.equal(parseHoldSeconds('-5'), 0);      // lower clamp
+});
+
+test('parseSinceSeconds: default 0, integer epoch seconds, invalid/negative -> 0', () => {
+  for (const raw of [undefined, null, '', 'abc', '-5', '0']) assert.equal(parseSinceSeconds(raw), 0);
+  assert.equal(parseSinceSeconds('1700000000'), 1700000000);
+  assert.equal(parseSinceSeconds('1.9'), 1); // floored integer parse
+});
+
+test('agentScreenMatches: empty filter and unstamped records match any; else slug or file', () => {
+  assert.equal(agentScreenMatches({ timestamp: 1 }, null), true);            // no filter
+  assert.equal(agentScreenMatches({ timestamp: 1 }, 'anything'), true);      // unstamped matches any
+  assert.equal(agentScreenMatches({ screen: 'a', screen_file: 'a.md' }, 'a'), true);    // slug
+  assert.equal(agentScreenMatches({ screen: 'a', screen_file: 'a.md' }, 'a.md'), true); // file
+  assert.equal(agentScreenMatches({ screen: 'a', screen_file: 'a.md' }, 'b'), false);   // mismatch
+  assert.equal(agentScreenMatches({ screen: 'a' }, 'a'), true);              // slug only
+  assert.equal(agentScreenMatches({ screen_file: 'a.md' }, 'a.md'), true);   // file only
+});
+
+test('agent/events with no hold param parks (defaults to 100, not an instant 204)', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-agent-defaulthold-'));
+  writeFileSync(join(dir, 's.md'), '# x');
+  const server = await startLiveServer(dir, { port: 0 });
+  try {
+    const pending = agentGet(server.url, AGENT_EVENTS, { token: server.token }); // no hold=
+    assert.ok(await waitFor(() => server._heldAgentRequests.size === 1), 'defaulted hold parks the request');
+    await postJson(server.url + '/__agent-isles/signal', { type: 'proceed', choice: 'go' });
+    const r = await pending;
+    assert.equal(r.status, 200);
+    assert.equal(JSON.parse(r.body).choice, 'go');
+  } finally { await server.close(); }
+});
+
+test('a proceed delivered over the WebSocket signal twin is queued and broadcast', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-agent-ws-'));
+  writeFileSync(join(dir, 's.md'), '# x');
+  const server = await startLiveServer(dir, { port: 0 });
+  const sse = openSse(server.url + '/events');
+  let socket;
+  try {
+    assert.ok(await waitFor(() => sse.text.includes('event: live:ready')));
+    socket = await openSignalWs(server.url);
+    socket.write(encodeWsTextFrame(JSON.stringify({ type: 'proceed', choice: 'ws' })));
+    assert.ok(await waitFor(() => sse.text.includes('event: live:signal')), 'ws click broadcast');
+    const r = await agentGet(server.url, AGENT_EVENTS + '?hold=1', { token: server.token });
+    assert.equal(r.status, 200); // the WS-delivered click reached the agent queue
+    assert.equal(JSON.parse(r.body).choice, 'ws');
+  } finally { if (socket) socket.destroy(); sse.req.destroy(); await server.close(); }
+});
+
+test('the agent queue is bounded: newest 64 kept, oldest evicted', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-agent-bound-'));
+  writeFileSync(join(dir, 's.md'), '# x');
+  const server = await startLiveServer(dir, { port: 0 });
+  try {
+    for (let i = 0; i < 70; i += 1) {
+      await postJson(server.url + '/__agent-isles/signal', { type: 'proceed', choice: String(i) });
+    }
+    assert.equal(server._agentQueue.length, 64);            // bounded
+    assert.equal(server._agentQueue[0].choice, '6');        // oldest 6 (0..5) evicted
+    assert.equal(server._agentQueue[63].choice, '69');      // newest retained
+  } finally { await server.close(); }
+});
+
+test('agent/events cleans up a held request when the client aborts mid-hold', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-agent-abort-'));
+  writeFileSync(join(dir, 's.md'), '# x');
+  const server = await startLiveServer(dir, { port: 0 });
+  try {
+    const u = new URL(server.url);
+    const req = http.get({
+      hostname: u.hostname, port: u.port, path: AGENT_EVENTS + '?hold=30',
+      headers: { Authorization: `Bearer ${server.token}` },
+    });
+    req.on('error', () => {}); // the abort surfaces as a client-side error we ignore
+    assert.ok(await waitFor(() => server._heldAgentRequests.size === 1), 'request parked');
+    req.destroy(); // client hangs up mid-hold
+    assert.ok(await waitFor(() => server._heldAgentRequests.size === 0), 'held entry dropped on abort');
+    // No loss/leak: a click after the abort is retained and delivered to the next poll.
+    await postJson(server.url + '/__agent-isles/signal', { type: 'proceed', choice: 'after-abort' });
+    const r = await agentGet(server.url, AGENT_EVENTS + '?hold=0', { token: server.token });
+    assert.equal(r.status, 200);
+    assert.equal(JSON.parse(r.body).choice, 'after-abort');
   } finally { await server.close(); }
 });
