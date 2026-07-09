@@ -34,12 +34,14 @@ const defaultHost = '127.0.0.1';
 function stateDir(dir) { return join(dir, 'state'); }
 export function eventsFile(dir) { return join(stateDir(dir), 'events'); }
 
-// Content type for a served pack asset. The pack manifest only permits `module`
-// (JS) and `style` (CSS) assets, so these two branches cover every real case;
-// the octet-stream fallback is defensive.
-function packAssetContentType(path) {
-  if (/\.m?js$/i.test(path)) return 'text/javascript; charset=utf-8';
-  if (/\.css$/i.test(path)) return 'text/css; charset=utf-8';
+// Content type for a served pack asset, derived from its manifest-declared type
+// rather than the file extension: the manifest permits any extension for a
+// `module` (e.g. `.cjs`, extensionless), and a module MUST carry a JavaScript
+// MIME type or the reader's import() is rejected. The manifest schema only
+// allows `module`/`style`, so the octet-stream fallback is defensive.
+function packAssetContentType(asset) {
+  if (asset.type === 'module') return 'text/javascript; charset=utf-8';
+  if (asset.type === 'style') return 'text/css; charset=utf-8';
   return 'application/octet-stream';
 }
 
@@ -443,7 +445,7 @@ export async function startLiveServer(dir, options = {}) {
         try { contents = readFileNoFollow(asset.resolvedPath); } // O_NOFOLLOW: refuse race-swapped symlinks
         catch { res.writeHead(404); res.end('Not found'); return; }
         res.writeHead(200, {
-          'Content-Type': packAssetContentType(asset.resolvedPath),
+          'Content-Type': packAssetContentType(asset),
           'Cache-Control': 'no-cache, no-transform',
         });
         res.end(contents);

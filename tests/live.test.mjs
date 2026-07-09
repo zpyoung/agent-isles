@@ -967,6 +967,24 @@ test('pack-manifest lists a project pack module+style; pack-asset serves each wi
   } finally { await server.close(); }
 });
 
+test('pack-asset serves a module by its declared type, not its file extension', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-pack-ext-'));
+  writeFileSync(join(dir, 's.md'), '# x');
+  // A `module` asset whose path is not *.js — the manifest permits this, and it
+  // must still be served as JavaScript or the reader's import() is rejected.
+  scaffoldPack(dir, { moduleFile: 'widget.cjs' });
+  writeFileSync(join(dir, 'isles.config.json'), JSON.stringify({ packs: ['./packs/demo-widget-pack'] }));
+  const server = await startLiveServer(dir, { port: 0, reader: true });
+  try {
+    const { assets } = JSON.parse((await get(server.url + '/__agent-isles/pack-manifest')).body);
+    const mod = assets.find((a) => a.type === 'module');
+    assert.equal(mod.url, '/__agent-isles/pack-asset?pack=0&path=widget.cjs');
+    const res = await getWithHeaders(server.url + mod.url);
+    assert.equal(res.status, 200);
+    assert.match(res.headers['content-type'], /text\/javascript/);
+  } finally { await server.close(); }
+});
+
 test('pack-manifest is empty when the project declares no packs', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'isles-pack-none-'));
   writeFileSync(join(dir, 's.md'), '# x');
