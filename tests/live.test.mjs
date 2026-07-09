@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, utimesSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync, utimesSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -903,5 +903,194 @@ test('agent/events cleans up a held request when the client aborts mid-hold', as
     const r = await agentGet(server.url, AGENT_EVENTS + '?hold=0', { token: server.token });
     assert.equal(r.status, 200);
     assert.equal(JSON.parse(r.body).choice, 'after-abort');
+  } finally { await server.close(); }
+});
+
+// --- Component pack loading for the reader (docs/plans/reader-pack-loading.md) ---
+
+// GET that also captures response headers (the base `get` helper drops them),
+// so pack-asset content-type assertions can inspect them.
+function getWithHeaders(url) {
+  return new Promise((resolvePromise, reject) => {
+    http.get(url, (res) => {
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', (c) => { body += c; });
+      res.on('end', () => resolvePromise({ status: res.statusCode, headers: res.headers, body }));
+    }).on('error', reject);
+  });
+}
+
+// Write a minimal trusted local pack (one module + one style) under
+// <root>/packs/<name>, returning its directory. The module body embeds a
+// "<name>:<moduleFile>" marker so a served response can be traced to its source.
+function scaffoldPack(root, { name = 'demo-widget-pack', tag = 'demo-widget', moduleFile = 'widget.js', styleFile = 'widget.css' } = {}) {
+  const packDir = join(root, 'packs', name);
+  mkdirSync(packDir, { recursive: true });
+  writeFileSync(join(packDir, moduleFile), `customElements.define('${tag}', class extends HTMLElement {}); /* ${name}:${moduleFile} */\n`);
+  writeFileSync(join(packDir, styleFile), `${tag}{display:block}\n`);
+  writeFileSync(join(packDir, 'agent-isles.pack.json'), JSON.stringify({
+    agentIslesPackVersion: 1,
+    name,
+    tags: [{ name: tag, attributes: ['title'] }],
+    assets: [{ type: 'module', path: moduleFile }, { type: 'style', path: styleFile }],
+  }));
+  return packDir;
+}
+
+test('pack-manifest lists a project pack module+style; pack-asset serves each with correct content types', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-pack-manifest-'));
+  writeFileSync(join(dir, 's.md'), '# x');
+  scaffoldPack(dir);
+  writeFileSync(join(dir, 'isles.config.json'), JSON.stringify({ packs: ['./packs/demo-widget-pack'] }));
+  const server = await startLiveServer(dir, { port: 0, reader: true });
+  try {
+    const manifest = await get(server.url + '/__agent-isles/pack-manifest');
+    assert.equal(manifest.status, 200);
+    const { assets } = JSON.parse(manifest.body);
+    assert.equal(assets.length, 2);
+    const mod = assets.find((a) => a.type === 'module');
+    const style = assets.find((a) => a.type === 'style');
+    assert.equal(mod.url, '/__agent-isles/pack-asset?pack=0&path=widget.js');
+    assert.equal(style.url, '/__agent-isles/pack-asset?pack=0&path=widget.css');
+
+    const modRes = await getWithHeaders(server.url + mod.url);
+    assert.equal(modRes.status, 200);
+    assert.match(modRes.headers['content-type'], /text\/javascript/);
+    assert.match(modRes.headers['cache-control'], /no-cache/);
+    assert.match(modRes.body, /customElements\.define/);
+
+    const styleRes = await getWithHeaders(server.url + style.url);
+    assert.equal(styleRes.status, 200);
+    assert.match(styleRes.headers['content-type'], /text\/css/);
+    assert.match(styleRes.body, /demo-widget/);
+  } finally { await server.close(); }
+});
+
+test('pack-asset serves a module by its declared type, not its file extension', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-pack-ext-'));
+  writeFileSync(join(dir, 's.md'), '# x');
+  // A `module` asset whose path is not *.js — the manifest permits this, and it
+  // must still be served as JavaScript or the reader's import() is rejected.
+  scaffoldPack(dir, { moduleFile: 'widget.cjs' });
+  writeFileSync(join(dir, 'isles.config.json'), JSON.stringify({ packs: ['./packs/demo-widget-pack'] }));
+  const server = await startLiveServer(dir, { port: 0, reader: true });
+  try {
+    const { assets } = JSON.parse((await get(server.url + '/__agent-isles/pack-manifest')).body);
+    const mod = assets.find((a) => a.type === 'module');
+    assert.equal(mod.url, '/__agent-isles/pack-asset?pack=0&path=widget.cjs');
+    const res = await getWithHeaders(server.url + mod.url);
+    assert.equal(res.status, 200);
+    assert.match(res.headers['content-type'], /text\/javascript/);
+  } finally { await server.close(); }
+});
+
+test('pack-manifest is empty when the project declares no packs', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-pack-none-'));
+  writeFileSync(join(dir, 's.md'), '# x');
+  const server = await startLiveServer(dir, { port: 0, reader: true });
+  try {
+    const manifest = await get(server.url + '/__agent-isles/pack-manifest');
+    assert.equal(manifest.status, 200);
+    assert.deepEqual(JSON.parse(manifest.body), { assets: [] });
+  } finally { await server.close(); }
+});
+
+test('a broken pack config degrades to an empty manifest and the server stays up', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-pack-broken-'));
+  writeFileSync(join(dir, 's.md'), '# x');
+  // Points at a pack directory that does not exist → resolution throws at startup.
+  writeFileSync(join(dir, 'isles.config.json'), JSON.stringify({ packs: ['./packs/does-not-exist'] }));
+  const server = await startLiveServer(dir, { port: 0, reader: true });
+  try {
+    const manifest = await get(server.url + '/__agent-isles/pack-manifest');
+    assert.equal(manifest.status, 200);
+    assert.deepEqual(JSON.parse(manifest.body), { assets: [] });
+    // The reader shell still serves — a broken pack must not brick the reader.
+    const root = await get(server.url + '/');
+    assert.equal(root.status, 200);
+    assert.match(root.body, /__agent-isles\/reader\.js/);
+  } finally { await server.close(); }
+});
+
+test('pack-asset 404s on undeclared path, out-of-range/invalid pack, and traversal', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-pack-guard-'));
+  writeFileSync(join(dir, 's.md'), '# x');
+  scaffoldPack(dir);
+  writeFileSync(join(dir, 'isles.config.json'), JSON.stringify({ packs: ['./packs/demo-widget-pack'] }));
+  const server = await startLiveServer(dir, { port: 0, reader: true });
+  try {
+    // A real file inside the pack dir but not a declared asset.
+    assert.equal((await get(server.url + '/__agent-isles/pack-asset?pack=0&path=agent-isles.pack.json')).status, 404);
+    // Pack index past the resolved list.
+    assert.equal((await get(server.url + '/__agent-isles/pack-asset?pack=9&path=widget.js')).status, 404);
+    // Negative / non-numeric pack index.
+    assert.equal((await get(server.url + '/__agent-isles/pack-asset?pack=-1&path=widget.js')).status, 404);
+    assert.equal((await get(server.url + '/__agent-isles/pack-asset?pack=abc&path=widget.js')).status, 404);
+    // Traversal attempt — fails the declared-asset match, no path arithmetic.
+    assert.equal((await get(server.url + '/__agent-isles/pack-asset?pack=0&path=..%2F..%2Fisles.config.json')).status, 404);
+  } finally { await server.close(); }
+});
+
+test('pack-asset refuses a symlinked asset (O_NOFOLLOW) while serving genuine files', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-pack-symlink-'));
+  writeFileSync(join(dir, 's.md'), '# x');
+  const secret = join(dir, 'secret.js');
+  writeFileSync(secret, 'SECRET_OUTSIDE_PACK');
+  const packDir = join(dir, 'packs', 'sym-pack');
+  mkdirSync(packDir, { recursive: true });
+  writeFileSync(join(packDir, 'widget.css'), 'demo-widget{display:block}\n');
+  // A declared module asset that is a symlink to a file outside the pack. The
+  // loader accepts it (statSync follows the link), but the read must refuse it.
+  symlinkSync(secret, join(packDir, 'widget.js'));
+  writeFileSync(join(packDir, 'agent-isles.pack.json'), JSON.stringify({
+    agentIslesPackVersion: 1,
+    name: 'sym-pack',
+    assets: [{ type: 'module', path: 'widget.js' }, { type: 'style', path: 'widget.css' }],
+  }));
+  writeFileSync(join(dir, 'isles.config.json'), JSON.stringify({ packs: ['./packs/sym-pack'] }));
+  const server = await startLiveServer(dir, { port: 0, reader: true });
+  try {
+    const sym = await get(server.url + '/__agent-isles/pack-asset?pack=0&path=widget.js');
+    assert.equal(sym.status, 404);
+    assert.doesNotMatch(sym.body, /SECRET_OUTSIDE_PACK/);
+    // The genuine (non-symlink) style asset still serves.
+    assert.equal((await get(server.url + '/__agent-isles/pack-asset?pack=0&path=widget.css')).status, 200);
+  } finally { await server.close(); }
+});
+
+test('pack-manifest and pack-asset keep the pack index aligned across multiple packs', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-pack-multi-'));
+  writeFileSync(join(dir, 's.md'), '# x');
+  // Distinct tags: two packs claiming the same tag would trip the resolver's
+  // tag-conflict guard. Config order fixes the resolved index (a=0, b=1).
+  scaffoldPack(dir, { name: 'pack-a', tag: 'demo-widget-a', moduleFile: 'a.js', styleFile: 'a.css' });
+  scaffoldPack(dir, { name: 'pack-b', tag: 'demo-widget-b', moduleFile: 'b.js', styleFile: 'b.css' });
+  writeFileSync(join(dir, 'isles.config.json'), JSON.stringify({ packs: ['./packs/pack-a', './packs/pack-b'] }));
+  const server = await startLiveServer(dir, { port: 0, reader: true });
+  try {
+    const { assets } = JSON.parse((await get(server.url + '/__agent-isles/pack-manifest')).body);
+    // Two packs × (module + style) = 4 assets; group the emitted URLs by pack index.
+    const byPack = new Map();
+    for (const a of assets) {
+      const m = a.url.match(/pack=(\d+)&path=([^&]+)$/);
+      const idx = Number(m[1]);
+      if (!byPack.has(idx)) byPack.set(idx, []);
+      byPack.get(idx).push(decodeURIComponent(m[2]));
+    }
+    assert.deepEqual([...byPack.get(0)].sort(), ['a.css', 'a.js']);
+    assert.deepEqual([...byPack.get(1)].sort(), ['b.css', 'b.js']);
+
+    // Each index serves ITS OWN pack's file (not a swap): the marker proves source.
+    const a0 = await get(server.url + '/__agent-isles/pack-asset?pack=0&path=a.js');
+    assert.equal(a0.status, 200);
+    assert.match(a0.body, /pack-a:a\.js/);
+    const b1 = await get(server.url + '/__agent-isles/pack-asset?pack=1&path=b.js');
+    assert.equal(b1.status, 200);
+    assert.match(b1.body, /pack-b:b\.js/);
+
+    // A path declared by the other pack is rejected — the match is scoped per pack.
+    assert.equal((await get(server.url + '/__agent-isles/pack-asset?pack=1&path=a.js')).status, 404);
+    assert.equal((await get(server.url + '/__agent-isles/pack-asset?pack=0&path=b.js')).status, 404);
   } finally { await server.close(); }
 });
