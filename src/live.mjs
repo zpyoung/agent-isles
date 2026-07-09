@@ -1,7 +1,8 @@
 import http from 'node:http';
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import {
   appendFileSync,
+  chmodSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -70,6 +71,35 @@ const SIGNAL_TYPE_RE = /^[a-z][a-z0-9-]{0,31}$/;
 
 function clampStr(value) {
   return value.length > SIGNAL_MAX_STR ? value.slice(0, SIGNAL_MAX_STR) : value;
+}
+
+// Agent long-poll endpoint (docs/plans/agent-events-long-poll.md): the live
+// server hands the newest `proceed` click to a waiting agent bridge over a
+// one-request/one-response GET, replacing the bridge's file-poll loop.
+const AGENT_QUEUE_MAX = 64;      // clicks only ever span the current screen; bound the buffer
+const AGENT_HOLD_DEFAULT = 100;  // seconds a request parks waiting for a click
+const AGENT_HOLD_MAX = 110;      // stay under the consumer harness's 120s command kill
+
+// Lenient screen filter mirroring the bridge's `_screen_matches`: an empty
+// filter matches anything, a record with no screen stamp matches any filter,
+// otherwise the filter must equal the record's `screen` slug or `screen_file`.
+// Exported for direct unit coverage of the matching edges.
+export function agentScreenMatches(record, screenFilter) {
+  if (!screenFilter) return true;
+  const stamped = record.screen != null || record.screen_file != null;
+  if (!stamped) return true;
+  return record.screen === screenFilter || record.screen_file === screenFilter;
+}
+
+export function parseSinceSeconds(raw) {
+  const n = Number.parseInt(raw ?? '', 10);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+export function parseHoldSeconds(raw) {
+  const n = Number(raw);
+  if (raw == null || raw === '' || !Number.isFinite(n)) return AGENT_HOLD_DEFAULT;
+  return Math.max(0, Math.min(AGENT_HOLD_MAX, n));
 }
 
 export function appendSignalEvent(dir, detail) {
@@ -225,6 +255,12 @@ export async function startLiveServer(dir, options = {}) {
   const host = options.host || defaultHost;
   const clients = new Set();
   const signalSockets = new Set();
+  // Agent long-poll state: an in-memory queue of `proceed` records and the set
+  // of currently-parked agent requests. The per-session bearer token gates both
+  // agent routes and is published in state/server-info for the bridge to read.
+  const agentQueue = [];
+  const heldAgentRequests = new Set();
+  const sessionToken = randomBytes(16).toString('hex');
   let closing = false;
   // Reader mode: serve the client-rendered reader SPA at `/` instead of the
   // server-rendered agent-screen page. readerFile scopes the tree to a single
@@ -252,6 +288,62 @@ export async function startLiveServer(dir, options = {}) {
     if (!origin) return true;
     return allowedOrigins ? allowedOrigins.has(origin) : true;
   };
+
+  // Agent routes are non-browser by definition: bearing an Origin header at all
+  // (even empty) means a browser is calling and is refused outright (the CSRF
+  // vector). Otherwise a constant-time bearer-token check gates access.
+  function agentRequestAuthorized(req, res) {
+    if (req.headers && 'origin' in req.headers) { res.writeHead(403); res.end('Forbidden origin'); return false; }
+    const provided = req.headers && req.headers.authorization;
+    const expected = `Bearer ${sessionToken}`;
+    const ok = typeof provided === 'string'
+      && Buffer.byteLength(provided) === Buffer.byteLength(expected)
+      && timingSafeEqual(Buffer.from(provided), Buffer.from(expected));
+    if (!ok) { res.writeHead(401); res.end('Unauthorized'); return false; }
+    return true;
+  }
+
+  // Consume and return the newest queued record matching the filter. Latest
+  // wins on tied (floored-second) timestamps, and every older matching click it
+  // supersedes is dropped too — at-most-once delivery, no stale click survives.
+  function takeNewestAgentMatch(screenFilter, since) {
+    let bestIdx = -1;
+    for (let i = 0; i < agentQueue.length; i += 1) {
+      const r = agentQueue[i];
+      if (r.timestamp < since || !agentScreenMatches(r, screenFilter)) continue;
+      if (bestIdx === -1 || r.timestamp >= agentQueue[bestIdx].timestamp) bestIdx = i;
+    }
+    if (bestIdx === -1) return null;
+    const winner = agentQueue[bestIdx];
+    for (let i = agentQueue.length - 1; i >= 0; i -= 1) {
+      const r = agentQueue[i];
+      if (r.timestamp >= since && agentScreenMatches(r, screenFilter)) agentQueue.splice(i, 1);
+    }
+    return winner;
+  }
+
+  function resolveHeldAgentRequest(held, record) {
+    if (held.done) return;
+    held.done = true;
+    clearTimeout(held.timer);
+    heldAgentRequests.delete(held);
+    try {
+      held.res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      held.res.end(JSON.stringify(record));
+    } catch {}
+  }
+
+  function enqueueAgentRecord(record) {
+    if (!record || record.type !== 'proceed') return; // only proceed satisfies agent waits
+    agentQueue.push(record);
+    if (agentQueue.length > AGENT_QUEUE_MAX) agentQueue.splice(0, agentQueue.length - AGENT_QUEUE_MAX);
+    for (const held of [...heldAgentRequests]) {
+      const match = takeNewestAgentMatch(held.screen, held.since);
+      if (match) resolveHeldAgentRequest(held, match);
+    }
+  }
+
+  function clearAgentQueue() { agentQueue.length = 0; }
 
   const server = http.createServer(async (req, res) => {
     if (closing) {
@@ -334,10 +426,52 @@ export async function startLiveServer(dir, options = {}) {
         res.end(markdown);
         return;
       }
+      // Agent readiness probe.
+      if (req.method === 'GET' && pathname === '/__agent-isles/agent/health') {
+        if (!agentRequestAuthorized(req, res)) return;
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ ok: true, pid: process.pid }));
+        return;
+      }
+      // Agent long-poll: return the newest matching proceed record, or park the
+      // request until one arrives or `hold` elapses (then 204). Records that
+      // arrive between invocations stay queued, so nothing is lost.
+      if (req.method === 'GET' && pathname === '/__agent-isles/agent/events') {
+        if (!agentRequestAuthorized(req, res)) return;
+        let params;
+        try { params = new URL(req.url, 'http://localhost').searchParams; } catch { params = new URLSearchParams(); }
+        const screenFilter = params.get('screen') || null;
+        const since = parseSinceSeconds(params.get('since'));
+        const hold = parseHoldSeconds(params.get('hold'));
+        const immediate = takeNewestAgentMatch(screenFilter, since);
+        if (immediate) {
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify(immediate));
+          return;
+        }
+        if (hold <= 0) { res.writeHead(204); res.end(); return; }
+        const held = { res, screen: screenFilter, since, done: false, timer: null };
+        held.timer = setTimeout(() => {
+          if (held.done) return;
+          held.done = true;
+          heldAgentRequests.delete(held);
+          try { res.writeHead(204); res.end(); } catch {}
+        }, hold * 1000);
+        heldAgentRequests.add(held);
+        req.on('close', () => {
+          if (held.done) return;
+          held.done = true;
+          clearTimeout(held.timer);
+          heldAgentRequests.delete(held);
+        });
+        return;
+      }
       if (req.method === 'POST' && pathname === '/__agent-isles/signal') {
         if (!originAllowed(req)) { res.writeHead(403); res.end('Forbidden origin'); return; }
         const raw = await readBody(req);
-        appendSignalEvent(dir, parseSignalDetail(raw));
+        const record = appendSignalEvent(dir, parseSignalDetail(raw));
+        enqueueAgentRecord(record);
+        broadcast('live:signal', record);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end('{"ok":true}');
         return;
@@ -396,7 +530,11 @@ export async function startLiveServer(dir, options = {}) {
         buffered = Buffer.concat([buffered, chunk]);
         const parsed = parseWebSocketFrames(buffered);
         buffered = parsed.rest;
-        for (const message of parsed.messages) appendSignalEvent(dir, parseSignalDetail(message));
+        for (const message of parsed.messages) {
+          const record = appendSignalEvent(dir, parseSignalDetail(message));
+          enqueueAgentRecord(record);
+          broadcast('live:signal', record);
+        }
         if (parsed.shouldClose) socket.destroy();
       });
       socket.on('close', () => signalSockets.delete(socket));
@@ -429,13 +567,17 @@ export async function startLiveServer(dir, options = {}) {
 
   const infoPayload = {
     type: 'server-started', pid: process.pid, port, host, url,
-    screen_dir: dir, state_dir: stateDir(dir),
+    screen_dir: dir, state_dir: stateDir(dir), token: sessionToken,
   };
   try {
     const infoTmp = join(stateDir(dir), 'server-info.tmp');
+    const infoPath = join(stateDir(dir), 'server-info');
     try {
-      writeFileSync(infoTmp, JSON.stringify(infoPayload) + '\n');
-      renameSync(infoTmp, join(stateDir(dir), 'server-info'));
+      // 0600: server-info now carries the agent bearer token — keep it readable
+      // only by the owner, same trust domain as the events file.
+      writeFileSync(infoTmp, JSON.stringify(infoPayload) + '\n', { mode: 0o600 });
+      renameSync(infoTmp, infoPath);
+      try { chmodSync(infoPath, 0o600); } catch {}
     } catch (e) {
       try { unlinkSync(infoTmp); } catch {}
       throw e;
@@ -499,7 +641,10 @@ export async function startLiveServer(dir, options = {}) {
             if (added.length) {
               let push = added[0];
               for (const s of added) if (s.mtimeMs > push.mtimeMs) push = s;
-              clearEvents(); // a new screen pushed → reset the single-flow interaction state
+              // A new screen resets single-flow state: drop the events file AND
+              // the in-memory queue so a stale click can't satisfy a wait for it.
+              clearEvents();
+              clearAgentQueue();
               broadcast('live:advance', { slug: push.slug });
             }
           } catch { /* watcher must never crash the debounce timer */ }
@@ -524,6 +669,13 @@ export async function startLiveServer(dir, options = {}) {
       clients.clear();
       for (const socket of signalSockets) socket.destroy();
       signalSockets.clear();
+      for (const held of heldAgentRequests) {
+        if (held.done) continue;
+        held.done = true;
+        clearTimeout(held.timer);
+        try { held.res.writeHead(503); held.res.end('Server closing'); } catch {}
+      }
+      heldAgentRequests.clear();
       try { unlinkSync(join(stateDir(dir), 'server-info')); } catch {}
       try { writeFileSync(join(stateDir(dir), 'server-stopped'), JSON.stringify({ reason, timestamp: Date.now() }) + '\n'); } catch {}
       await new Promise((r) => {
@@ -539,16 +691,26 @@ export async function startLiveServer(dir, options = {}) {
   const idleMs = (options.idleTimeoutMinutes ?? 30) * 60 * 1000;
   const ownerPid = options.ownerPid || null;
   function shutdown(reason) { void close(reason); }
+  // A parked agent hold counts as an active client: otherwise the server can
+  // idle-shut mid-brainstorm when the browser tab is closed but the agent waits.
+  function idleShouldStop() {
+    return clients.size === 0 && heldAgentRequests.size === 0 && Date.now() - lastActivity > idleMs;
+  }
   lifecycle = setInterval(() => {
     if (ownerPid) {
       try { process.kill(ownerPid, 0); }
       catch (e) { if (e.code !== 'EPERM') { shutdown('owner exited'); return; } }
     }
-    if (clients.size === 0 && Date.now() - lastActivity > idleMs) shutdown('idle timeout');
+    if (idleShouldStop()) shutdown('idle timeout');
   }, 60 * 1000);
   lifecycle.unref?.();
 
-  return { url, port, host, dir, server, broadcast, close, clearEvents, _clients: clients };
+  return {
+    url, port, host, dir, server, broadcast, close, clearEvents, clearAgentQueue,
+    token: sessionToken,
+    _clients: clients, _agentQueue: agentQueue, _heldAgentRequests: heldAgentRequests,
+    _idleShouldStop: idleShouldStop,
+  };
 }
 
 export async function runLiveForeground(dir, options = {}) {
