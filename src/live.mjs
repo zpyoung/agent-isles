@@ -83,24 +83,28 @@ const AGENT_HOLD_MAX = 110;      // stay under the consumer harness's 120s comma
 // Lenient screen filter mirroring the bridge's `_screen_matches`: an empty
 // filter matches anything, a record with no screen stamp matches any filter,
 // otherwise the filter must equal the record's `screen` slug or `screen_file`.
-// Exported for direct unit coverage of the matching edges.
-export function agentScreenMatches(record, screenFilter) {
+function agentScreenMatches(record, screenFilter) {
   if (!screenFilter) return true;
   const stamped = record.screen != null || record.screen_file != null;
   if (!stamped) return true;
   return record.screen === screenFilter || record.screen_file === screenFilter;
 }
 
-export function parseSinceSeconds(raw) {
+function parseSinceSeconds(raw) {
   const n = Number.parseInt(raw ?? '', 10);
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
-export function parseHoldSeconds(raw) {
+function parseHoldSeconds(raw) {
   const n = Number(raw);
   if (raw == null || raw === '' || !Number.isFinite(n)) return AGENT_HOLD_DEFAULT;
   return Math.max(0, Math.min(AGENT_HOLD_MAX, n));
 }
+
+// Not part of the public module surface — exposed only so tests can unit-cover
+// the query-param parsing and screen-matching edges directly. Do not depend on
+// this from outside the package.
+export const __internal = { agentScreenMatches, parseSinceSeconds, parseHoldSeconds };
 
 export function appendSignalEvent(dir, detail) {
   // Untrusted input: a signal can arrive from any client that reaches the

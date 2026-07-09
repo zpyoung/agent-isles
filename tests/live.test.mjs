@@ -6,9 +6,10 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { setTimeout as sleep } from 'node:timers/promises';
 import {
-  startLiveServer, resolveNewestScreen, eventsFile, injectLiveFrame,
-  parseHoldSeconds, parseSinceSeconds, agentScreenMatches,
+  startLiveServer, resolveNewestScreen, eventsFile, injectLiveFrame, __internal,
 } from '../src/live.mjs';
+
+const { parseHoldSeconds, parseSinceSeconds, agentScreenMatches } = __internal;
 
 async function waitFor(fn, timeoutMs = 4000, stepMs = 50) {
   const start = Date.now();
@@ -57,16 +58,23 @@ function agentGet(baseUrl, path, { token, origin } = {}) {
     const headers = {};
     if (typeof token === 'string') headers.Authorization = `Bearer ${token}`;
     if (typeof origin === 'string') headers.Origin = origin;
+    let settled = false;
     const req = http.get({ hostname: u.hostname, port: u.port, path: u.pathname + u.search, headers }, (res) => {
       let body = '';
       res.setEncoding('utf8');
       res.on('data', (c) => { body += c; });
-      const done = () => resolvePromise({ status: res.statusCode, body });
+      // Resolve on end OR close/error: the shutdown path force-closes the socket
+      // right after the 503 head+body are sent, and we still want the captured
+      // status (from headers) rather than treating a truncated body as a failure.
+      const done = () => { if (settled) return; settled = true; resolvePromise({ status: res.statusCode, body }); };
       res.on('end', done);
       res.on('close', done);
       res.on('error', done);
     });
-    req.on('error', reject);
+    req.on('error', (e) => { if (!settled) { settled = true; reject(e); } });
+    // No legit agent GET here waits more than a few hundred ms before responding,
+    // so a long stall means a hang — fail fast instead of blocking the runner.
+    req.setTimeout(20000, () => { req.destroy(new Error('agentGet timed out')); });
   });
 }
 
@@ -86,8 +94,21 @@ function openSignalWs(baseUrl) {
     },
   });
   return new Promise((resolvePromise, reject) => {
-    req.on('upgrade', (_res, socket) => resolvePromise(socket));
-    req.on('error', reject);
+    let settled = false;
+    req.on('upgrade', (_res, socket) => { if (!settled) { settled = true; resolvePromise(socket); } });
+    // A normal HTTP response instead of a 101 (e.g. an auth/route regression)
+    // would otherwise never resolve — fail fast rather than hang the runner.
+    req.on('response', (res) => {
+      if (settled) return;
+      settled = true; req.destroy();
+      reject(new Error(`WS upgrade refused: HTTP ${res.statusCode}`));
+    });
+    req.on('error', (e) => { if (!settled) { settled = true; reject(e); } });
+    req.setTimeout(10000, () => {
+      if (settled) return;
+      settled = true; req.destroy();
+      reject(new Error('WS upgrade timed out'));
+    });
     req.end();
   });
 }
