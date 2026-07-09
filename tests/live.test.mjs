@@ -862,3 +862,25 @@ test('the agent queue is bounded: newest 64 kept, oldest evicted', async () => {
     assert.equal(server._agentQueue[63].choice, '69');      // newest retained
   } finally { await server.close(); }
 });
+
+test('agent/events cleans up a held request when the client aborts mid-hold', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'isles-agent-abort-'));
+  writeFileSync(join(dir, 's.md'), '# x');
+  const server = await startLiveServer(dir, { port: 0 });
+  try {
+    const u = new URL(server.url);
+    const req = http.get({
+      hostname: u.hostname, port: u.port, path: AGENT_EVENTS + '?hold=30',
+      headers: { Authorization: `Bearer ${server.token}` },
+    });
+    req.on('error', () => {}); // the abort surfaces as a client-side error we ignore
+    assert.ok(await waitFor(() => server._heldAgentRequests.size === 1), 'request parked');
+    req.destroy(); // client hangs up mid-hold
+    assert.ok(await waitFor(() => server._heldAgentRequests.size === 0), 'held entry dropped on abort');
+    // No loss/leak: a click after the abort is retained and delivered to the next poll.
+    await postJson(server.url + '/__agent-isles/signal', { type: 'proceed', choice: 'after-abort' });
+    const r = await agentGet(server.url, AGENT_EVENTS + '?hold=0', { token: server.token });
+    assert.equal(r.status, 200);
+    assert.equal(JSON.parse(r.body).choice, 'after-abort');
+  } finally { await server.close(); }
+});

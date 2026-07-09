@@ -74,6 +74,14 @@ if (command === 'render') {
   process.exit(2);
 }
 
+// Echo server-info to the launching caller WITHOUT the bearer token: it is a
+// per-session credential the bridge reads from the 0600 file, and stdout lands
+// in scrollback / CI logs / agent transcripts where the file mode can't protect it.
+function printServerInfoLine(info) {
+  const { token, ...rest } = info;
+  console.log(JSON.stringify(rest));
+}
+
 async function runLive(args) {
   const parsed = { dir: undefined, port: undefined, host: undefined, urlHost: undefined,
     idleTimeoutMinutes: undefined, ownerPid: undefined, readerFile: undefined, stop: false, serve: false };
@@ -148,7 +156,7 @@ async function runLive(args) {
         const existing = JSON.parse(readFileSync(infoPath, 'utf8'));
         if (existing && Number.isInteger(existing.pid) && existing.pid > 0
             && existing.screen_dir === dir && pidAlive(existing.pid)) {
-          console.log(JSON.stringify(existing));
+          printServerInfoLine(existing);
           process.exit(0);
         }
       }
@@ -173,9 +181,8 @@ async function runLive(args) {
     if (existsSync(infoPath)) {
       try {
         if (statSync(infoPath).isFile()) {
-          const txt = readFileSync(infoPath, 'utf8');
-          JSON.parse(txt);
-          console.log(txt.trim());
+          const info = JSON.parse(readFileSync(infoPath, 'utf8'));
+          printServerInfoLine(info);
           process.exit(0);
         }
       } catch { /* keep polling */ }

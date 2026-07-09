@@ -303,15 +303,16 @@ export async function startLiveServer(dir, options = {}) {
     return true;
   }
 
-  // Consume and return the newest queued record matching the filter. Latest
-  // wins on tied (floored-second) timestamps, and every older matching click it
-  // supersedes is dropped too — at-most-once delivery, no stale click survives.
+  // Consume and return the last matching record in insertion order — the queue
+  // is append-ordered, so this is the bridge's `latest_proceed_event` ("last
+  // matching line") and stays correct even if the wall clock steps backwards
+  // between two clicks. Every older matching click it supersedes is dropped too
+  // — at-most-once delivery, no stale click survives.
   function takeNewestAgentMatch(screenFilter, since) {
     let bestIdx = -1;
     for (let i = 0; i < agentQueue.length; i += 1) {
       const r = agentQueue[i];
-      if (r.timestamp < since || !agentScreenMatches(r, screenFilter)) continue;
-      if (bestIdx === -1 || r.timestamp >= agentQueue[bestIdx].timestamp) bestIdx = i;
+      if (r.timestamp >= since && agentScreenMatches(r, screenFilter)) bestIdx = i;
     }
     if (bestIdx === -1) return null;
     const winner = agentQueue[bestIdx];
@@ -574,7 +575,11 @@ export async function startLiveServer(dir, options = {}) {
     const infoPath = join(stateDir(dir), 'server-info');
     try {
       // 0600: server-info now carries the agent bearer token — keep it readable
-      // only by the owner, same trust domain as the events file.
+      // only by the owner, same trust domain as the events file. Remove any
+      // stale tmp first so writeFileSync *creates* fresh at 0600 (its mode only
+      // applies on creation, and 0o600 survives a typical umask); a leftover tmp
+      // from a crashed older build can't leak the token at a looser mode.
+      rmSync(infoTmp, { force: true });
       writeFileSync(infoTmp, JSON.stringify(infoPayload) + '\n', { mode: 0o600 });
       renameSync(infoTmp, infoPath);
       try { chmodSync(infoPath, 0o600); } catch {}
