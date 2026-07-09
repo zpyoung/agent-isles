@@ -20,6 +20,17 @@ test('renderReaderMarkdown preserves raw HTML islands (trusted mode)', async () 
   assert.match(html, /Ship/);
 });
 
+// Regression: reader pack loading (docs/plans/reader-pack-loading.md) relies on
+// unknown pack custom elements reaching the DOM so the injected pack module can
+// upgrade them. Pin that the client render pipeline passes them through with
+// attributes intact. If an allowlist is ever added, it must admit loaded-pack tags.
+test('renderReaderMarkdown passes an unknown pack custom element through with attributes intact', async () => {
+  const md = '# Doc\n\n<quirk-free-text label="Topic" submit-label="Start"></quirk-free-text>\n';
+  const { html } = await renderReaderMarkdown(md);
+  assert.match(html, /<quirk-free-text[^>]*label="Topic"/);
+  assert.match(html, /submit-label="Start"/);
+});
+
 test('renderReaderMarkdown transforms island fenced blocks', async () => {
   const md = [
     '```mermaid',

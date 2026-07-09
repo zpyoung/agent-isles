@@ -22,6 +22,8 @@ import { buildReaderShell } from './renderer/page.mjs';
 import { listScreens, listScreenFiles, resolveSlug, readFileNoFollow } from './live-docs.mjs';
 import { listReaderDocs, buildDocTree, resolveDocSlug } from './reader/sources.mjs';
 import { injectLiveFrame } from './live-shell.mjs';
+import { resolvePackInputs } from './pack-resolver.mjs';
+import { buildPackAssetRecords } from './renderer/pack-assets.mjs';
 
 const READER_BUNDLE_PATH = join(dirname(fileURLToPath(import.meta.url)), '..', 'dist', 'isles-reader.js');
 
@@ -31,6 +33,15 @@ const defaultHost = '127.0.0.1';
 
 function stateDir(dir) { return join(dir, 'state'); }
 export function eventsFile(dir) { return join(stateDir(dir), 'events'); }
+
+// Content type for a served pack asset. The pack manifest only permits `module`
+// (JS) and `style` (CSS) assets, so these two branches cover every real case;
+// the octet-stream fallback is defensive.
+function packAssetContentType(path) {
+  if (/\.m?js$/i.test(path)) return 'text/javascript; charset=utf-8';
+  if (/\.css$/i.test(path)) return 'text/css; charset=utf-8';
+  return 'application/octet-stream';
+}
 
 function readBody(req, limit = 1024 * 1024) {
   return new Promise((resolvePromise, reject) => {
@@ -280,6 +291,31 @@ export async function startLiveServer(dir, options = {}) {
   };
   mkdirSync(stateDir(dir), { recursive: true });
 
+  // Resolve trusted local component packs once per session and expose them to
+  // the reader over HTTP (GET /__agent-isles/pack-manifest + /pack-asset). The
+  // reader injects these at boot so a pack island upgrades and behaves exactly
+  // as it does on the server-rendered shell path. Same scope as that path:
+  // project config only, no user/CLI packs. Packs are static for a session, so
+  // resolve+cache here. A broken pack must never brick the reader — any
+  // resolution/load failure degrades to "no packs" with a single stderr note.
+  let packAssetRecords = [];
+  try {
+    const resolved = await resolvePackInputs({ projectDir: dir, includeUserPacks: false });
+    packAssetRecords = buildPackAssetRecords(resolved.packs);
+  } catch (error) {
+    process.stderr.write(`[isles live] component pack resolution failed; serving no packs: ${(error && error.message) || error}\n`);
+  }
+  // Precompute the manifest body: `pack` indexes packAssetRecords; `path` is the
+  // asset's pack-relative path, matched back exactly by the pack-asset route.
+  const packManifestBody = JSON.stringify({
+    assets: packAssetRecords.flatMap((record, packIndex) =>
+      record.assets.map((asset) => ({
+        type: asset.type,
+        url: `/__agent-isles/pack-asset?pack=${packIndex}&path=${encodeURIComponent(asset.normalizedPath)}`,
+      })),
+    ),
+  });
+
   // Signal endpoints (POST + WS) can wake and steer a tool-wielding agent, so
   // reject cross-origin browser requests: a malicious page must not be able to
   // POST/connect to this localhost server and inject proceed signals. Requests
@@ -379,6 +415,38 @@ export async function startLiveServer(dir, options = {}) {
           'Cache-Control': 'no-cache, no-transform',
         });
         res.end(bundle);
+        return;
+      }
+      // Resolved component-pack assets for the reader to inject at boot. Empty
+      // list when the project declares no packs — the reader skips injection.
+      if (req.method === 'GET' && pathname === '/__agent-isles/pack-manifest') {
+        res.writeHead(200, {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Cache-Control': 'no-cache, no-transform',
+        });
+        res.end(packManifestBody);
+        return;
+      }
+      // One asset file from a startup-resolved pack. `pack` indexes the resolved
+      // list; `path` must exactly match an asset declared in that pack's
+      // manifest, so the route serves only manifest-listed files — no path
+      // arithmetic on user input, so traversal is impossible by construction.
+      if (req.method === 'GET' && pathname === '/__agent-isles/pack-asset') {
+        let params;
+        try { params = new URL(req.url, 'http://localhost').searchParams; } catch { params = new URLSearchParams(); }
+        const packIndex = Number.parseInt(params.get('pack') ?? '', 10);
+        const assetPath = params.get('path') || '';
+        const record = Number.isInteger(packIndex) && packIndex >= 0 ? packAssetRecords[packIndex] : undefined;
+        const asset = record && record.assets.find((a) => a.normalizedPath === assetPath);
+        if (!asset) { res.writeHead(404); res.end('Not found'); return; }
+        let contents;
+        try { contents = readFileNoFollow(asset.resolvedPath); } // O_NOFOLLOW: refuse race-swapped symlinks
+        catch { res.writeHead(404); res.end('Not found'); return; }
+        res.writeHead(200, {
+          'Content-Type': packAssetContentType(asset.resolvedPath),
+          'Cache-Control': 'no-cache, no-transform',
+        });
+        res.end(contents);
         return;
       }
       if (req.method === 'GET' && pathname === '/events') {

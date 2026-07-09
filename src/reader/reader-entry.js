@@ -135,6 +135,33 @@ function injectStyle() {
   document.head.appendChild(style);
 }
 
+// Append a pack stylesheet, resolving on load OR error so one failing sheet
+// never stalls boot.
+function injectStylesheet(href) {
+  return new Promise((done) => {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = href;
+    link.addEventListener('load', () => done());
+    link.addEventListener('error', () => done());
+    document.head.appendChild(link);
+  });
+}
+
+// Component packs (trusted local, declared in the project's isles.config.json)
+// are resolved server-side and listed at /__agent-isles/pack-manifest. Inject
+// them at boot — before the first render — so a pack island upgrades on initial
+// paint (element upgrade is retroactive, but styles are not). Progressive
+// enhancement: any failure degrades that one pack, never the reader.
+async function loadPacks() {
+  try {
+    const { assets = [] } = await (await fetch('/__agent-isles/pack-manifest')).json();
+    await Promise.allSettled(assets.map((a) => (
+      a.type === 'style' ? injectStylesheet(a.url) : import(a.url)
+    )));
+  } catch { /* packs are progressive enhancement — never block the reader */ }
+}
+
 // ── Reader state ────────────────────────────────────────────────────────────
 const state = { docs: [], tree: [], bySlug: new Map(), active: null, baseline: new Map(), settings: loadSettings() };
 
@@ -368,6 +395,7 @@ async function start() {
   let data;
   try { data = await fetchTree(); } catch { data = null; }
   renderTree();
+  await loadPacks();
   state.active = pickInitial(data);
   await renderActive();
   window.addEventListener('popstate', () => { const s = slugFromPath(); if (s && s !== state.active) navigate(s); });
