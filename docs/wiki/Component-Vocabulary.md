@@ -752,6 +752,251 @@ group-by: status
 ```
 ````
 
+### `<agent-copy-block>`
+
+Use for command snippets, config fragments, prompts, or generated code that readers are likely to copy verbatim.
+
+Status: supported.
+
+Attributes:
+
+| Attribute | Required | Allowed values | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `label` | No | Plain text | `Copy block` | Header label shown in the toolbar above the code. |
+| `lang` | No | Highlight.js language token | none | Language hint rendered as a small pill in the toolbar. |
+
+Child content:
+
+- A single fenced code block (rendered to `<pre><code>`) or plain preformatted text. The Copy button copies the trimmed text content.
+
+Behavior:
+
+- Renders a dark code surface with a toolbar containing the label, optional language pill, and a Copy button.
+- Clicking Copy writes the trimmed text content to the clipboard (with a selection-based fallback for non-secure contexts) and briefly shows a `Copied` confirmation before reverting.
+
+Accessibility notes:
+
+- The Copy control is a native, keyboard-focusable `<button>` with `aria-live="polite"`, so the `Copied` confirmation is announced without relying on color.
+
+Trusted/sanitized behavior:
+
+- Trusted mode preserves the tag, documented attributes, and child code.
+- Sanitized mode should allow only `label` and `lang` on this tag while stripping event handlers and unsafe raw HTML.
+
+Example:
+
+````markdown
+<agent-copy-block label="Render smoke" lang="bash">
+
+```bash
+npm run render -- --out dist/demo.html
+```
+
+</agent-copy-block>
+````
+
+### `<agent-tabs>` and `<agent-tab>`
+
+Use for alternate views of the same report section, such as Summary/Evidence/Fix or macOS/Linux/Windows instructions.
+
+Status: supported.
+
+Authoring guidance:
+
+- Put only `<agent-tab>` children inside `<agent-tabs>`; each tab holds normal Markdown-rendered content.
+- Mark at most one child `active` for the initial selection; when none is marked the first tab is selected.
+
+Attributes:
+
+| Tag | Attribute | Required | Allowed values | Default | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `agent-tabs` | `label` | No | Plain text | `Tabbed content` | Accessible tablist label. |
+| `agent-tab` | `title` | No | Plain text | `Tab N` (source order) | Visible tab label. |
+| `agent-tab` | `active` | No | Boolean attribute | absent | Initial selected tab. Only one child should be active; the first one wins if several are set. |
+
+Child content:
+
+- `<agent-tabs>` should contain only `<agent-tab>` children.
+- Each `<agent-tab>` contains the normal Markdown/HTML content for that panel.
+
+Accessibility notes:
+
+- Renders a `role="tablist"` of `role="tab"` buttons and `role="tabpanel"` panels wired with `aria-selected`, `aria-controls`, and `aria-labelledby`.
+- Arrow keys (Left/Right/Up/Down) plus Home/End move between tabs; the selected tab is focusable via roving `tabindex`.
+
+Trusted/sanitized behavior:
+
+- Trusted mode preserves the tags, attributes, and child HTML.
+- Sanitized mode should allow `label` on `agent-tabs` and `title` and `active` on `agent-tab` while stripping event handlers and unsafe raw HTML.
+
+Example:
+
+```markdown
+<agent-tabs label="Verification evidence">
+  <agent-tab title="Tests" active>
+    `npm test` passed.
+  </agent-tab>
+  <agent-tab title="Render">
+    `npm run render -- --out dist/demo.html` passed.
+  </agent-tab>
+</agent-tabs>
+```
+
+### `<agent-timeline>` and `<agent-step>`
+
+Use for chronological execution logs, incident timelines, release steps, or multi-phase plans.
+
+Status: supported.
+
+Authoring guidance:
+
+- Put `<agent-step>` children inside `<agent-timeline>` in chronological source order.
+- Keep step bodies as concise prose, links, or evidence that stays readable in source form.
+
+Attributes:
+
+| Tag | Attribute | Required | Allowed values | Default | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `agent-timeline` | `label` | No | Plain text | `Timeline` | Accessible list label for the timeline. |
+| `agent-step` | `label` | No | Plain text | `Timeline step` | Short step heading. |
+| `agent-step` | `status` | No | `done`, `active`, `pending`, `failed` | `pending` | Unknown or missing values render as `pending`. Status is shown as text. |
+
+Child content:
+
+- `<agent-timeline>` should contain `<agent-step>` children.
+- Each `<agent-step>` contains concise details, links, or evidence for that step.
+
+Accessibility notes:
+
+- The timeline renders as a `role="list"` and each step as a `role="listitem"` with an accessible label combining the step label and its status.
+- Status is exposed as visible text and in the accessible label, not color alone.
+- Source order carries the sequence; keep steps in chronological order.
+
+Trusted/sanitized behavior:
+
+- Trusted mode preserves the tags, attributes, and child HTML.
+- Sanitized mode should allow `label` on `agent-timeline` and `label` and `status` on `agent-step` while stripping event handlers and unsafe raw HTML.
+
+Example:
+
+```markdown
+<agent-timeline label="Autopilot run">
+  <agent-step status="done" label="Inspected issue">
+    Confirmed #10 was ready and no existing PR targeted it.
+  </agent-step>
+  <agent-step status="active" label="Open PR">
+    Push the docs branch and request review.
+  </agent-step>
+  <agent-step status="pending" label="Await review">
+    Waiting on a maintainer to approve.
+  </agent-step>
+</agent-timeline>
+```
+
+### `<agent-action-list>` and `<agent-action>`
+
+Use for follow-up work and next-action lists that should render as a sortable table, priority lanes, or a status kanban derived from explicit nested source instead of hand-authored layout.
+
+Status: supported.
+
+Authoring guidance:
+
+- Use `<agent-action-list>` for the container and direct `<agent-action>` children for items.
+- Put the visible action text in the element body; `<agent-action>` has no label attribute, and items with empty body text are skipped.
+- Items are always sorted by priority, then due date, then status, then label — source order is not preserved.
+- `filter-status`, `filter-priority`, and `group-by` apply to the default `table` layout; the `kanban` and `priority` layouts define their own lanes.
+
+Attributes:
+
+| Tag | Attribute | Required | Allowed values | Default | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `agent-action-list` | `label` | No | Plain text | `Next actions` | Board heading and accessible label. |
+| `agent-action-list` | `layout` | No | `table`, `kanban`, `priority` | `table` | `table` is a sortable list; `kanban` groups items into status lanes; `priority` groups into P0/P1/P2 lanes. |
+| `agent-action-list` | `group-by` | No | `status`, `priority` | ungrouped | Collapsible groups within the `table` layout. Ignored by the `kanban` and `priority` layouts. |
+| `agent-action-list` | `filter-status` | No | Comma-separated status tokens (`open`, `in-progress`, `blocked`, `done`) | empty | Table layout only; shows only matching statuses. |
+| `agent-action-list` | `filter-priority` | No | Comma-separated priority tokens (`high`, `normal`, `low`) | empty | Table layout only; shows only matching priorities. |
+| `agent-action-list` | `show-done` | No | `show-done="false"` hides done items | `true` | When `false`, done actions are hidden and the `done` kanban lane is dropped. |
+| `agent-action` | `owner` | No | Plain text | empty | Accountable person/team; rendered with an initial avatar. |
+| `agent-action` | `due` | No | ISO-8601 date (`YYYY-MM-DD`) or plain text | empty | ISO dates render an absolute date plus a relative hint and flag overdue items; other text is shown as-is. |
+| `agent-action` | `priority` | No | `high` → P0, `normal` → P1, `low` → P2 | `normal` | Unknown values render as `normal` (P1). |
+| `agent-action` | `status` | No | `open`, `in-progress`, `blocked`, `done` | `open` | Unknown values render as `open`. Drives the glyph, chip, sort order, and lane. |
+
+Child content:
+
+- `<agent-action-list>` should contain direct `<agent-action>` children.
+- `<agent-action>` body text is the visible action label — the element has no label attribute.
+
+Accessibility notes:
+
+- The `table` layout renders a native `<table>` with a `scope="col"` header row and a visually-hidden status column label; status is carried as text, not color alone.
+- The `kanban` and `priority` layouts render as `role="list"` with `role="listitem"` lanes and visible per-lane counts.
+- Priority and status appear as text chips, and overdue due dates are marked with text, not color alone.
+
+Trusted/sanitized behavior:
+
+- Trusted mode preserves the tags, attributes, and child HTML.
+- Sanitized mode should allow `label`, `layout`, `group-by`, `filter-status`, `filter-priority`, and `show-done` on `agent-action-list` and `owner`, `due`, `priority`, and `status` on `agent-action` while stripping event handlers and unsafe raw HTML.
+
+Example:
+
+```markdown
+<agent-action-list label="Launch follow-ups" layout="table" group-by="status" filter-status="open,in-progress,blocked" show-done="false">
+  <agent-action owner="Merlin" status="open" priority="high" due="2026-05-24">
+    Re-run browser smoke after the bundle change.
+  </agent-action>
+  <agent-action owner="Zach" status="in-progress" priority="normal">
+    Review gallery scope.
+  </agent-action>
+  <agent-action owner="Merlin" status="blocked" priority="normal">
+    Wait for Pages enablement.
+  </agent-action>
+  <agent-action owner="Pix" status="done" priority="low">
+    Mirror component docs to the wiki.
+  </agent-action>
+</agent-action-list>
+```
+
+### `<agent-proceed>`
+
+Use as the deliberate "go" / commit control on live brainstorming screens: readers explore options with `<agent-option-set>`/`<agent-choice>`, then advance with `<agent-proceed>`.
+
+Status: supported.
+
+Attributes:
+
+| Attribute | Required | Allowed values | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `label` | No | Plain text | `Proceed →` | Visible button label; also used as the event `text`. |
+| `allow-empty` | No | Boolean attribute | absent | When set, the button is enabled even before any option is selected. |
+
+Behavior:
+
+- Listens for the document-level, composed `agent-isles:select` event (emitted by `<agent-option-set>`) and tracks the latest selection without reaching into sibling DOM.
+- Disabled until at least one option is selected, unless `allow-empty` is set; while disabled it shows a `Select an option to continue` hint.
+- On click it dispatches a composed `agent-isles:proceed` event with `detail = { type: 'proceed', selected: [ids], text }`, then flips to a disabled processing state (spinner + `Proceeding…`) so the click is visibly registered while the agent works. Repeat clicks are ignored once sent.
+- In `isles live` mode the proceed signal is recorded as a `type:"proceed"` event record.
+
+Accessibility notes:
+
+- Renders a native `<button>` with `aria-disabled` and `aria-busy` reflecting the ready/processing state.
+- The processing state is conveyed with text (`Proceeding…`), not the spinner or color alone.
+
+Trusted/sanitized behavior:
+
+- Trusted mode preserves the tag and attributes.
+- Sanitized mode should allow only `label` and `allow-empty` on this tag while stripping event handlers.
+
+Example:
+
+```markdown
+<agent-option-set>
+  <agent-choice id="ship" title="Ship it">Deploy the current build.</agent-choice>
+  <agent-choice id="hold" title="Hold">Wait for another review pass.</agent-choice>
+</agent-option-set>
+
+<agent-proceed label="Commit choice →"></agent-proceed>
+```
+
 ## Planned components
 
 These names are reserved by the vocabulary so docs, examples, and implementation can converge without inventing new tags later.
@@ -779,92 +1024,6 @@ Example placeholder:
 <agent-finding severity="medium" file="src/render.mjs" line="22" title="Raw HTML mode is trusted-only">
 Add sanitized-mode coverage before accepting untrusted Markdown input.
 </agent-finding>
-```
-
-### `<agent-copy-block>`
-
-Intended use: command snippets, config fragments, prompts, or generated code that users are likely to copy.
-
-Planned attributes:
-
-| Attribute | Required | Allowed values | Notes |
-| --- | --- | --- | --- |
-| `label` | No | Plain text | Header label shown above the code. |
-| `lang` | No | Highlight.js language token | Language hint for code styling. |
-
-Child content: a single fenced-code-equivalent `<pre><code>` block after Markdown is rendered.
-
-Accessibility placeholder: copy button must be keyboard-focusable and announce success without relying on color.
-
-Example placeholder:
-
-````markdown
-<agent-copy-block label="Render smoke" lang="bash">
-
-```bash
-npm run render -- --out dist/demo.html
-```
-
-</agent-copy-block>
-````
-
-### `<agent-tabs>` and `<agent-tab>`
-
-Intended use: alternate views of the same report section, such as Summary/Evidence/Fix or macOS/Linux/Windows instructions.
-
-Planned attributes:
-
-| Tag | Attribute | Required | Allowed values | Notes |
-| --- | --- | --- | --- | --- |
-| `agent-tabs` | `label` | No | Plain text | Accessible group label. |
-| `agent-tab` | `title` | Yes | Plain text | Tab label. |
-| `agent-tab` | `active` | No | Boolean attribute | Initial selected tab. Only one child should be active. |
-
-Child content: `<agent-tabs>` should contain only `<agent-tab>` children; each tab contains normal Markdown-rendered content.
-
-Accessibility placeholder: tabs must render correct `role="tablist"`, `role="tab"`, `role="tabpanel"`, keyboard focus behavior, and selected state.
-
-Example placeholder:
-
-```markdown
-<agent-tabs label="Verification evidence">
-  <agent-tab title="Tests" active>
-    `npm test` passed.
-  </agent-tab>
-  <agent-tab title="Render">
-    `npm run render -- --out dist/demo.html` passed.
-  </agent-tab>
-</agent-tabs>
-```
-
-### `<agent-timeline>` and `<agent-step>`
-
-Intended use: chronological execution logs, incident timelines, release steps, or multi-phase plans.
-
-Planned attributes:
-
-| Tag | Attribute | Required | Allowed values | Notes |
-| --- | --- | --- | --- | --- |
-| `agent-timeline` | `title` | No | Plain text | Optional timeline heading. |
-| `agent-step` | `status` | No | `todo`, `doing`, `done`, `blocked`, `skipped` | Step state. |
-| `agent-step` | `time` | No | Plain text timestamp or duration | Human-readable timing context. |
-| `agent-step` | `title` | No | Plain text | Short step heading. |
-
-Child content: `<agent-timeline>` should contain `<agent-step>` children; each step contains concise details, links, or evidence.
-
-Accessibility placeholder: status must be text-visible, and sequence order must remain meaningful in source order.
-
-Example placeholder:
-
-```markdown
-<agent-timeline title="Autopilot run">
-  <agent-step status="done" time="11:48 PM" title="Inspected issue">
-    Confirmed #10 was ready and no existing PR targeted it.
-  </agent-step>
-  <agent-step status="doing" title="Open PR">
-    Push the docs branch and request review.
-  </agent-step>
-</agent-timeline>
 ```
 
 ## Vocabulary change checklist
